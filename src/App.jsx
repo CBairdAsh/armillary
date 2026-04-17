@@ -957,7 +957,7 @@ export default function App() {
                 rel="noopener noreferrer"
                 style={{ ...navBtn(false, C.PRIMARY), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}
               >
-                ✦ Read my fiction on Substack
+                ✦ Read my serial fiction on my newsletter!
               </a>
               <p style={{ color: C.TEXT_FAINT, fontSize: 11, marginTop: 12 }}>
                 © 2026 Kummer Wolfe · Free for personal, commercial, and creative use · CC BY 4.0
