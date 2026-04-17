@@ -4,7 +4,7 @@
 
 A deep, procedural star system generator for writers, game masters, and worldbuilders. Generate complete solar systems — stellar data, planetary bodies, habitable zones, sapient species, lost civilizations, and more — in seconds.
 
-**Live tool:** [armillary.pages.dev](https://armillary-star-gen.pages.dev/)
+**Live tool:** [armillary-star-gen.pages.dev](https://armillary-star-gen.pages.dev/)
 
 Copyright © 2026 [Kummer Wolfe](https://kummerwolfe.substack.com) · [CC BY 4.0](LICENSE)
 

@@ -678,10 +678,41 @@ export default function App() {
     if (!neighborSystems[neighbor.id]) {
       let ns;
       if (neighbor.objectType === 'Rogue Planet') {
-        // Generate a special rogue planet system — no star, single cold world
-        ns = generateSystem({ starCount: 1, primarySpectralClass: 'BD' }); // Brown dwarf as stand-in
-        // Override the star display to show as rogue planet context
-        ns = { ...ns, isRoguePlanet: true };
+        // Build a hand-crafted rogue body system — no star, no HZ, 0-1 captured bodies
+        const bodyCount = Math.random() < 0.4 ? 1 : 0; // 40% chance of a single captured moon/body
+        const rogueWorlds = bodyCount === 0 ? [] : [{
+          id:            crypto.randomUUID(),
+          index:         0,
+          orbitalAU:     0,
+          zone:          'FRINGE',
+          worldType:     Math.random() < 0.5 ? 'Subsurface Ocean' : 'Ice Planet',
+          atmosphere:    Math.random() < 0.3 ? 'Trace' : 'None',
+          hydrosphere:   'Subsurface Ocean',
+          gravity:       parseFloat((Math.random() * 0.4 + 0.1).toFixed(2)),
+          temperature:   Math.floor(Math.random() * -100 - 150), // -150 to -250°C
+          isHabitable:   false,
+          tidallyLocked: false,
+          tidalResonance:false,
+          biosignature:  null,
+          hazards:       ['Extreme cold', 'No solar energy', 'Radiation from cosmic sources'],
+          moons:         [],
+          worldNotes:    'Captured companion body. Geothermal heat from radioactive decay may sustain subsurface liquid water.',
+          locked:        false,
+          species:       [],
+          ruins:         null,
+          isCircumbinary:false,
+        }];
+        ns = {
+          id:           crypto.randomUUID(),
+          timestamp:    Date.now(),
+          isRoguePlanet:true,
+          stars:        [],
+          hz:           { inner: 0, outer: 0 },
+          worldCount:   rogueWorlds.length,
+          worlds:       rogueWorlds,
+          comets:       [],
+          neighborhood: { density: 'N/A', densityDesc: 'Interstellar void', neighbors: [], locked: false },
+        };
       } else {
         ns = generateSystem({ starCount: 1, primarySpectralClass: neighbor.spectralClass });
       }
@@ -689,7 +720,9 @@ export default function App() {
     }
     setActiveNeighborId(neighbor.id);
     const existingNs = neighborSystems[neighbor.id];
-    setStarCount(existingNs?.stars?.length || 1);
+    if (!existingNs?.isRoguePlanet && neighbor.objectType !== 'Rogue Planet') {
+      setStarCount(existingNs?.stars?.length || 1);
+    }
   };
 
   const handleBack = () => {
@@ -781,7 +814,7 @@ export default function App() {
         {view === 'system' && (<>
           {/* Controls */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16, padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.BORDER}`, borderRadius: 4 }}>
-            <StarCountControl count={starCount} onChange={setStarCount}/>
+            {!active.isRoguePlanet && <StarCountControl count={starCount} onChange={setStarCount}/>}
             {isNeighbor && (
               <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT, letterSpacing: 1 }}>
                 {active.isRoguePlanet
@@ -796,8 +829,8 @@ export default function App() {
             <button onClick={handleSaveToArchive}   style={navBtn(false, C.EXOTIC)}>↓ Save System</button>
           </div>
 
-          {/* Star count change notice */}
-          {starCount !== active.stars.length && (
+          {/* Star count change notice — not applicable for rogue planet systems */}
+          {!active.isRoguePlanet && starCount !== active.stars.length && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
               marginBottom: 14, padding: '10px 14px',
@@ -827,28 +860,53 @@ export default function App() {
           )}
 
           <div style={{ marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <Label color={C.PRIMARY}>
-                {active.isRoguePlanet ? 'Rogue Body' : active.stars.length === 1 ? 'Primary Star' : active.stars.length === 2 ? 'Binary System' : 'Triple System'}
-              </Label>
-              {active.stars.length > 1 && (
-                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>
-                  — habitable zone calculated from combined luminosity of all stars
-                </span>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
-              {active.stars.map((star, i) => (
-                <StarCard key={star.id} star={star} label={starLabels[i]} onLock={handleLockStar} onRedraw={() => handleRedrawStar(star.id)}/>
-              ))}
-            </div>
+            {active.isRoguePlanet ? (
+              // Rogue planet — no star, show a descriptive panel instead
+              <div style={{ padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.PRIMARY}33`, borderRadius: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <span style={{ fontSize: 20 }}>⬛</span>
+                  <Label color={C.PRIMARY}>Rogue Planetary Body</Label>
+                </div>
+                <div style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT_DIM, lineHeight: 1.9 }}>
+                  No host star. This body drifts through interstellar space unbound to any stellar system.
+                  Surface temperature approaches absolute zero. Any liquid water would require subsurface
+                  geothermal heating from residual radioactive decay — a Europa-like scenario in permanent darkness.
+                </div>
+                <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Tag color={C.COLD}>No Solar Energy</Tag>
+                  <Tag color={C.COLD}>Geothermal Only</Tag>
+                  <Tag color={C.TEXT_DIM}>No Habitable Zone</Tag>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <Label color={C.PRIMARY}>
+                    {active.stars.length === 1 ? 'Primary Star' : active.stars.length === 2 ? 'Binary System' : 'Triple System'}
+                  </Label>
+                  {active.stars.length > 1 && (
+                    <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>
+                      — habitable zone calculated from combined luminosity of all stars
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                  {active.stars.map((star, i) => (
+                    <StarCard key={star.id} star={star} label={starLabels[i]} onLock={handleLockStar} onRedraw={() => handleRedrawStar(star.id)}/>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
-          <div style={{ marginBottom: 14, padding: '10px 14px', background: C.PANEL, border: `1px solid ${C.HABITABLE}44`, borderRadius: 4, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Label color={C.HABITABLE}>Habitable Zone</Label>
-            <span style={{ fontFamily: FONTS.MONO, fontSize: 15, color: C.HABITABLE }}>{active.hz.inner} – {active.hz.outer} AU</span>
-            <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT_FAINT }}>Liquid water range (combined luminosity)</span>
-          </div>
+          {/* HZ bar — suppress for rogue planets */}
+          {!active.isRoguePlanet && (
+            <div style={{ marginBottom: 14, padding: '10px 14px', background: C.PANEL, border: `1px solid ${C.HABITABLE}44`, borderRadius: 4, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Label color={C.HABITABLE}>Habitable Zone</Label>
+              <span style={{ fontFamily: FONTS.MONO, fontSize: 15, color: C.HABITABLE }}>{active.hz.inner} – {active.hz.outer} AU</span>
+              <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT_FAINT }}>Liquid water range (combined luminosity)</span>
+            </div>
+          )}
 
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
@@ -936,12 +994,12 @@ export default function App() {
 
               <Divider label="HOW TO USE"/>
               <p style={{ marginBottom: 14, color: C.TEXT, fontSize: 14 }}>
-                Choose a system type (Single, Binary, Triple) and click Generate New. Lock any star or planet to preserve it during redraws with the lock button — use Redraw Free to regenerate only unlocked elements. Click DETAILS on any world to see full data and species. Click any neighbor star in the Stellar Neighborhood to explore that system. Export to JSON or plain text for session notes and world bibles.
+                Choose a system type (Single, Binary, Triple) and click Generate New. Lock any card to preserve it during redraws — use Redraw Free to regenerate only unlocked elements. Click DETAILS on any world to see full data and species. Click any neighbor star in the Stellar Neighborhood to explore that system. Export to JSON or plain text for session notes and world bibles.
               </p>
 
               <Divider label="SUPPORT"/>
               <p style={{ marginBottom: 14, color: C.TEXT, fontSize: 14 }}>
-                Armillary is free and no account is required. Your current system saves automatically in your browser. If it's useful to you, a coffee is always appreciated.
+                Armillary is free and no account is required. Your current star system saves automatically in your browser. If it's useful to you, a coffee is always appreciated.
               </p>
               <a href={KOFI_URL} target="_blank" rel="noopener noreferrer" style={{ ...navBtn(false, '#FF6B6B'), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}>
                 ☕ Buy me a coffee on Ko-fi
@@ -957,7 +1015,7 @@ export default function App() {
                 rel="noopener noreferrer"
                 style={{ ...navBtn(false, C.PRIMARY), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}
               >
-                ✦ Read my serial fiction on my newsletter!
+                ✦ Read my fiction on Substack
               </a>
               <p style={{ color: C.TEXT_FAINT, fontSize: 11, marginTop: 12 }}>
                 © 2026 Kummer Wolfe · Free for personal, commercial, and creative use · CC BY 4.0<br/>

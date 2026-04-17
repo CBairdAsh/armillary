@@ -4,7 +4,7 @@ import { C, FONTS } from '../tokens.js';
 // Boot sequence lines — staged reveal, nav console flavor
 const BOOT_LINES = [
   { text: 'ARMILLARY STELLAR CARTOGRAPHY SYSTEM',     color: C.PRIMARY,   delay: 0,    bold: true  },
-  { text: 'v1.0.0 — INITIALIZING...',                 color: C.TEXT_DIM,  delay: 120,  bold: false },
+  { text: 'v1.0.1 — INITIALIZING...',                 color: C.TEXT_DIM,  delay: 120,  bold: false },
   { text: '',                                          color: null,        delay: 200,  bold: false },
   { text: 'LOADING STELLAR CLASSIFICATION DATA',       color: C.TEXT_FAINT,delay: 320,  bold: false },
   { text: '  [OK] SPECTRAL CLASS TABLES',              color: C.HABITABLE, delay: 480,  bold: false },
