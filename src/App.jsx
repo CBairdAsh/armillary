@@ -57,8 +57,45 @@ function LockBtn({ locked, onToggle, color = C.PRIMARY }) {
 }
 
 // ─── NEIGHBORHOOD CARD ────────────────────────────────────────────────────────
+// ─── NEIGHBORHOOD CARD ────────────────────────────────────────────────────────
+function ExoticInfoPanel({ obj, onClose }) {
+  const color = obj.color || '#8866CC';
+  return (
+    <div style={{ background: C.PANEL_ALT, border: `1px solid ${color}55`, borderRadius: 4, padding: '14px 16px', marginTop: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 18 }}>{obj.icon}</span>
+          <span style={{ fontFamily: FONTS.MONO, fontSize: 14, color, letterSpacing: 2 }}>{obj.label}</span>
+          <Tag color={color}>{obj.objectType.toUpperCase()}</Tag>
+        </div>
+        <button onClick={onClose} style={navBtn(false, C.TEXT_DIM, true)}>✕ CLOSE</button>
+      </div>
+      <div style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT, lineHeight: 1.8, marginBottom: 8 }}>
+        {obj.description}
+      </div>
+      {obj.size && <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>Est. diameter: {obj.size} light years</div>}
+      {obj.mass && <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>Mass: ~{obj.mass} M☉</div>}
+      {obj.notes && (
+        <div style={{ marginTop: 8, padding: '6px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${color}44` }}>
+          <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>{obj.notes}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NeighborhoodCard({ neighborhood, onLock, onRedraw, onNavigate, exploredSystems = {} }) {
+  const [infoObj, setInfoObj] = useState(null);
   const locked = neighborhood.locked;
+
+  const handleClick = (n) => {
+    if (n.navigable !== false) {
+      onNavigate(n);
+    } else {
+      setInfoObj(prev => prev?.id === n.id ? null : n);
+    }
+  };
+
   return (
     <div style={{ ...cardStyle(locked, C.PRIMARY), marginBottom: 12 }}>
       <div onClick={() => onLock('neighborhood')} style={{ ...lockStripeStyle(locked, C.PRIMARY), minHeight: 80 }}/>
@@ -76,75 +113,63 @@ function NeighborhoodCard({ neighborhood, onLock, onRedraw, onNavigate, explored
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {neighborhood.neighbors.map(n => {
-            const exploredSystem = exploredSystems[n.id] || null;
-            const explored       = !!exploredSystem;
-            // If explored and redrawn, show the actual system's primary star
-            const actualStar     = exploredSystem?.stars?.[0];
-            const displayClass   = actualStar?.spectralClass || n.spectralClass;
-            const displayColor   = actualStar?.color        || n.color;
-            // Flag if the redrawn star differs from the original neighbor listing
-            const redrawn = explored && displayClass !== n.spectralClass;
+            const isStar      = !n.objectType || n.objectType === 'Star';
+            const explored    = isStar && !!exploredSystems[n.id];
+            const exploredSys = exploredSystems[n.id] || null;
+            const actualStar  = exploredSys?.stars?.[0];
+            const displayClass = actualStar?.spectralClass || n.spectralClass;
+            const displayColor = actualStar?.color || n.color;
+            const redrawn     = explored && displayClass !== n.spectralClass;
+            const isInfoOpen  = infoObj?.id === n.id;
+            const btnColor    = displayColor;
 
             return (
               <button
-                key={n.id} onClick={() => onNavigate(n)}
-                title={explored
-                  ? `Return to explored ${displayClass} system (listed as ${n.spectralClass})`
-                  : `Explore this ${n.spectralClass} star system`
-                }
+                key={n.id}
+                onClick={() => handleClick(n)}
+                title={!n.navigable ? `View: ${n.label}` : explored ? 'Return to explored system' : `Explore system`}
                 style={{
-                  background:   explored ? displayColor + '18' : C.PANEL_ALT,
-                  border:       `1px solid ${explored ? displayColor + '88' : C.BORDER}`,
-                  borderRadius: 3,
-                  padding:      '6px 10px',
-                  display:      'flex',
-                  gap:          6,
-                  alignItems:   'center',
-                  cursor:       'pointer',
-                  transition:   'border-color 0.15s, background 0.15s',
+                  background:   explored ? btnColor + '18' : isInfoOpen ? btnColor + '22' : C.PANEL_ALT,
+                  border:       `1px solid ${explored ? btnColor + '88' : isInfoOpen ? btnColor + '66' : C.BORDER}`,
+                  borderRadius: 3, padding: '6px 10px',
+                  display: 'flex', gap: 6, alignItems: 'center',
+                  cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s',
                 }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = displayColor;
-                  e.currentTarget.style.background  = displayColor + '22';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = explored ? displayColor + '88' : C.BORDER;
-                  e.currentTarget.style.background  = explored ? displayColor + '18' : C.PANEL_ALT;
-                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = btnColor; e.currentTarget.style.background = btnColor + '22'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = explored ? btnColor + '88' : isInfoOpen ? btnColor + '66' : C.BORDER; e.currentTarget.style.background = explored ? btnColor + '18' : isInfoOpen ? btnColor + '22' : C.PANEL_ALT; }}
               >
-                {/* Star dot(s) — shows all stars for explored binary/triple systems */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-                  {explored && actualStar
-                    ? exploredSystem.stars.map((s, si) => (
-                        <div key={si} style={{
-                          width:  si === 0 ? 10 : 7,
-                          height: si === 0 ? 10 : 7,
-                          borderRadius: '50%',
-                          background: s.color,
-                          boxShadow: `0 0 4px ${s.color}88`,
-                        }}/>
-                      ))
-                    : <div style={{ width: 10, height: 10, borderRadius: '50%', background: displayColor, boxShadow: `0 0 4px ${displayColor}88` }}/>
-                  }
-                </div>
+                {isStar ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                    {explored && actualStar
+                      ? exploredSys.stars.map((s, si) => <div key={si} style={{ width: si===0?10:7, height: si===0?10:7, borderRadius:'50%', background:s.color, boxShadow:`0 0 4px ${s.color}88` }}/>)
+                      : <div style={{ width:10, height:10, borderRadius:'50%', background:displayColor, boxShadow:`0 0 4px ${displayColor}88` }}/>
+                    }
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 14, lineHeight: 1 }}>{n.icon}</span>
+                )}
                 <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_DIM }}>{n.distance} ly</span>
-                {/* Spectral class — shows actual if redrawn differs from listed */}
-                <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: displayColor }}>
-                  {displayClass}
-                  {redrawn && (
-                    <span style={{ fontSize: 10, color: displayColor + '88', marginLeft: 4 }}>(*{n.spectralClass})</span>
-                  )}
-                </span>
+                {isStar ? (
+                  <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: displayColor }}>
+                    {displayClass}
+                    {redrawn && <span style={{ fontSize: 10, color: displayColor + '88', marginLeft: 4 }}>(*{n.spectralClass})</span>}
+                  </span>
+                ) : (
+                  <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: n.color }}>{n.objectType}</span>
+                )}
                 <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: explored ? displayColor + 'cc' : C.TEXT_FAINT }}>
-                  {explored ? '↺ Return' : '→ Explore'}
+                  {n.navigable === false ? (isInfoOpen ? '▴ Info' : '▾ Info') : explored ? '↺ Return' : '→ Explore'}
                 </span>
               </button>
             );
           })}
         </div>
+
+        {infoObj && <ExoticInfoPanel obj={infoObj} onClose={() => setInfoObj(null)}/>}
+
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
           <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>
-            Click any neighbor star to explore that system
+            Click stars to explore · Rogue planets navigable · Nebulae and black holes show info
           </span>
           {Object.keys(exploredSystems).length > 0 && (
             <span style={{ fontFamily: FONTS.MONO, fontSize: 10, color: C.TEXT_FAINT }}>
@@ -275,6 +300,32 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
                   <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_FAINT }}>No sapient life detected on this world.</span>
                 )}
                 {world.species.map((sp, si) => <SpeciesCard key={sp.id} species={sp} index={si}/>)}
+
+                {/* Lost civilization ruins */}
+                {world.ruins && world.species.length === 0 && (
+                  <div style={{ marginTop: 10, background: C.PANEL_ALT, border: `1px solid ${C.DANGER}44`, borderRadius: 3, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.DANGER, letterSpacing: 2 }}>☠ RUINS DETECTED</span>
+                      <Tag color={C.DANGER}>{world.ruins.tech}</Tag>
+                      <Tag color={C.TEXT_DIM}>{world.ruins.ageLabel}</Tag>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', marginBottom: 10 }}>
+                      <DataPair label="Civilization Tech" value={world.ruins.tech}  color={C.TEXT}/>
+                      <DataPair label="Estimated Age"     value={`~${world.ruins.ageYears.toLocaleString()} yrs`} color={C.TEXT}/>
+                      <DataPair label="Collapse Cause"    value={world.ruins.cause} color={C.DANGER}/>
+                    </div>
+                    <div style={{ padding: '6px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${C.DANGER}44`, marginBottom: 6 }}>
+                      <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT_DIM, lineHeight: 1.8 }}>
+                        {world.ruins.causeDesc}
+                      </span>
+                    </div>
+                    <div style={{ padding: '6px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${C.TEXT_FAINT}44` }}>
+                      <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT, lineHeight: 1.8 }}>
+                        {world.ruins.techDesc} · {world.ruins.ageDesc}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -382,7 +433,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, letterSpacing: 2, marginBottom: 6 }}>
-            {system.stars.length === 1 ? 'STAR' : system.stars.length === 2 ? 'BINARY' : 'TRIPLE'}
+            {system.isRoguePlanet ? 'ROGUE PLANET' : system.stars.length === 1 ? 'STAR' : system.stars.length === 2 ? 'BINARY' : 'TRIPLE'}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {system.stars.map((s, i) => (
@@ -562,11 +613,18 @@ export default function App() {
 
   const handleNavigate = (neighbor) => {
     if (!neighborSystems[neighbor.id]) {
-      const ns = generateSystem({ starCount: 1, primarySpectralClass: neighbor.spectralClass });
+      let ns;
+      if (neighbor.objectType === 'Rogue Planet') {
+        // Generate a special rogue planet system — no star, single cold world
+        ns = generateSystem({ starCount: 1, primarySpectralClass: 'BD' }); // Brown dwarf as stand-in
+        // Override the star display to show as rogue planet context
+        ns = { ...ns, isRoguePlanet: true };
+      } else {
+        ns = generateSystem({ starCount: 1, primarySpectralClass: neighbor.spectralClass });
+      }
       setNeighborSystems(prev => ({ ...prev, [neighbor.id]: ns }));
     }
     setActiveNeighborId(neighbor.id);
-    // Sync starCount to this neighbor's actual star count
     const existingNs = neighborSystems[neighbor.id];
     setStarCount(existingNs?.stars?.length || 1);
   };
@@ -663,7 +721,9 @@ export default function App() {
             <StarCountControl count={starCount} onChange={setStarCount}/>
             {isNeighbor && (
               <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT, letterSpacing: 1 }}>
-                — NEIGHBOR · {active.stars[0]?.spectralClass} origin
+                {active.isRoguePlanet
+                  ? '⬛ ROGUE PLANET — no host star'
+                  : `— NEIGHBOR · ${active.stars[0]?.spectralClass} origin`}
               </span>
             )}
             <div style={{ flex: 1 }}/>
@@ -706,7 +766,7 @@ export default function App() {
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <Label color={C.PRIMARY}>
-                {active.stars.length === 1 ? 'Primary Star' : active.stars.length === 2 ? 'Binary System' : 'Triple System'}
+                {active.isRoguePlanet ? 'Rogue Body' : active.stars.length === 1 ? 'Primary Star' : active.stars.length === 2 ? 'Binary System' : 'Triple System'}
               </Label>
               {active.stars.length > 1 && (
                 <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>
@@ -740,6 +800,32 @@ export default function App() {
               <WorldCard key={world.id} world={world} index={i} onLock={handleLockWorld} onRedraw={() => handleRedrawWorld(world.id)} onGenerateSpecies={handleSpecies}/>
             ))}
           </div>
+
+          {/* Comets */}
+          {active.comets?.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ width: 40, height: 4, background: C.COLD, borderRadius: 2 }}/>
+                <Label color={C.COLD}>Comets ({active.comets.length})</Label>
+                <div style={{ flex: 1, height: 4, background: C.COLD + '22', borderRadius: 2 }}/>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {active.comets.map((c, i) => (
+                  <div key={c.id} style={{ background: C.PANEL, border: `1px solid ${C.COLD}33`, borderRadius: 4, padding: '8px 14px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>[C{i + 1}]</span>
+                    <Tag color={C.COLD}>{c.composition}</Tag>
+                    <Tag color={C.TEXT_DIM}>{c.periodType}</Tag>
+                    <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT }}>
+                      {c.period} yr period
+                    </span>
+                    <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, flex: 1 }}>
+                      {c.compDesc}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ ...panelStyle(), marginBottom: 24 }}>
             <Label color={C.PRIMARY}>Export System</Label>
@@ -811,7 +897,7 @@ export default function App() {
                 ✦ Read my fiction on Substack
               </a>
               <p style={{ color: C.TEXT_FAINT, fontSize: 11, marginTop: 12 }}>
-                Free for personal, commercial, and creative use.
+                © 2026 Kummer Wolfe · Free for personal, commercial, and creative use · CC BY 4.0
               </p>
             </div>
           </div>

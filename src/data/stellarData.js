@@ -536,3 +536,98 @@ export const DISTINCTIVE_TRAITS = [
   'Vacuum-tolerant biology',
   'Temporal perception (slow or fast)',
 ];
+
+// ─── COMET DATA ───────────────────────────────────────────────────────────────
+export const COMET_COUNTS = [[0, 35], [1, 25], [2, 20], [3, 12], [4, 5], [5, 3]];
+
+export const COMET_COMPOSITIONS = [
+  { label: 'Icy',          description: 'Water ice, carbon dioxide, ammonia — typical long-period comet',    weight: 45 },
+  { label: 'Rocky-Icy',    description: 'Mixed silicate and volatile composition',                           weight: 30 },
+  { label: 'Metallic',     description: 'High metal content, dense nucleus, possible captured asteroid',     weight: 10 },
+  { label: 'Carbon-rich',  description: 'Organic compounds dominant, dark surface albedo',                   weight: 10 },
+  { label: 'Exotic',       description: 'Unusual composition — possible interstellar origin',                 weight: 5  },
+];
+
+export const COMET_ORBITAL_PERIODS = [
+  { label: 'Short-period',  range: [3, 20],    description: 'Frequent inner-system passage, likely Jupiter-family' },
+  { label: 'Medium-period', range: [20, 200],  description: 'Periodic visitor, visible every few generations'     },
+  { label: 'Long-period',   range: [200, 2000],description: 'Rare apparition, originates in outer cloud'          },
+];
+
+// ─── NEIGHBORHOOD EXOTIC OBJECTS ─────────────────────────────────────────────
+// These appear in the neighborhood alongside regular stars
+// navigable: true = can be explored like a star system
+// navigable: false = descriptive panel only
+export const NEIGHBORHOOD_EXOTIC_TYPES = [
+  {
+    type:        'Nebula',
+    navigable:   false,
+    icon:        '☁',
+    color:       '#CC99FF',
+    weight:      12,
+    subtypes: [
+      { label: 'Emission Nebula',    description: 'Ionized gas glowing from nearby hot stars. Reds and pinks dominate.',          color: '#FF6B8A' },
+      { label: 'Reflection Nebula',  description: 'Dust cloud reflecting starlight. Blue-white, diffuse.',                        color: '#88BBFF' },
+      { label: 'Dark Nebula',        description: 'Dense dust cloud blocking background stars. An absence more than a presence.',  color: '#445566' },
+      { label: 'Protostellar Nebula',description: 'Active star-forming region. Embedded protostars detectable in infrared.',      color: '#FFAA44' },
+      { label: 'Planetary Nebula',   description: 'Ejected shell of a dying star. Concentric rings around a white dwarf remnant.',color: '#88FFCC' },
+    ],
+    sizeRange:   [1, 100],  // light years diameter
+    notes:       'Not navigable — no stellar body to orbit. Rich in complex molecules.',
+  },
+  {
+    type:        'Rogue Planet',
+    navigable:   true,
+    icon:        '⬛',
+    color:       '#6688AA',
+    weight:      8,
+    description: 'Planetary mass object unbound to any star. Drifting through interstellar space.',
+    notes:       'No solar energy. Surface temperature near absolute zero. Possible subsurface ocean from residual geothermal heat and radioactive decay.',
+  },
+  {
+    type:        'Black Hole',
+    navigable:   false,
+    icon:        '◉',
+    color:       '#8866CC',
+    weight:      3,
+    massRange:   [3, 50],   // solar masses — stellar-mass BH
+    subtypes: [
+      { label: 'Quiescent',         description: 'No active accretion. Detectable only by gravitational lensing and orbital perturbation of nearby bodies.' },
+      { label: 'Accreting',         description: 'Active accretion disk. X-ray source. Any orbiting bodies subject to intense radiation.' },
+      { label: 'Binary with star',  description: 'Paired with a companion star. Material transfer creates periodic X-ray bursts.' },
+    ],
+    notes:       'Extreme gravitational hazard. Safe observation distance: several AU minimum.',
+  },
+];
+
+// ─── RUINS / LOST CIVILIZATIONS ──────────────────────────────────────────────
+// Rolls on habitable worlds with zero current species
+export const RUINS_CHANCE = 0.28; // 28% chance on eligible worlds
+
+export const RUINS_COLLAPSE_CAUSES = [
+  { label: 'Unknown',            description: 'No clear evidence of cause. Records destroyed or indecipherable.',                                           weight: 25 },
+  { label: 'War',                description: 'Widespread weapons signatures in the geological record. Possible self-inflicted extinction event.',           weight: 20 },
+  { label: 'Environmental',      description: 'Climate shift or ecological collapse. Civilization outgrew its world\'s carrying capacity.',                 weight: 20 },
+  { label: 'Plague',             description: 'Rapid population collapse across all sites simultaneously. Pathogenic origin suspected.',                    weight: 15 },
+  { label: 'Cosmic Event',       description: 'Astronomical impact, gamma-ray burst, or stellar flare. External and sudden.',                               weight: 10 },
+  { label: 'Transcendence',      description: 'No collapse — the civilization departed or transformed. Structures abandoned intact.',                       weight: 7  },
+  { label: 'Assimilation',       description: 'Contact with a more advanced civilization. Cultural or biological absorption.',                              weight: 3  },
+];
+
+export const RUINS_AGE_RANGES = [
+  { label: 'Recent',    range: [100, 2000],       description: 'Structures largely intact. Artifacts recoverable. May still be detectable signals.' },
+  { label: 'Ancient',   range: [2000, 100000],    description: 'Significant erosion. Major structures visible. Artifacts fragmentary.'              },
+  { label: 'Deep Past', range: [100000, 5000000], description: 'Only foundations and buried sites remain. Requires active archaeology.'             },
+  { label: 'Primordial',range: [5000000, 500000000], description: 'Geological record only. Possible anomalous mineral deposits or isotope ratios.' },
+];
+
+export const RUINS_TECH_LEVELS = [
+  { label: 'Pre-Sapient',   description: 'Primitive tool-using species. Simple shelters and middens.' },
+  { label: 'Primitive',     description: 'Stone construction, burial sites, early agriculture traces.' },
+  { label: 'Developing',    description: 'Metal-working, written language fragments, urban foundations.' },
+  { label: 'Industrial',    description: 'Machinery remnants, road networks, energy infrastructure.' },
+  { label: 'Advanced',      description: 'Electronic artifacts, orbital debris, possible data storage.' },
+  { label: 'Stellar',       description: 'Evidence of interstellar travel. Off-world colony sites possible.' },
+  { label: 'Post-Scarcity', description: 'Structures defy known engineering. Purpose largely unclear.' },
+];
+

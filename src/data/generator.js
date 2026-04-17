@@ -18,6 +18,14 @@ import {
   TECH_LEVELS,
   DISPOSITIONS,
   DISTINCTIVE_TRAITS,
+  COMET_COUNTS,
+  COMET_COMPOSITIONS,
+  COMET_ORBITAL_PERIODS,
+  NEIGHBORHOOD_EXOTIC_TYPES,
+  RUINS_CHANCE,
+  RUINS_COLLAPSE_CAUSES,
+  RUINS_AGE_RANGES,
+  RUINS_TECH_LEVELS,
   calculateHabitableZone,
   estimateTemperature,
 } from './stellarData.js';
@@ -266,25 +274,137 @@ function generateSpeciesCount() {
   return parseInt(weightedPick(SPECIES_COUNT_WEIGHTS));
 }
 
+// ─── COMET GENERATION ────────────────────────────────────────────────────────
+function generateComets() {
+  const count = parseInt(weightedPick(COMET_COUNTS));
+  return Array.from({ length: count }, (_, i) => {
+    const composition = weightedPick(COMET_COMPOSITIONS);
+    const periodType  = rndFrom(COMET_ORBITAL_PERIODS);
+    const period      = rndInt(periodType.range[0], periodType.range[1]);
+    return {
+      id:          crypto.randomUUID(),
+      index:       i,
+      composition: composition.label,
+      compDesc:    composition.description,
+      periodType:  periodType.label,
+      period,
+      periodDesc:  periodType.description,
+    };
+  });
+}
+
+// ─── RUINS GENERATION ────────────────────────────────────────────────────────
+function generateRuins() {
+  const ageRange = weightedPick(
+    RUINS_AGE_RANGES.map((r, i) => [i, [35, 30, 20, 15][i]])
+  );
+  const range    = RUINS_AGE_RANGES[ageRange];
+  const age      = rndInt(range.range[0], range.range[1]);
+  const cause    = weightedPick(RUINS_COLLAPSE_CAUSES);
+  const tech     = rndFrom(RUINS_TECH_LEVELS);
+  return {
+    ageLabel:    range.label,
+    ageYears:    age,
+    ageDesc:     range.description,
+    cause:       cause.label,
+    causeDesc:   cause.description,
+    tech:        tech.label,
+    techDesc:    tech.description,
+  };
+}
+
+// ─── EXOTIC NEIGHBORHOOD OBJECT GENERATION ───────────────────────────────────
+function generateExoticObject(distance) {
+  const type = weightedPick(NEIGHBORHOOD_EXOTIC_TYPES);
+
+  if (type.type === 'Nebula') {
+    const subtype = rndFrom(type.subtypes);
+    const size    = rndInt(type.sizeRange[0], type.sizeRange[1]);
+    return {
+      id:         crypto.randomUUID(),
+      objectType: 'Nebula',
+      navigable:  false,
+      icon:       type.icon,
+      color:      subtype.color,
+      distance,
+      label:      subtype.label,
+      description: subtype.description,
+      size,
+      notes:      type.notes,
+    };
+  }
+
+  if (type.type === 'Rogue Planet') {
+    return {
+      id:          crypto.randomUUID(),
+      objectType:  'Rogue Planet',
+      navigable:   true,
+      icon:        type.icon,
+      color:       type.color,
+      distance,
+      label:       'Rogue Planet',
+      description: type.description,
+      notes:       type.notes,
+      // spectralClass stub so navigation code doesn't break
+      spectralClass: null,
+    };
+  }
+
+  if (type.type === 'Black Hole') {
+    const subtype = rndFrom(type.subtypes);
+    const mass    = rndInt(type.massRange[0], type.massRange[1]);
+    return {
+      id:          crypto.randomUUID(),
+      objectType:  'Black Hole',
+      navigable:   false,
+      icon:        type.icon,
+      color:       type.color,
+      distance,
+      label:       subtype.label,
+      description: subtype.description,
+      mass,
+      notes:       type.notes,
+    };
+  }
+
+  return null;
+}
+
 // ─── INTERSTELLAR NEIGHBORHOOD ───────────────────────────────────────────────
 function generateNeighborhood() {
-  const density   = rndFrom(NEIGHBORHOOD_DENSITY);
+  const density      = rndFrom(NEIGHBORHOOD_DENSITY);
   const [minD, maxD] = DISTANCE_RANGES[density.label];
-  const starCount = rndInt(density.nearbyStarRange[0], density.nearbyStarRange[1]);
+  const starCount    = rndInt(density.nearbyStarRange[0], density.nearbyStarRange[1]);
 
-  const neighbors = Array.from({ length: Math.min(starCount, 6) }, (_, i) => {
-    const distance   = round2(rnd(minD, maxD));
-    const spectral   = generateSpectralClass(false); // no exotics for neighbors
-    const sc         = SPECTRAL_CLASSES[spectral];
+  // Generate regular star neighbors
+  const starNeighbors = Array.from({ length: Math.min(starCount, 6) }, () => {
+    const distance = round2(rnd(minD, maxD));
+    const spectral = generateSpectralClass(false);
+    const sc       = SPECTRAL_CLASSES[spectral];
     return {
-      id:           crypto.randomUUID(),
+      id:            crypto.randomUUID(),
+      objectType:    'Star',
+      navigable:     true,
       distance,
       spectralClass: spectral,
-      color:        sc?.color || '#FFFFFF',
-      description:  sc?.description || 'Unknown',
-      hasGeneratedSystem: false,
+      color:         sc?.color || '#FFFFFF',
+      description:   sc?.description || 'Unknown',
     };
-  }).sort((a, b) => a.distance - b.distance);
+  });
+
+  // Chance to include 1–2 exotic objects based on density
+  const exoticCount   = density.label === 'Dense' || density.label === 'Cluster'
+    ? rndInt(0, 2)
+    : Math.random() < 0.3 ? 1 : 0;
+
+  const exoticObjects = Array.from({ length: exoticCount }, () => {
+    const distance = round2(rnd(minD, maxD));
+    return generateExoticObject(distance);
+  }).filter(Boolean);
+
+  // Combine and sort by distance
+  const neighbors = [...starNeighbors, ...exoticObjects]
+    .sort((a, b) => a.distance - b.distance);
 
   return {
     id:          crypto.randomUUID(),
@@ -341,15 +461,22 @@ export function generateSystem({ starCount = 1, locked = {}, primarySpectralClas
     return generateWorld(au, combinedHZ, totalLuminosity, i);
   });
 
-  // Generate species for habitable worlds
+  // Generate species for habitable worlds + ruins for empty habitable worlds
   worlds.forEach(world => {
     if (!world.isHabitable) return;
     if (world.locked && world.species.length > 0) return;
+
     const count = generateSpeciesCount();
     world.species = Array.from({ length: count }, () =>
       generateSpecies(world.worldType, world.zone)
     );
-    // Also check moons
+
+    // Ruins — only on habitable worlds with NO current species
+    if (count === 0 && !world.ruins) {
+      world.ruins = Math.random() < RUINS_CHANCE ? generateRuins() : null;
+    }
+
+    // Moon species
     world.moons = world.moons.map(moon => {
       if (!moon.canSupportLife) return moon;
       const moonSpeciesCount = Math.random() < 0.2 ? 1 : 0;
@@ -362,6 +489,9 @@ export function generateSystem({ starCount = 1, locked = {}, primarySpectralClas
     });
   });
 
+  // Generate comets
+  const comets = generateComets();
+
   return {
     id:           crypto.randomUUID(),
     timestamp:    Date.now(),
@@ -370,6 +500,7 @@ export function generateSystem({ starCount = 1, locked = {}, primarySpectralClas
     hz:           combinedHZ,
     worldCount,
     worlds,
+    comets,
   };
 }
 
@@ -410,23 +541,28 @@ export function redrawSystem(existingSystem, { redrawnStarCount } = {}) {
 export function regenerateSpeciesForWorld(world) {
   if (!world.isHabitable) return world;
   const count   = generateSpeciesCount();
-  const species = world.species.map((s, i) =>
+  const species = world.species.map(s =>
     s.locked ? s : generateSpecies(world.worldType, world.zone)
   );
-  // Fill if count increased
   while (species.length < count) {
     species.push(generateSpecies(world.worldType, world.zone));
   }
-  return { ...world, species: species.slice(0, Math.max(count, species.filter(s => s.locked).length)) };
+  const finalSpecies = species.slice(0, Math.max(count, species.filter(s => s.locked).length));
+  // If no species left after regen, roll for ruins
+  const ruins = finalSpecies.length === 0
+    ? (Math.random() < RUINS_CHANCE ? generateRuins() : null)
+    : null;
+  return { ...world, species: finalSpecies, ruins };
 }
 
 // ─── TEXT EXPORT ──────────────────────────────────────────────────────────────
 export function generateTextSummary(system) {
   const lines = [];
-  const { neighborhood, stars, worlds, hz } = system;
+  const { neighborhood, stars, worlds, hz, comets = [] } = system;
 
   lines.push('═══════════════════════════════════════════');
   lines.push('ARMILLARY — STAR SYSTEM RECORD');
+  if (system.name) lines.push(`Name: ${system.name}`);
   lines.push(`Generated: ${new Date(system.timestamp).toLocaleString()}`);
   lines.push('═══════════════════════════════════════════');
   lines.push('');
@@ -434,9 +570,17 @@ export function generateTextSummary(system) {
   // Neighborhood
   lines.push('STELLAR NEIGHBORHOOD');
   lines.push(`Density: ${neighborhood.density} — ${neighborhood.densityDesc}`);
-  lines.push(`Nearby Stars: ${neighborhood.neighbors.length}`);
+  lines.push(`Nearby Objects: ${neighborhood.neighbors.length}`);
   neighborhood.neighbors.forEach(n => {
-    lines.push(`  ${n.distance} ly — ${n.spectralClass} (${n.description})`);
+    if (n.objectType === 'Star') {
+      lines.push(`  ${n.distance} ly — ${n.spectralClass} (${n.description})`);
+    } else if (n.objectType === 'Nebula') {
+      lines.push(`  ${n.distance} ly — ${n.label} (${n.size} ly diameter)`);
+    } else if (n.objectType === 'Rogue Planet') {
+      lines.push(`  ${n.distance} ly — Rogue Planet`);
+    } else if (n.objectType === 'Black Hole') {
+      lines.push(`  ${n.distance} ly — Black Hole, ${n.mass} M☉ (${n.label})`);
+    }
   });
   lines.push('');
 
@@ -450,6 +594,15 @@ export function generateTextSummary(system) {
   lines.push(`Habitable Zone: ${hz.inner}–${hz.outer} AU`);
   lines.push('');
 
+  // Comets
+  if (comets.length > 0) {
+    lines.push(`COMETS (${comets.length})`);
+    comets.forEach((c, i) => {
+      lines.push(`  Comet ${i + 1}: ${c.composition} — ${c.periodType} (${c.period} yr period)`);
+    });
+    lines.push('');
+  }
+
   // Worlds
   lines.push('PLANETARY BODIES');
   worlds.forEach((world, i) => {
@@ -459,6 +612,11 @@ export function generateTextSummary(system) {
     if (world.hazards.length) lines.push(`  Hazards: ${world.hazards.join(', ')}`);
     if (world.isHabitable) lines.push(`  ★ HABITABLE`);
     if (world.moons.length) lines.push(`  Moons: ${world.moons.length} (${world.moons.map(m => m.type).join(', ')})`);
+
+    if (world.ruins) {
+      lines.push(`  ☠ RUINS: ${world.ruins.tech} civilization (${world.ruins.ageLabel}, ~${world.ruins.ageYears.toLocaleString()} yrs ago)`);
+      lines.push(`    Collapse: ${world.ruins.cause} — ${world.ruins.causeDesc}`);
+    }
 
     if (world.species.length) {
       lines.push('  SAPIENT SPECIES:');

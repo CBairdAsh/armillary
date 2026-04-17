@@ -1,10 +1,12 @@
 # Armillary — Stellar System Generator
 
-A deep, procedural star system generator for writers, game masters, and worldbuilders. Generate complete solar systems — stellar data, planetary bodies, habitable zones, and sapient species — in seconds.
+[![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
-**Live tool:** [armillary.pages.dev](https://armillary.pages.dev)
+A deep, procedural star system generator for writers, game masters, and worldbuilders. Generate complete solar systems — stellar data, planetary bodies, habitable zones, sapient species, lost civilizations, and more — in seconds.
 
-Built by [Kummer Wolfe](https://kummerwolfe.substack.com)
+**Live tool:** [armillary.pages.dev](https://armillary.pages.dev) *(update with your Cloudflare URL)*
+
+Copyright © 2026 [Kummer Wolfe](https://kummerwolfe.substack.com) · [CC BY 4.0](LICENSE)
 
 ---
 
@@ -12,14 +14,20 @@ Built by [Kummer Wolfe](https://kummerwolfe.substack.com)
 
 **Stellar Neighborhood**
 - Density classification (Sparse / Moderate / Dense / Cluster)
-- Nearby stars with distances in light years
-- Click any neighbor to explore that system — each explored neighbor persists independently
+- Nearby stars with distances in light years — click to explore
+- Exotic objects: Nebulae (emission, reflection, dark, protostellar, planetary), Rogue Planets (navigable), Black Holes (quiescent, accreting, binary)
+- Click stars and rogue planets to explore · Nebulae and black holes show info panel
 
 **Primary System**
 - Single, Binary, or Triple star configurations
 - Spectral class (O B A F G K M + exotic: White Dwarf, Neutron Star, Brown Dwarf)
 - Luminosity, mass, age, and habitable zone calculated per star
 - Combined habitable zone for multi-star systems
+
+**Comets**
+- 0–5 per system, weighted toward 0–2
+- Composition (Icy, Rocky-Icy, Metallic, Carbon-rich, Exotic)
+- Orbital period type (Short / Medium / Long period) with year range
 
 **Planetary Bodies**
 - Up to 12 worlds per system, orbital positions generated via Titius-Bode spacing
@@ -35,6 +43,12 @@ Built by [Kummer Wolfe](https://kummerwolfe.substack.com)
 - Technology level, disposition toward outsiders
 - 1–2 distinctive traits per species
 - 0–4 species per habitable world (weighted toward 0–1)
+
+**Lost Civilizations** *(habitable worlds with no current species)*
+- 28% chance of ruins on eligible worlds
+- Tech level at time of collapse
+- Estimated age (Recent / Ancient / Deep Past / Primordial)
+- Cause of collapse (War / Environmental / Plague / Cosmic Event / Transcendence / Assimilation / Unknown)
 
 ---
 
@@ -185,7 +199,11 @@ sharp(svg).resize(512).png().toFile('public/icon-512.png', ()=>{});
 
 ## License
 
-Free for personal, commercial, and creative use. No attribution required, though it's always appreciated.
+**[Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE)**
+
+Copyright © 2026 Kummer Wolfe
+
+Free to use, adapt, and build upon for any purpose — personal, commercial, or creative — with attribution. See [LICENSE](LICENSE) for full terms.
 
 GURPS is a trademark of Steve Jackson Games. This tool is an independent fan creation and is not affiliated with or endorsed by Steve Jackson Games.
 
