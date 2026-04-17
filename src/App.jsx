@@ -960,7 +960,8 @@ export default function App() {
                 ✦ Read my serial fiction on my newsletter!
               </a>
               <p style={{ color: C.TEXT_FAINT, fontSize: 11, marginTop: 12 }}>
-                © 2026 Kummer Wolfe · Free for personal, commercial, and creative use · CC BY 4.0
+                © 2026 Kummer Wolfe · Free for personal, commercial, and creative use · CC BY 4.0<br/>
+                <a href="https://armillary-star-gen.pages.dev" style={{ color: C.TEXT_FAINT }}>armillary-star-gen.pages.dev</a>
               </p>
             </div>
           </div>
