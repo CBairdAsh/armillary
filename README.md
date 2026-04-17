@@ -4,7 +4,7 @@
 
 A deep, procedural star system generator for writers, game masters, and worldbuilders. Generate complete solar systems — stellar data, planetary bodies, habitable zones, sapient species, lost civilizations, and more — in seconds.
 
-**Live tool:** [armillary.pages.dev](https://armillary-star-gen.pages.dev/) *(update with your Cloudflare URL)*
+**Live tool:** [armillary.pages.dev](https://armillary-star-gen.pages.dev/)
 
 Copyright © 2026 [Kummer Wolfe](https://kummerwolfe.substack.com) · [CC BY 4.0](LICENSE)
 
@@ -104,50 +104,6 @@ All methodology used for fan creative purposes with attribution.
 
 **Prerequisites:** Node.js 22.x or later
 
-```bash
-# Clone and install
-git clone https://github.com/yourusername/armillary.git
-cd armillary
-npm install
-
-# Start dev server
-npm run dev
-# → http://localhost:5173
-
-# Build for production
-npm run build
-
-# Preview production build locally
-npm run preview
-```
-
----
-
-## Deployment (Cloudflare Pages)
-
-1. Push to GitHub
-2. Go to [Cloudflare Pages](https://pages.cloudflare.com) → Create a project → Connect to Git
-3. Select your `armillary` repo
-4. Configure build settings:
-   - **Framework preset:** Vite
-   - **Build command:** `vite build`
-   - **Output directory:** `dist`
-5. Deploy — no environment variables required
-
-Every `git push` to `main` triggers an automatic redeploy.
-
----
-
-## PWA Installation
-
-**Desktop (Chrome / Edge):** Click the install icon in the address bar
-
-**Android (Chrome):** Three-dot menu → Add to Home screen
-
-**iOS (Safari):** Share → Add to Home Screen
-
-Once installed, the app works fully offline — all generation is client-side.
-
 ---
 
 ## Project Structure
@@ -170,29 +126,6 @@ armillary/
 ├── vite.config.js           Vite + PWA configuration
 ├── index.html               HTML entry point
 └── package.json
-```
-
----
-
-## Generating PWA Icons
-
-The PWA requires `public/icon-192.png` and `public/icon-512.png`.
-
-**Easiest — online:**
-1. Go to [realfavicongenerator.net](https://realfavicongenerator.net)
-2. Upload `public/favicon.svg`
-3. Download and copy the 192×192 and 512×512 PNGs into `public/`
-
-**Via Node:**
-```bash
-npm install --save-dev sharp
-node -e "
-const sharp = require('sharp');
-const fs = require('fs');
-const svg = fs.readFileSync('public/favicon.svg');
-sharp(svg).resize(192).png().toFile('public/icon-192.png', ()=>{});
-sharp(svg).resize(512).png().toFile('public/icon-512.png', ()=>{});
-"
 ```
 
 ---
