@@ -73,10 +73,23 @@ function ExoticInfoPanel({ obj, onClose }) {
       <div style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT, lineHeight: 1.8, marginBottom: 8 }}>
         {obj.description}
       </div>
-      {obj.size && <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>Est. diameter: {obj.size} light years</div>}
-      {obj.mass && <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>Mass: ~{obj.mass} M☉</div>}
+      {obj.size      && <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, marginBottom: 4 }}>Est. diameter: {obj.size} light years</div>}
+      {obj.mass      && <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, marginBottom: 4 }}>Mass: ~{obj.mass} M☉</div>}
+      {/* Interstellar transient specifics */}
+      {obj.objectType === 'Interstellar Transient' && (<>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', marginBottom: 8 }}>
+          <DataPair label="Origin Direction" value={obj.origin}                       color={C.TEXT}/>
+          <DataPair label="Hyperbolic Speed" value={`${obj.speed} km/s`}             color={C.TEXT}/>
+          <DataPair label="Est. Departure"   value={`~${obj.departureYears} years`}  color={C.HAZARD}/>
+        </div>
+        <div style={{ padding: '6px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${color}44`, marginBottom: 6 }}>
+          <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>
+            Carries chemical fingerprints from its birth stellar system. Unbound to any star — on a one-way hyperbolic trajectory through this neighborhood.
+          </span>
+        </div>
+      </>)}
       {obj.notes && (
-        <div style={{ marginTop: 8, padding: '6px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${color}44` }}>
+        <div style={{ marginTop: 6, padding: '6px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${color}44` }}>
           <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>{obj.notes}</span>
         </div>
       )}
@@ -225,7 +238,9 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
   const worldDef  = WORLD_TYPES[world.worldType];
-  const hasDetails = world.hazards.length > 0 || world.moons.length > 0 || world.isHabitable;
+  const hasDetails = world.hazards.length > 0 || world.moons.length > 0 || world.isHabitable
+    || world.tidallyLocked || world.tidalResonance || world.biosignature
+    || world.isCircumbinary || world.worldNotes;
 
   return (
     <div style={{ ...cardStyle(locked, zoneColor), marginBottom: 8 }}>
@@ -238,7 +253,11 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
           <span style={{ fontSize: 15 }}>{worldDef?.icon || ''}</span>
           <Tag color={zoneColor}>{world.zone.replace('_', ' ')}</Tag>
           <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT_DIM }}>{world.orbitalAU} AU</span>
-          {world.isHabitable && <Tag color={C.HABITABLE}>★ HABITABLE</Tag>}
+          {world.isCircumbinary && <Tag color={C.STAR_G}>★ CIRCUMBINARY</Tag>}
+          {world.isHabitable    && <Tag color={C.HABITABLE}>★ HABITABLE</Tag>}
+          {world.tidallyLocked  && <Tag color={C.COLD}>⟳ TIDALLY LOCKED</Tag>}
+          {world.tidalResonance && <Tag color={C.COLD}>⟳ RESONANCE</Tag>}
+          {world.biosignature   && <Tag color={world.biosignature.color}>🔬 {world.biosignature.shortLabel}</Tag>}
           <div style={{ flex: 1 }}/>
           <LockBtn locked={locked} onToggle={() => onLock(world.id)} color={zoneColor}/>
           {!locked && <button onClick={onRedraw} style={navBtn(false, zoneColor, true)}>↻ Redraw</button>}
@@ -260,6 +279,50 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
         {expanded && (
           <div style={{ marginTop: 12 }}>
             <Divider label="DETAIL"/>
+
+            {/* Circumbinary note */}
+            {world.isCircumbinary && (
+              <div style={{ marginBottom: 12, padding: '8px 12px', background: C.PANEL_ALT, border: `1px solid ${C.STAR_G}44`, borderRadius: 3 }}>
+                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.STAR_G }}>★ CIRCUMBINARY ORBIT — </span>
+                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>This world orbits all stars in the system around their combined center of mass. Two suns cross the sky.</span>
+              </div>
+            )}
+
+            {/* Tidal lock */}
+            {(world.tidallyLocked || world.tidalResonance) && (
+              <div style={{ marginBottom: 12, padding: '8px 12px', background: C.PANEL_ALT, border: `1px solid ${C.COLD}44`, borderRadius: 3 }}>
+                {world.tidallyLocked && (<>
+                  <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.COLD }}>⟳ TIDALLY LOCKED — </span>
+                  <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>Permanent dayside and nightside. Terminator zone may be the most habitable region.</span>
+                </>)}
+                {world.tidalResonance && (<>
+                  <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.COLD }}>⟳ SPIN-ORBIT RESONANCE — </span>
+                  <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>Slow rotation in gravitational resonance. Extreme temperature swings between long days and nights.</span>
+                </>)}
+              </div>
+            )}
+
+            {/* Biosignature */}
+            {world.biosignature && (
+              <div style={{ marginBottom: 12, padding: '10px 12px', background: C.PANEL_ALT, border: `1px solid ${world.biosignature.color}55`, borderRadius: 3 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: world.biosignature.color }}>🔬 BIOSIGNATURE CANDIDATE</span>
+                  <Tag color={world.biosignature.color}>{world.biosignature.label}</Tag>
+                  <Tag color={C.TEXT_DIM}>{world.biosignature.confidence}</Tag>
+                </div>
+                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, lineHeight: 1.8 }}>
+                  {world.biosignature.description}
+                </span>
+              </div>
+            )}
+
+            {/* World notes (disintegrating etc) */}
+            {world.worldNotes && (
+              <div style={{ marginBottom: 12, padding: '8px 12px', background: C.PANEL_ALT, border: `1px solid ${C.HAZARD}33`, borderRadius: 3 }}>
+                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.HAZARD }}>⚠ </span>
+                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>{world.worldNotes}</span>
+              </div>
+            )}
             {world.hazards.length > 0 && (
               <div style={{ marginBottom: 12 }}>
                 <Label color={C.HAZARD}>Hazards</Label>
@@ -863,7 +926,7 @@ export default function App() {
               <div style={{ fontSize: 18, color: C.PRIMARY, letterSpacing: 4, marginBottom: 16 }}>ABOUT ARMILLARY</div>
 
               <p style={{ marginBottom: 14, color: C.TEXT, fontSize: 14 }}>
-                Armillary is a deep star system generator for writers, game masters, and worldbuilders. Generate complete solar systems — stellar data, planetary bodies, habitable zones, and sapient species — in seconds.
+                Armillary is a deep star system generator for writers, game masters, and worldbuilders. Generate complete solar systems with stellar data, planetary bodies, habitable zones, and sapient species — in seconds.
               </p>
 
               <Divider label="METHODOLOGY"/>
@@ -873,7 +936,7 @@ export default function App() {
 
               <Divider label="HOW TO USE"/>
               <p style={{ marginBottom: 14, color: C.TEXT, fontSize: 14 }}>
-                Choose a system type (Single, Binary, Triple) and click Generate New. Lock any card to preserve it during redraws — use Redraw Free to regenerate only unlocked elements. Click DETAILS on any world to see full data and species. Click any neighbor star in the Stellar Neighborhood to explore that system. Export to JSON or plain text for session notes and world bibles.
+                Choose a system type (Single, Binary, Triple) and click Generate New. Lock any star or planet to preserve it during redraws with the lock button — use Redraw Free to regenerate only unlocked elements. Click DETAILS on any world to see full data and species. Click any neighbor star in the Stellar Neighborhood to explore that system. Export to JSON or plain text for session notes and world bibles.
               </p>
 
               <Divider label="SUPPORT"/>

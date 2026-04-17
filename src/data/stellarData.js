@@ -168,12 +168,13 @@ export const ORBITAL_ZONES = {
 // Weighted probability tables. Array entries: [worldType, weight]
 export const WORLD_TYPE_BY_ZONE = {
   INNER: [
-    ['Terrestrial',   30],
-    ['Desert',        25],
-    ['Chthonian',     15],
-    ['Coreless',      10],
-    ['Ice Planet',     5], // rare but possible via migration
-    ['Asteroid Belt',  15],
+    ['Terrestrial',    28],
+    ['Desert',         24],
+    ['Chthonian',      14],
+    ['Coreless',        9],
+    ['Ice Planet',      5],
+    ['Asteroid Belt',  14],
+    ['Disintegrating',  6],
   ],
   HABITABLE: [
     ['Terrestrial',   30],
@@ -347,7 +348,56 @@ export const WORLD_TYPES = {
     hydrosphereWeights: [70, 30],
     icon: '🌑',
   },
+  'Disintegrating': {
+    description: 'Evaporating world shedding mass in a comet-like tail; inner zone only',
+    canSupportLife: false,
+    atmosphereTypes: ['None', 'Trace'],
+    atmosphereWeights: [70, 30],
+    gravityRange: [0.1, 0.8],
+    hydrosphereTypes: ['None'],
+    hydrosphereWeights: [100],
+    icon: '💫',
+    notes: 'Planet sheds material into space each orbit. Estimated lifespan: 1–100 million years before complete evaporation.',
+  },
 };
+
+// ─── TIDAL LOCK ───────────────────────────────────────────────────────────────
+// Stars whose HZ worlds are likely tidally locked
+export const TIDAL_LOCK_SPECTRAL_CLASSES = new Set(['M', 'BD']);
+// K-dwarf HZ worlds may be partially tidally locked (resonance)
+export const TIDAL_LOCK_PARTIAL_CLASSES  = new Set(['K']);
+
+// ─── BIOSIGNATURE ─────────────────────────────────────────────────────────────
+// Only rolls on Hycean worlds in HZ
+export const BIOSIGNATURE_CHANCE = 0.08; // 8% — rare but not impossible
+
+export const BIOSIGNATURE_TYPES = [
+  {
+    label:       'Dimethyl Sulfide',
+    shortLabel:  'DMS',
+    description: 'Atmospheric DMS detected via infrared spectroscopy. On Earth, produced exclusively by marine phytoplankton. Strong candidate for biological origin.',
+    confidence:  'Candidate',
+    color:       '#88FFCC',
+  },
+  {
+    label:       'Methane/Oxygen Co-presence',
+    shortLabel:  'CH₄+O₂',
+    description: 'Simultaneous methane and oxygen in atmosphere. These gases react and destroy each other abiotically — sustained co-presence requires an active biological source.',
+    confidence:  'Candidate',
+    color:       '#AAFFAA',
+  },
+  {
+    label:       'Phosphine',
+    shortLabel:  'PH₃',
+    description: 'Phosphine detected in temperate atmospheric layer. No known abiotic process produces it at detected concentrations in these conditions.',
+    confidence:  'Unconfirmed',
+    color:       '#FFFFAA',
+  },
+];
+
+// ─── CIRCUMBINARY PLANET ──────────────────────────────────────────────────────
+// Planets orbiting both stars in a binary/triple system
+export const CIRCUMBINARY_CHANCE = 0.25; // 25% chance per binary/triple system
 
 // ─── TEMPERATURE RANGES BY WORLD TYPE + ZONE ─────────────────────────────────
 export function estimateTemperature(worldType, zone, luminosity) {
@@ -597,6 +647,26 @@ export const NEIGHBORHOOD_EXOTIC_TYPES = [
       { label: 'Binary with star',  description: 'Paired with a companion star. Material transfer creates periodic X-ray bursts.' },
     ],
     notes:       'Extreme gravitational hazard. Safe observation distance: several AU minimum.',
+  },
+  {
+    type:        'Interstellar Transient',
+    navigable:   false,
+    icon:        '→',
+    color:       '#FFB347',
+    weight:      5,
+    // Compositions observed in 1I/Oumuamua, 2I/Borisov, 3I/ATLAS
+    compositions: [
+      { label: 'Icy-organic',     description: 'CO₂, water ice, carbon monoxide. Similar to 2I/Borisov and 3I/ATLAS. Reddish dust coma.'    },
+      { label: 'Metallic-rocky',  description: 'High metal content, no detected outgassing. Tumbling elongated body. Similar to 1I/ʻOumuamua.' },
+      { label: 'Carbon-rich',     description: 'Organic compounds dominant. Dark albedo. Likely origin in a carbon-rich stellar system.'       },
+      { label: 'Exotic',          description: 'Composition unlike any known solar system body. Origin and formation mechanism unclear.'        },
+    ],
+    originDirections: [
+      'galactic core', 'galactic rim', 'galactic north', 'galactic south',
+      'Sagittarius arm', 'Perseus arm', 'Local Bubble', 'unknown stellar remnant',
+    ],
+    speedRange:  [25, 90],  // km/s hyperbolic excess velocity
+    notes:       'Not navigable — object is in transit, bound to no star. Carries chemical fingerprints from its birth system. Rare opportunity for cross-stellar comparative analysis.',
   },
 ];
 

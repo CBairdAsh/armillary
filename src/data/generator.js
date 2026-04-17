@@ -26,6 +26,11 @@ import {
   RUINS_COLLAPSE_CAUSES,
   RUINS_AGE_RANGES,
   RUINS_TECH_LEVELS,
+  TIDAL_LOCK_SPECTRAL_CLASSES,
+  TIDAL_LOCK_PARTIAL_CLASSES,
+  BIOSIGNATURE_CHANCE,
+  BIOSIGNATURE_TYPES,
+  CIRCUMBINARY_CHANCE,
   calculateHabitableZone,
   estimateTemperature,
 } from './stellarData.js';
@@ -167,8 +172,7 @@ function generateOrbitalPositions(count, hz) {
   return positions;
 }
 
-// ─── WORLD GENERATION ────────────────────────────────────────────────────────
-function generateWorld(orbitalAU, hz, starLuminosity, index) {
+function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClass = 'G') {
   const zone      = determineOrbitalZone(orbitalAU, hz);
   const typePool  = WORLD_TYPE_BY_ZONE[zone] || WORLD_TYPE_BY_ZONE.OUTER;
   const worldType = weightedPick(typePool);
@@ -193,6 +197,19 @@ function generateWorld(orbitalAU, hz, starLuminosity, index) {
   const notTooHot   = temperature < 60;
   const notTooCold  = temperature > -40;
   const isHabitable = worldDef.canSupportLife && inHZ && hasAtmo && notTooHot && notTooCold;
+
+  // ── Tidal lock ──────────────────────────────────────────────────────────────
+  // M-dwarf and brown dwarf HZ worlds: fully tidally locked
+  // K-dwarf HZ worlds: possible spin-orbit resonance
+  const tidallyLocked = inHZ && TIDAL_LOCK_SPECTRAL_CLASSES.has(primarySpectralClass);
+  const tidalResonance = inHZ && !tidallyLocked && TIDAL_LOCK_PARTIAL_CLASSES.has(primarySpectralClass) && Math.random() < 0.4;
+
+  // ── Biosignature ────────────────────────────────────────────────────────────
+  // Only Hycean worlds in the HZ get a biosignature roll (inspired by K2-18b DMS detection)
+  let biosignature = null;
+  if (worldType === 'Hycean' && inHZ && Math.random() < BIOSIGNATURE_CHANCE) {
+    biosignature = rndFrom(BIOSIGNATURE_TYPES);
+  }
 
   // Hazards
   const hazardPool  = WORLD_HAZARDS[worldType] || WORLD_HAZARDS['default'];
@@ -219,7 +236,7 @@ function generateWorld(orbitalAU, hz, starLuminosity, index) {
   }
 
   return {
-    id:          crypto.randomUUID(),
+    id:            crypto.randomUUID(),
     index,
     orbitalAU,
     zone,
@@ -229,10 +246,14 @@ function generateWorld(orbitalAU, hz, starLuminosity, index) {
     gravity,
     temperature,
     isHabitable,
+    tidallyLocked,
+    tidalResonance,
+    biosignature,
     hazards,
     moons,
-    locked:      false,
-    species:     [], // populated separately if habitable
+    worldNotes:    worldDef.notes || null,
+    locked:        false,
+    species:       [], // populated separately if habitable
   };
 }
 
@@ -316,6 +337,28 @@ function generateRuins() {
 // ─── EXOTIC NEIGHBORHOOD OBJECT GENERATION ───────────────────────────────────
 function generateExoticObject(distance) {
   const type = weightedPick(NEIGHBORHOOD_EXOTIC_TYPES);
+
+  if (type.type === 'Interstellar Transient') {
+    const composition = rndFrom(type.compositions);
+    const origin      = rndFrom(type.originDirections);
+    const speed       = rndInt(type.speedRange[0], type.speedRange[1]);
+    // Departure window: 10–500 years from now (narratively useful range)
+    const departureYears = rndInt(10, 500);
+    return {
+      id:          crypto.randomUUID(),
+      objectType:  'Interstellar Transient',
+      navigable:   false,
+      icon:        type.icon,
+      color:       type.color,
+      distance,
+      label:       `Interstellar Object (${composition.label})`,
+      description: composition.description,
+      origin,
+      speed,
+      departureYears,
+      notes:       type.notes,
+    };
+  }
 
   if (type.type === 'Nebula') {
     const subtype = rndFrom(type.subtypes);
@@ -455,14 +498,55 @@ export function generateSystem({ starCount = 1, locked = {}, primarySpectralClas
   // Generate orbital positions
   const orbitalPositions = generateOrbitalPositions(worldCount, combinedHZ);
 
-  // Generate worlds
+  // Generate worlds — pass primary spectral class for tidal lock calculation
   const worlds = orbitalPositions.map((au, i) => {
     if (locked.worlds?.[i]) return locked.worlds[i];
-    return generateWorld(au, combinedHZ, totalLuminosity, i);
+    return generateWorld(au, combinedHZ, totalLuminosity, i, primaryStar.spectralClass);
   });
 
+  // ── Circumbinary planet ──────────────────────────────────────────────────────
+  // For binary/triple systems: chance of a world orbiting all stars combined
+  // Orbits beyond the outermost star's influence — typically 3–5× the binary separation
+  let circumbinaryWorld = null;
+  if (stars.length > 1 && Math.random() < CIRCUMBINARY_CHANCE) {
+    const cbAU = round2(combinedHZ.outer * rnd(1.5, 4.0));
+    const cbZone = cbAU > combinedHZ.outer * 2 ? 'FRINGE' : 'OUTER';
+    const cbTypePool = WORLD_TYPE_BY_ZONE[cbZone];
+    const cbType     = weightedPick(cbTypePool);
+    const cbDef      = WORLD_TYPES[cbType] || WORLD_TYPES['Gas Giant'];
+    const cbAtmo     = weightedPick(cbDef.atmosphereTypes.map((t, i) => [t, cbDef.atmosphereWeights[i]]));
+    const cbHydro    = weightedPick(cbDef.hydrosphereTypes.map((t, i) => [t, cbDef.hydrosphereWeights[i]]));
+    const cbGravity  = round2(rnd(cbDef.gravityRange[0], cbDef.gravityRange[1]));
+    const cbTemp     = estimateTemperature(cbType, cbZone, totalLuminosity);
+    circumbinaryWorld = {
+      id:              crypto.randomUUID(),
+      index:           worlds.length,
+      orbitalAU:       cbAU,
+      zone:            cbZone,
+      worldType:       cbType,
+      atmosphere:      cbAtmo,
+      hydrosphere:     cbHydro,
+      gravity:         cbGravity,
+      temperature:     cbTemp,
+      isHabitable:     false, // circumbinary worlds rarely habitable at this distance
+      isCircumbinary:  true,
+      tidallyLocked:   false,
+      tidalResonance:  false,
+      biosignature:    null,
+      hazards:         ['Stellar perturbation', 'Radiation from multiple sources'],
+      moons:           [],
+      worldNotes:      'Orbits the combined center of mass of all stars in the system. Tatooine-class world.',
+      locked:          false,
+      species:         [],
+      ruins:           null,
+    };
+  }
+
+  // Combine regular worlds with circumbinary world if present
+  const allWorlds = circumbinaryWorld ? [...worlds, circumbinaryWorld] : worlds;
+
   // Generate species for habitable worlds + ruins for empty habitable worlds
-  worlds.forEach(world => {
+  allWorlds.forEach(world => {
     if (!world.isHabitable) return;
     if (world.locked && world.species.length > 0) return;
 
@@ -499,7 +583,7 @@ export function generateSystem({ starCount = 1, locked = {}, primarySpectralClas
     stars,
     hz:           combinedHZ,
     worldCount,
-    worlds,
+    worlds:       allWorlds,
     comets,
   };
 }
@@ -580,6 +664,8 @@ export function generateTextSummary(system) {
       lines.push(`  ${n.distance} ly — Rogue Planet`);
     } else if (n.objectType === 'Black Hole') {
       lines.push(`  ${n.distance} ly — Black Hole, ${n.mass} M☉ (${n.label})`);
+    } else if (n.objectType === 'Interstellar Transient') {
+      lines.push(`  ${n.distance} ly — Interstellar Object from ${n.origin}, ${n.speed} km/s, departs in ~${n.departureYears} yrs`);
     }
   });
   lines.push('');
@@ -606,13 +692,16 @@ export function generateTextSummary(system) {
   // Worlds
   lines.push('PLANETARY BODIES');
   worlds.forEach((world, i) => {
-    lines.push(`[${i + 1}] ${world.worldType} at ${world.orbitalAU} AU (${world.zone.replace('_', ' ')})`);
+    lines.push(`[${i + 1}] ${world.worldType} at ${world.orbitalAU} AU (${world.zone.replace('_', ' ')})${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}`);
     lines.push(`  Atmosphere: ${world.atmosphere}  |  Hydrosphere: ${world.hydrosphere}`);
     lines.push(`  Gravity: ${world.gravity}g  |  Temperature: ${world.temperature}°C`);
+    if (world.tidallyLocked)  lines.push(`  ⟳ TIDALLY LOCKED — permanent day/night hemispheres`);
+    if (world.tidalResonance) lines.push(`  ⟳ SPIN-ORBIT RESONANCE — slow rotation, extreme day/night temperature swings`);
     if (world.hazards.length) lines.push(`  Hazards: ${world.hazards.join(', ')}`);
-    if (world.isHabitable) lines.push(`  ★ HABITABLE`);
-    if (world.moons.length) lines.push(`  Moons: ${world.moons.length} (${world.moons.map(m => m.type).join(', ')})`);
-
+    if (world.isHabitable)    lines.push(`  ★ HABITABLE`);
+    if (world.biosignature)   lines.push(`  🔬 BIOSIGNATURE: ${world.biosignature.label} (${world.biosignature.confidence})`);
+    if (world.moons.length)   lines.push(`  Moons: ${world.moons.length} (${world.moons.map(m => m.type).join(', ')})`);
+    if (world.worldNotes)     lines.push(`  Note: ${world.worldNotes}`);
     if (world.ruins) {
       lines.push(`  ☠ RUINS: ${world.ruins.tech} civilization (${world.ruins.ageLabel}, ~${world.ruins.ageYears.toLocaleString()} yrs ago)`);
       lines.push(`    Collapse: ${world.ruins.cause} — ${world.ruins.causeDesc}`);
