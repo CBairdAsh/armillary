@@ -1,10 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { generateSystem, redrawSystem, regenerateSpeciesForWorld, generateTextSummary } from './data/generator.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
 import { C, FONTS, ZONE_COLORS, navBtn, cardStyle, lockStripeStyle, lockBtnStyle, panelStyle } from './tokens.js';
 import BootSequence from './components/BootSequence.jsx';
-
-const KOFI_URL = 'https://ko-fi.com/cbash';
+import { KOFI_URL, SUBSTACK_URL, LIVE_URL, LINKTREE } from './config.js';
 
 // ─── UTILITY COMPONENTS ───────────────────────────────────────────────────────
 function Label({ children, color = C.PRIMARY_L }) {
@@ -57,7 +56,6 @@ function LockBtn({ locked, onToggle, color = C.PRIMARY }) {
 }
 
 // ─── NEIGHBORHOOD CARD ────────────────────────────────────────────────────────
-// ─── NEIGHBORHOOD CARD ────────────────────────────────────────────────────────
 function ExoticInfoPanel({ obj, onClose }) {
   const color = obj.color || '#8866CC';
   return (
@@ -99,6 +97,9 @@ function ExoticInfoPanel({ obj, onClose }) {
 
 function NeighborhoodCard({ neighborhood, onLock, onRedraw, onNavigate, exploredSystems = {} }) {
   const [infoObj, setInfoObj] = useState(null);
+
+  // Close the info panel whenever the neighborhood is redrawn or regenerated
+  useEffect(() => { setInfoObj(null); }, [neighborhood.id]);
   const locked = neighborhood.locked;
 
   const handleClick = (n) => {
@@ -984,7 +985,7 @@ export default function App() {
               <div style={{ fontSize: 18, color: C.PRIMARY, letterSpacing: 4, marginBottom: 16 }}>ABOUT ARMILLARY</div>
 
               <p style={{ marginBottom: 14, color: C.TEXT, fontSize: 14 }}>
-                Armillary is a deep star system generator for writers, game masters, and worldbuilders. Generate complete solar systems with stellar data, planetary bodies, habitable zones, and sapient species — in seconds.
+                Armillary is a deep star system generator for writers, game masters, and worldbuilders. Generate complete solar systems — stellar data, planetary bodies, habitable zones, and sapient species — in seconds.
               </p>
 
               <Divider label="METHODOLOGY"/>
@@ -999,7 +1000,7 @@ export default function App() {
 
               <Divider label="SUPPORT"/>
               <p style={{ marginBottom: 14, color: C.TEXT, fontSize: 14 }}>
-                Armillary is free and no account is required. Your current star system saves automatically in your browser. If it's useful to you, a coffee is always appreciated.
+                Armillary is free and no account is required. Your current system saves automatically in your browser. If it's useful to you, a coffee is always appreciated.
               </p>
               <a href={KOFI_URL} target="_blank" rel="noopener noreferrer" style={{ ...navBtn(false, '#FF6B6B'), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}>
                 ☕ Buy me a coffee on Ko-fi
@@ -1009,8 +1010,17 @@ export default function App() {
               <p style={{ color: C.TEXT_DIM, fontSize: 13, marginBottom: 8 }}>
                 Built by Kummer Wolfe — fiction author and worldbuilder.
               </p>
+              <a 
+                href={LINKTREE} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ ...navBtn(false, C.PRIMARY), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}
+              >
+                ✦ My Linktr.ee
+              </a>
+              <br/>
               <a
-                href="https://kummerwolfe.substack.com"
+                href={SUBSTACK_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ ...navBtn(false, C.PRIMARY), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}
@@ -1019,7 +1029,7 @@ export default function App() {
               </a>
               <p style={{ color: C.TEXT_FAINT, fontSize: 11, marginTop: 12 }}>
                 © 2026 Kummer Wolfe · Free for personal, commercial, and creative use · CC BY 4.0<br/>
-                <a href="https://armillary-star-gen.pages.dev" style={{ color: C.TEXT_FAINT }}>armillary-star-gen.pages.dev</a>
+                <a href={LIVE_URL} style={{ color: C.TEXT_FAINT }}>armillary-star-gen.pages.dev</a>
               </p>
             </div>
           </div>
