@@ -2,11 +2,25 @@
 
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
-A deep, procedural star system generator for writers, game masters, and worldbuilders. Generate complete solar systems — stellar data, planetary bodies, habitable zones, sapient species, lost civilizations, and more — in seconds.
+A deep, procedural star system generator for writers, game masters, and worldbuilders. Generate complete solar systems with stellar data, planetary bodies, habitable zones, sapient species, lost civilizations, and more—in seconds.
 
 **Live tool:** [armillary-star-gen.pages.dev](https://armillary-star-gen.pages.dev/)
 
 Copyright © 2026 [Kummer Wolfe](https://kummerwolfe.substack.com) · [CC BY 4.0](LICENSE)
+
+---
+
+## Why 'Armillary'
+
+First, I made this because—while there are dozens of star generators out there—most go offline or I need to use two, three, or more to get what I want for stories, RPG campaigns, etc. Then it hit me many were all RPG system-locked. Others were so generic, I wound up using more generators to get at what I wanted.
+
+So... Armillary was born.
+
+As for the name? It's named after an 'armillary spehere'. For those that don't know, an 'armillary spehere' is:
+
+>An armillary sphere (variations are known as spherical astrolabe, armilla, or armil) is a model of objects in the sky (on the celestial sphere), consisting of a spherical framework of rings, centered on Earth or the Sun, that represent lines of celestial longitude and latitude and other astronomically important features, such as the ecliptic. As such, it differs from a celestial globe, which is a smooth sphere whose principal purpose is to map the constellations. It was invented separately, in ancient China possibly as early as the 4th century BC and ancient Greece during the 3rd century BC, with later uses in the Islamic world and Medieval Europe.
+
+As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armillary_sphere
 
 ---
 
