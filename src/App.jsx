@@ -792,15 +792,16 @@ export default function App() {
 
       {/* HEADER */}
       <div style={{ background: '#060a0f', borderBottom: `2px solid ${C.BORDER_HI}`, position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: 1024, margin: '0 auto', padding: '0 16px', display: 'flex', alignItems: 'stretch', height: 54 }}>
-          <div style={{ width: 4, background: C.PRIMARY, marginRight: 16, flexShrink: 0 }}/>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+        <div style={{ maxWidth: 1024, margin: '0 auto', padding: '8px 16px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', minHeight: 54, gap: '6px 0' }}>
+          <div style={{ width: 4, background: C.PRIMARY, marginRight: 16, flexShrink: 0, alignSelf: 'stretch', minHeight: 38 }}/>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', minWidth: 160 }}>
             <div>
               <div style={{ fontFamily: FONTS.MONO, fontSize: 16, color: C.PRIMARY, letterSpacing: 5 }}>ARMILLARY</div>
               <div style={{ fontFamily: FONTS.MONO, fontSize: 8, color: C.TEXT_FAINT, letterSpacing: 3 }}>STELLAR SYSTEM GENERATOR</div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* main control buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <button onClick={() => setView('system')}  style={navBtn(view === 'system')}>SYSTEM</button>
             <button onClick={() => setView('archive')} style={navBtn(view === 'archive')}>ARCHIVE{archive.length > 0 ? ` (${archive.length})` : ''}</button>
             <button onClick={() => setView('about')}   style={navBtn(view === 'about')}>ABOUT</button>
