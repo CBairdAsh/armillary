@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import styles from './BootSequence.module.css';
 import { C, FONTS } from '../tokens.js';
 
 // Boot sequence lines — staged reveal, nav console flavor

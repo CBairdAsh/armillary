@@ -1,0 +1,128 @@
+/* src/styles/globals.css */
+
+/* ─── RESET ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Form elements don't inherit font from body by default */
+input, button, select, textarea {
+  font-family: inherit;
+}
+
+/* ─── TYPOGRAPHY ─────────────────────────────────────────────────────────── */
+.label {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.value {
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--color-text);
+}
+
+.value--faint {
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--color-text-faint);
+}
+
+.stat-label {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--color-text-dim);
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 24px;
+  color: var(--color-text);
+}
+
+/* ─── LAYOUT ─────────────────────────────────────────────────────────────── */
+.flex-row    { display: flex; align-items: center; }
+.flex-col    { display: flex; flex-direction: column; }
+.flex-between{ display: flex; align-items: center; justify-content: space-between; }
+.flex-wrap   { display: flex; flex-wrap: wrap; }
+
+.gap-xs  { gap: 3px; }
+.gap-sm  { gap: 6px; }
+.gap-md  { gap: 8px; }
+.gap-lg  { gap: 16px; }
+.gap-xl  { gap: 24px; }
+
+.flex-1  { flex: 1; }
+.align-start { align-items: flex-start; }
+
+/* Page content container — max-width centering */
+.container { max-width: 1024px; margin: 0 auto; padding: 16px; }
+
+.label-lg {
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* Tag pill — dynamic color/border/bg set inline, structural chrome here */
+.tag {
+  border-radius: 2px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* Body/description text in panels */
+.body-text {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--color-text);
+}
+
+/* Small hint/caption text */
+.hint {
+  font-size: 11px;
+  color: var(--color-text-faint);
+}
+
+/* Card content region — flex child filling remaining card space */
+.card-body { flex: 1; padding: 12px 16px; }
+
+/* ─── PANELS ─────────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 12px 14px;
+}
+
+.panel-alt {
+  background: var(--color-panel-alt);
+}
+
+/* Left-bordered note block — dynamic accent set via inline borderLeftColor */
+.note-block {
+  padding: 6px 10px;
+  background: var(--color-panel);
+  border-radius: 3px;
+  border-left: 2px solid transparent;
+}
+
+/* Info panel — PANEL_ALT block with dynamic full border, used for detail callouts */
+.info-panel {
+  background: var(--color-panel-alt);
+  border-radius: 3px;
+  padding: 8px 12px;
+}

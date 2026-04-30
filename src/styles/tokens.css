@@ -1,0 +1,46 @@
+:root {
+  /* Backgrounds */
+  --color-bg:         #080c10;
+  --color-panel:      #0d1520;
+  --color-panel-alt:  #111c28;
+  --color-border:     #1e3048;
+  --color-border-hi:  #2e4a6a;
+
+  /* Primary */
+  --color-primary:    #7B9BAF;
+  --color-primary-d:  #4a6a80;
+  --color-primary-l:  #a8c4d8;
+
+  /* Star colors */
+  --color-star-o:    #9BB0FF;
+  --color-star-b:    #AABFFF;
+  --color-star-a:    #CAD7FF;
+  --color-star-f:    #F8F7FF;
+  --color-star-g:    #FFE680;
+  --color-star-k:    #FFD2A1;
+  --color-star-m:    #FF9C71;
+  --color-star-wd:   #E8F4FF;
+  --color-star-ns:   #B0E0FF;
+  --color-star-bd:   #8B5E3C;
+
+  /* Semantic */
+  --color-habitable:  #4CAF7D;
+  --color-hazard:     #C8860A;
+  --color-cold:       #7EC8E3;
+  --color-exotic:     #B07FCC;
+  --color-danger:     #CC5555;
+
+  /* Text */
+  --color-text:       #d4e4f0;
+  --color-text-dim:   #8aafc8;
+  --color-text-faint: #6a94b0;
+
+  /* Zone colors */
+  -color-zone-inner:     #C8860A;
+  -color-zone-habitable: #4CAF7D;
+  -color-zone-outer:     #7EC8E3;
+  -color-zone-fringe:    #6a8aa0;
+
+  /* Typography */
+  --font-mono: 'Share Tech Mono', 'Courier New', monospace;
+}

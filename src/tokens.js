@@ -2,48 +2,51 @@
 // Aesthetic: ship's nav console, geologist's field terminal
 // Dark steel, amber hazard, cool green for life, ice blue for cold
 
+const cssVar = (name) => 
+  getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
 export const C = {
   // Backgrounds
-  BG:        '#080c10',   // near-black, slight blue tint
-  PANEL:     '#0d1520',   // card/panel background
-  PANEL_ALT: '#111c28',   // slightly lighter panel
-  BORDER:    '#1e3048',   // default border
-  BORDER_HI: '#2e4a6a',   // highlighted border
+  BG:        cssVar('--color-bg'),   // near-black, slight blue tint
+  PANEL:     cssVar('--color-panel'),   // card/panel background
+  PANEL_ALT: cssVar('--color-panel-alt'),   // slightly lighter panel
+  BORDER:    cssVar('--color-border'),   // default border
+  BORDER_HI: cssVar('--color-border-hi'),   // highlighted border
 
   // Primary UI — steel blue
-  PRIMARY:   '#7B9BAF',
-  PRIMARY_D: '#4a6a80',
-  PRIMARY_L: '#a8c4d8',
+  PRIMARY:   cssVar('--color-primary'),
+  PRIMARY_D: cssVar('--color-primary-d'),
+  PRIMARY_L: cssVar('--color-primary-l'),
 
   // Stellar type colors
-  STAR_O:    '#9BB0FF',
-  STAR_B:    '#AABFFF',
-  STAR_A:    '#CAD7FF',
-  STAR_F:    '#F8F7FF',
-  STAR_G:    '#FFE680',
-  STAR_K:    '#FFD2A1',
-  STAR_M:    '#FF9C71',
-  STAR_WD:   '#E8F4FF',
-  STAR_NS:   '#B0E0FF',
-  STAR_BD:   '#8B5E3C',
+  STAR_O:    cssVar('--color-star-o'),
+  STAR_B:    cssVar('--color-star-b'),
+  STAR_A:    cssVar('--color-star-a'),
+  STAR_F:    cssVar('--color-star-f'),
+  STAR_G:    cssVar('--color-star-g'),
+  STAR_K:    cssVar('--color-star-k'),
+  STAR_M:    cssVar('--color-star-m'),
+  STAR_WD:   cssVar('--color-star-wd'),
+  STAR_NS:   cssVar('--color-star-ns'),
+  STAR_BD:   cssVar('--color-star-bd'),
 
   // Semantic
-  HABITABLE: '#4CAF7D',   // cool green — life possible
-  HAZARD:    '#C8860A',   // amber — danger/heat
-  COLD:      '#7EC8E3',   // ice blue — cold/frozen
-  EXOTIC:    '#B07FCC',   // purple — exotic/unknown
-  DANGER:    '#CC5555',   // red — hostile/danger
+  HABITABLE: cssVar('--color-habitable'),   // cool green — life possible
+  HAZARD:    cssVar('--color-hazard'),   // amber — danger/heat
+  COLD:      cssVar('--color-cold'),   // ice blue — cold/frozen
+  EXOTIC:    cssVar('--color-exotic'),   // purple — exotic/unknown
+  DANGER:    cssVar('--color-danger'),   // red — hostile/danger
 
   // Text
-  TEXT:      '#d4e4f0',   // primary text — slightly brighter
-  TEXT_DIM:  '#8aafc8',   // secondary text — was too dark, now ADA-compliant
-  TEXT_FAINT:'#6a94b0',   // subtle labels — was #3a5a70, now readable
+  TEXT:      cssVar('--color-text'),   // primary text — slightly brighter
+  TEXT_DIM:  cssVar('--color-text-dim'),   // secondary text — was too dark, now ADA-compliant
+  TEXT_FAINT:cssVar('--color-text-faint'),   // subtle labels — was #3a5a70, now readable
 
   // Zone colors
-  ZONE_INNER:     '#C8860A',
-  ZONE_HABITABLE: '#4CAF7D',
-  ZONE_OUTER:     '#7EC8E3',
-  ZONE_FRINGE:    '#6a8aa0',
+  ZONE_INNER:     cssVar('--color-inner'),
+  ZONE_HABITABLE: cssVar('--color-habitable'),
+  ZONE_OUTER:     cssVar('--color-outer'),
+  ZONE_FRINGE:    cssVar('--color-fringe'),
 };
 
 export const ZONE_COLORS = {
@@ -55,8 +58,8 @@ export const ZONE_COLORS = {
 
 // ─── TYPOGRAPHY ───────────────────────────────────────────────────────────────
 export const FONTS = {
-  MONO:  "'Share Tech Mono', 'Courier New', monospace",
-  LABEL: "'Share Tech Mono', monospace",
+  MONO:  cssVar('--font-mono'),
+  LABEL: cssVar('--font-mono'),
 };
 
 // ─── STYLE HELPERS ────────────────────────────────────────────────────────────

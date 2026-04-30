@@ -1,40 +1,40 @@
 import { useState, useCallback, useEffect } from 'react';
 import { generateSystem, redrawSystem, regenerateSpeciesForWorld, generateTextSummary } from './data/generator.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
-import { C, FONTS, ZONE_COLORS, navBtn, cardStyle, lockStripeStyle, lockBtnStyle, panelStyle } from './tokens.js';
+import { C, ZONE_COLORS, navBtn, cardStyle, lockStripeStyle, lockBtnStyle, panelStyle } from './tokens.js';
 import BootSequence from './components/BootSequence.jsx';
 import { KOFI_URL, SUBSTACK_URL, LIVE_URL, LINKTREE } from './config.js';
 
 // ─── UTILITY COMPONENTS ───────────────────────────────────────────────────────
 function Label({ children, color = C.PRIMARY_L }) {
-  return <span style={{ fontFamily: FONTS.MONO, fontSize: 13, letterSpacing: 2, color, textTransform: 'uppercase' }}>{children}</span>;
+  return <span className="label-lg" style={{ color }}>{children}</span>;
 }
 function Value({ children, color = C.TEXT, size = 15 }) {
-  return <span style={{ fontFamily: FONTS.MONO, fontSize: size, color, letterSpacing: 1 }}>{children}</span>;
+  return <span style={{ fontSize: size, color, letterSpacing: 1 }}>{children}</span>;
 }
 // Label stacked above value — fixes the alignment confusion in species cards
 function DataPair({ label, value, color = C.TEXT }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <span style={{ fontFamily: FONTS.MONO, fontSize: 11, letterSpacing: 2, color: C.TEXT_DIM, textTransform: 'uppercase' }}>{label}</span>
-      <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color, letterSpacing: 1 }}>{value}</span>
+    <div className="flex-col gap-xs">
+      <span className="label">{label}</span>
+      <span className="value" style={{ color }}>{value}</span>
     </div>
   );
 }
 // Horizontal label/value for star cards
 function DataRow({ label, value, color = C.TEXT }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 5 }}>
-      <span style={{ fontFamily: FONTS.MONO, fontSize: 11, letterSpacing: 2, color: C.TEXT_DIM, textTransform: 'uppercase', flexShrink: 0 }}>{label}</span>
-      <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color, letterSpacing: 1, textAlign: 'right' }}>{value}</span>
+    <div className="flex-between gap-md" style={{ marginBottom: 5 }}>
+      <span className="label" style={{ flexShrink: 0 }}>{label}</span>
+      <span className="value" style={{ color, textAlign: 'right' }}>{value}</span>
     </div>
   );
 }
 function Divider({ label, color = C.BORDER }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0' }}>
+    <div className="flex-row gap-md" style={{ margin: '12px 0' }}>
       <div style={{ flex: 1, height: 1, background: color }}/>
-      {label && <span style={{ fontFamily: FONTS.MONO, fontSize: 11, letterSpacing: 3, color: C.TEXT_DIM }}>{label}</span>}
+      {label && <span className="label" style={{ letterSpacing: 3 }}>{label}</span>}
       <div style={{ width: 6, height: 6, background: color, transform: 'rotate(45deg)', flexShrink: 0 }}/>
       <div style={{ flex: 1, height: 1, background: color }}/>
     </div>
@@ -42,7 +42,7 @@ function Divider({ label, color = C.BORDER }) {
 }
 function Tag({ children, color = C.PRIMARY }) {
   return (
-    <span style={{ background: color + '22', border: `1px solid ${color}55`, borderRadius: 2, color, fontFamily: FONTS.MONO, fontSize: 11, letterSpacing: 1, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+    <span className="tag" style={{ background: color + '22', border: `1px solid ${color}55`, color }}>
       {children}
     </span>
   );
@@ -60,35 +60,32 @@ function ExoticInfoPanel({ obj, onClose }) {
   const color = obj.color || '#8866CC';
   return (
     <div style={{ background: C.PANEL_ALT, border: `1px solid ${color}55`, borderRadius: 4, padding: '14px 16px', marginTop: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="flex-between" style={{ marginBottom: 10 }}>
+        <div className="flex-row gap-md">
           <span style={{ fontSize: 18 }}>{obj.icon}</span>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 14, color, letterSpacing: 2 }}>{obj.label}</span>
+          <span style={{ fontSize: 14, color, letterSpacing: 2 }}>{obj.label}</span>
           <Tag color={color}>{obj.objectType.toUpperCase()}</Tag>
         </div>
         <button onClick={onClose} style={navBtn(false, C.TEXT_DIM, true)}>✕ CLOSE</button>
       </div>
-      <div style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT, lineHeight: 1.8, marginBottom: 8 }}>
-        {obj.description}
-      </div>
-      {obj.size      && <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, marginBottom: 4 }}>Est. diameter: {obj.size} light years</div>}
-      {obj.mass      && <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, marginBottom: 4 }}>Mass: ~{obj.mass} M☉</div>}
-      {/* Interstellar transient specifics */}
+      <div className="body-text" style={{ marginBottom: 8 }}>{obj.description}</div>
+      {obj.size && <div className="label" style={{ marginBottom: 4 }}>Est. diameter: {obj.size} light years</div>}
+      {obj.mass && <div className="label" style={{ marginBottom: 4 }}>Mass: ~{obj.mass} M☉</div>}
       {obj.objectType === 'Interstellar Transient' && (<>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', marginBottom: 8 }}>
           <DataPair label="Origin Direction" value={obj.origin}                       color={C.TEXT}/>
           <DataPair label="Hyperbolic Speed" value={`${obj.speed} km/s`}             color={C.TEXT}/>
           <DataPair label="Est. Departure"   value={`~${obj.departureYears} years`}  color={C.HAZARD}/>
         </div>
-        <div style={{ padding: '6px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${color}44`, marginBottom: 6 }}>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>
+        <div className="note-block" style={{ borderLeftColor: `${color}44`, marginBottom: 6 }}>
+          <span className="label">
             Carries chemical fingerprints from its birth stellar system. Unbound to any star — on a one-way hyperbolic trajectory through this neighborhood.
           </span>
         </div>
       </>)}
       {obj.notes && (
-        <div style={{ marginTop: 6, padding: '6px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${color}44` }}>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>{obj.notes}</span>
+        <div className="note-block" style={{ borderLeftColor: `${color}44`, marginTop: 6 }}>
+          <span className="hint">{obj.notes}</span>
         </div>
       )}
     </div>
@@ -113,19 +110,19 @@ function NeighborhoodCard({ neighborhood, onLock, onRedraw, onNavigate, explored
   return (
     <div style={{ ...cardStyle(locked, C.PRIMARY), marginBottom: 12 }}>
       <div onClick={() => onLock('neighborhood')} style={{ ...lockStripeStyle(locked, C.PRIMARY), minHeight: 80 }}/>
-      <div style={{ flex: 1, padding: '12px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <div className="card-body">
+        <div className="flex-between" style={{ marginBottom: 10 }}>
           <Label>Stellar Neighborhood</Label>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div className="flex-row gap-sm">
             <LockBtn locked={locked} onToggle={() => onLock('neighborhood')} color={C.PRIMARY}/>
             {!locked && <button onClick={onRedraw} style={navBtn(false, C.PRIMARY, true)}>↻ Redraw</button>}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+        <div className="flex-row gap-md" style={{ marginBottom: 10 }}>
           <Tag color={C.PRIMARY}>{neighborhood.density}</Tag>
           <Value color={C.TEXT_DIM} size={13}>{neighborhood.densityDesc}</Value>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div className="flex-wrap gap-sm">
           {neighborhood.neighbors.map(n => {
             const isStar      = !n.objectType || n.objectType === 'Star';
             const explored    = isStar && !!exploredSystems[n.id];
@@ -162,16 +159,16 @@ function NeighborhoodCard({ neighborhood, onLock, onRedraw, onNavigate, explored
                 ) : (
                   <span style={{ fontSize: 14, lineHeight: 1 }}>{n.icon}</span>
                 )}
-                <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_DIM }}>{n.distance} ly</span>
+                <span style={{ fontSize: 13, color: C.TEXT_DIM }}>{n.distance} ly</span>
                 {isStar ? (
-                  <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: displayColor }}>
+                  <span style={{ fontSize: 13, color: displayColor }}>
                     {displayClass}
                     {redrawn && <span style={{ fontSize: 10, color: displayColor + '88', marginLeft: 4 }}>(*{n.spectralClass})</span>}
                   </span>
                 ) : (
-                  <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: n.color }}>{n.objectType}</span>
+                  <span style={{ fontSize: 12, color: n.color }}>{n.objectType}</span>
                 )}
-                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: explored ? displayColor + 'cc' : C.TEXT_FAINT }}>
+                <span style={{ fontSize: 11, color: explored ? displayColor + 'cc' : C.TEXT_FAINT }}>
                   {n.navigable === false ? (isInfoOpen ? '▴ Info' : '▾ Info') : explored ? '↺ Return' : '→ Explore'}
                 </span>
               </button>
@@ -181,12 +178,12 @@ function NeighborhoodCard({ neighborhood, onLock, onRedraw, onNavigate, explored
 
         {infoObj && <ExoticInfoPanel obj={infoObj} onClose={() => setInfoObj(null)}/>}
 
-        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>
+        <div className="flex-col gap-xs" style={{ marginTop: 8 }}>
+          <span className="hint">
             Click stars to explore · Rogue planets navigable · Nebulae and black holes show info
           </span>
           {Object.keys(exploredSystems).length > 0 && (
-            <span style={{ fontFamily: FONTS.MONO, fontSize: 10, color: C.TEXT_FAINT }}>
+            <span style={{ fontSize: 10, color: C.TEXT_FAINT }}>
               * indicates original listed star type differs from explored system
             </span>
           )}
@@ -202,19 +199,19 @@ function StarCard({ star, label, onLock, onRedraw }) {
   return (
     <div style={{ ...cardStyle(locked, star.color), flex: 1, minWidth: 220 }}>
       <div onClick={() => onLock(star.id)} style={{ ...lockStripeStyle(locked, star.color), minHeight: 120 }}/>
-      <div style={{ flex: 1, padding: '12px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <div className="card-body">
+        <div className="flex-between" style={{ marginBottom: 10 }}>
           <Label color={star.color}>{label}</Label>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div className="flex-row gap-sm">
             <LockBtn locked={locked} onToggle={() => onLock(star.id)} color={star.color}/>
             {!locked && <button onClick={onRedraw} style={navBtn(false, star.color, true)}>↻</button>}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <div className="flex-row" style={{ gap: 12, marginBottom: 14 }}>
           <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, background: `radial-gradient(circle at 35% 35%, ${star.color}ff, ${star.color}55)`, boxShadow: `0 0 18px ${star.color}66, 0 0 6px ${star.color}44` }}/>
           <div>
-            <div style={{ fontFamily: FONTS.MONO, fontSize: 22, color: star.color, letterSpacing: 2, lineHeight: 1 }}>{star.spectralClass}</div>
-            <div style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_DIM, marginTop: 2 }}>{star.description}</div>
+            <div style={{ fontSize: 22, color: star.color, letterSpacing: 2, lineHeight: 1 }}>{star.spectralClass}</div>
+            <div style={{ fontSize: 13, color: C.TEXT_DIM, marginTop: 2 }}>{star.description}</div>
           </div>
         </div>
         <DataRow label="Luminosity" value={`${star.luminosity} L☉`}         color={C.STAR_G}/>
@@ -223,8 +220,8 @@ function StarCard({ star, label, onLock, onRedraw }) {
         <DataRow label="HZ Inner"   value={`${star.habitableZone.inner} AU`}  color={C.HABITABLE}/>
         <DataRow label="HZ Outer"   value={`${star.habitableZone.outer} AU`}  color={C.HABITABLE}/>
         {star.notes && (
-          <div style={{ marginTop: 10, padding: '6px 10px', background: C.PANEL_ALT, borderRadius: 3, borderLeft: `2px solid ${C.PRIMARY}44` }}>
-            <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT, lineHeight: 1.7 }}>{star.notes}</span>
+          <div className="note-block panel-alt" style={{ marginTop: 10, borderLeftColor: `${C.PRIMARY}44` }}>
+            <span className="hint" style={{ lineHeight: 1.7 }}>{star.notes}</span>
           </div>
         )}
         {star.exotic && <div style={{ marginTop: 8 }}><Tag color={C.EXOTIC}>EXOTIC TYPE</Tag></div>}
@@ -248,12 +245,12 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
       <div onClick={() => onLock(world.id)} style={{ ...lockStripeStyle(locked, zoneColor), minHeight: 64 }}/>
       <div style={{ flex: 1, padding: '10px 14px' }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_FAINT }}>[{index + 1}]</span>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 15, color: zoneColor }}>{world.worldType}</span>
+        <div className="flex-row flex-wrap gap-md" style={{ marginBottom: 8 }}>
+          <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>[{index + 1}]</span>
+          <span style={{ fontSize: 15, color: zoneColor }}>{world.worldType}</span>
           <span style={{ fontSize: 15 }}>{worldDef?.icon || ''}</span>
           <Tag color={zoneColor}>{world.zone.replace('_', ' ')}</Tag>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT_DIM }}>{world.orbitalAU} AU</span>
+          <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{world.orbitalAU} AU</span>
           {world.isCircumbinary && <Tag color={C.STAR_G}>★ CIRCUMBINARY</Tag>}
           {world.isHabitable    && <Tag color={C.HABITABLE}>★ HABITABLE</Tag>}
           {world.tidallyLocked  && <Tag color={C.COLD}>⟳ TIDALLY LOCKED</Tag>}
@@ -269,12 +266,12 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
           )}
         </div>
         {/* Summary */}
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_DIM }}>ATM: <span style={{ color: C.TEXT }}>{world.atmosphere}</span></span>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_DIM }}>H₂O: <span style={{ color: C.TEXT }}>{world.hydrosphere}</span></span>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_DIM }}>G: <span style={{ color: C.TEXT }}>{world.gravity}g</span></span>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_DIM }}>T: <span style={{ color: world.temperature > 50 ? C.HAZARD : world.temperature < -50 ? C.COLD : C.TEXT }}>{world.temperature}°C</span></span>
-          {world.moons.length > 0 && <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_DIM }}>MOONS: <span style={{ color: C.TEXT }}>{world.moons.length}</span></span>}
+        <div className="flex-wrap gap-lg">
+          <span style={{ fontSize: 13, color: C.TEXT_DIM }}>ATM: <span style={{ color: C.TEXT }}>{world.atmosphere}</span></span>
+          <span style={{ fontSize: 13, color: C.TEXT_DIM }}>H₂O: <span style={{ color: C.TEXT }}>{world.hydrosphere}</span></span>
+          <span style={{ fontSize: 13, color: C.TEXT_DIM }}>G: <span style={{ color: C.TEXT }}>{world.gravity}g</span></span>
+          <span style={{ fontSize: 13, color: C.TEXT_DIM }}>T: <span style={{ color: world.temperature > 50 ? C.HAZARD : world.temperature < -50 ? C.COLD : C.TEXT }}>{world.temperature}°C</span></span>
+          {world.moons.length > 0 && <span style={{ fontSize: 13, color: C.TEXT_DIM }}>MOONS: <span style={{ color: C.TEXT }}>{world.moons.length}</span></span>}
         </div>
         {/* Expanded */}
         {expanded && (
@@ -283,35 +280,35 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
 
             {/* Circumbinary note */}
             {world.isCircumbinary && (
-              <div style={{ marginBottom: 12, padding: '8px 12px', background: C.PANEL_ALT, border: `1px solid ${C.STAR_G}44`, borderRadius: 3 }}>
-                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.STAR_G }}>★ CIRCUMBINARY ORBIT — </span>
-                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>This world orbits all stars in the system around their combined center of mass. Two suns cross the sky.</span>
+              <div className="info-panel" style={{ border: `1px solid ${C.STAR_G}44`, marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: C.STAR_G }}>★ CIRCUMBINARY ORBIT — </span>
+                <span style={{ fontSize: 11, color: C.TEXT_DIM }}>This world orbits all stars in the system around their combined center of mass. Two suns cross the sky.</span>
               </div>
             )}
 
             {/* Tidal lock */}
             {(world.tidallyLocked || world.tidalResonance) && (
-              <div style={{ marginBottom: 12, padding: '8px 12px', background: C.PANEL_ALT, border: `1px solid ${C.COLD}44`, borderRadius: 3 }}>
+              <div className="info-panel" style={{ border: `1px solid ${C.COLD}44`, marginBottom: 12 }}>
                 {world.tidallyLocked && (<>
-                  <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.COLD }}>⟳ TIDALLY LOCKED — </span>
-                  <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>Permanent dayside and nightside. Terminator zone may be the most habitable region.</span>
+                  <span style={{ fontSize: 11, color: C.COLD }}>⟳ TIDALLY LOCKED — </span>
+                  <span style={{ fontSize: 11, color: C.TEXT_DIM }}>Permanent dayside and nightside. Terminator zone may be the most habitable region.</span>
                 </>)}
                 {world.tidalResonance && (<>
-                  <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.COLD }}>⟳ SPIN-ORBIT RESONANCE — </span>
-                  <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>Slow rotation in gravitational resonance. Extreme temperature swings between long days and nights.</span>
+                  <span style={{ fontSize: 11, color: C.COLD }}>⟳ SPIN-ORBIT RESONANCE — </span>
+                  <span style={{ fontSize: 11, color: C.TEXT_DIM }}>Slow rotation in gravitational resonance. Extreme temperature swings between long days and nights.</span>
                 </>)}
               </div>
             )}
 
             {/* Biosignature */}
             {world.biosignature && (
-              <div style={{ marginBottom: 12, padding: '10px 12px', background: C.PANEL_ALT, border: `1px solid ${world.biosignature.color}55`, borderRadius: 3 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: world.biosignature.color }}>🔬 BIOSIGNATURE CANDIDATE</span>
+              <div className="info-panel" style={{ border: `1px solid ${world.biosignature.color}55`, marginBottom: 12 }}>
+                <div className="flex-row gap-md" style={{ marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: world.biosignature.color }}>🔬 BIOSIGNATURE CANDIDATE</span>
                   <Tag color={world.biosignature.color}>{world.biosignature.label}</Tag>
                   <Tag color={C.TEXT_DIM}>{world.biosignature.confidence}</Tag>
                 </div>
-                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, lineHeight: 1.8 }}>
+                <span className="label" style={{ lineHeight: 1.8 }}>
                   {world.biosignature.description}
                 </span>
               </div>
@@ -319,15 +316,15 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
 
             {/* World notes (disintegrating etc) */}
             {world.worldNotes && (
-              <div style={{ marginBottom: 12, padding: '8px 12px', background: C.PANEL_ALT, border: `1px solid ${C.HAZARD}33`, borderRadius: 3 }}>
-                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.HAZARD }}>⚠ </span>
-                <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>{world.worldNotes}</span>
+              <div className="info-panel" style={{ border: `1px solid ${C.HAZARD}33`, marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: C.HAZARD }}>⚠ </span>
+                <span style={{ fontSize: 11, color: C.TEXT_DIM }}>{world.worldNotes}</span>
               </div>
             )}
             {world.hazards.length > 0 && (
               <div style={{ marginBottom: 12 }}>
                 <Label color={C.HAZARD}>Hazards</Label>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                <div className="flex-wrap gap-sm" style={{ marginTop: 6 }}>
                   {world.hazards.map((h, i) => <Tag key={i} color={C.HAZARD}>{h}</Tag>)}
                 </div>
               </div>
@@ -335,18 +332,18 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
             {world.moons.length > 0 && (
               <div style={{ marginBottom: 12 }}>
                 <Label>Moons ({world.moons.length})</Label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+                <div className="flex-col gap-sm" style={{ marginTop: 6 }}>
                   {world.moons.map((m, i) => (
                     <div key={i}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <div className="flex-row flex-wrap gap-sm">
                         <Tag color={m.canSupportLife ? C.HABITABLE : C.TEXT_DIM}>
                           {m.type}{m.canSupportLife ? ' ★' : ''}
                         </Tag>
-                        <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT_DIM }}>{m.description}</span>
+                        <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{m.description}</span>
                       </div>
                       {m.lifeNote && (
-                        <div style={{ marginTop: 4, marginLeft: 4, padding: '4px 8px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${C.HABITABLE}66` }}>
-                          <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.HABITABLE }}>★ {m.lifeNote}</span>
+                        <div className="note-block" style={{ marginTop: 4, marginLeft: 4, borderLeftColor: `${C.HABITABLE}66` }}>
+                          <span style={{ fontSize: 12, color: C.HABITABLE }}>★ {m.lifeNote}</span>
                         </div>
                       )}
                     </div>
@@ -356,20 +353,20 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
             )}
             {world.isHabitable && (
               <div style={{ marginTop: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div className="flex-between" style={{ marginBottom: 8 }}>
                   <Label color={C.HABITABLE}>Sapient Species ({world.species.length})</Label>
                   <button onClick={() => onGenerateSpecies(world.id)} style={navBtn(false, C.HABITABLE, true)}>↻ Regen Species</button>
                 </div>
                 {world.species.length === 0 && (
-                  <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_FAINT }}>No sapient life detected on this world.</span>
+                  <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>No sapient life detected on this world.</span>
                 )}
                 {world.species.map((sp, si) => <SpeciesCard key={sp.id} species={sp} index={si}/>)}
 
                 {/* Lost civilization ruins */}
                 {world.ruins && world.species.length === 0 && (
                   <div style={{ marginTop: 10, background: C.PANEL_ALT, border: `1px solid ${C.DANGER}44`, borderRadius: 3, padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-                      <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.DANGER, letterSpacing: 2 }}>☠ RUINS DETECTED</span>
+                    <div className="flex-row flex-wrap gap-md" style={{ marginBottom: 10 }}>
+                      <span style={{ fontSize: 13, color: C.DANGER, letterSpacing: 2 }}>☠ RUINS DETECTED</span>
                       <Tag color={C.DANGER}>{world.ruins.tech}</Tag>
                       <Tag color={C.TEXT_DIM}>{world.ruins.ageLabel}</Tag>
                     </div>
@@ -378,15 +375,11 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
                       <DataPair label="Estimated Age"     value={`~${world.ruins.ageYears.toLocaleString()} yrs`} color={C.TEXT}/>
                       <DataPair label="Collapse Cause"    value={world.ruins.cause} color={C.DANGER}/>
                     </div>
-                    <div style={{ padding: '6px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${C.DANGER}44`, marginBottom: 6 }}>
-                      <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT_DIM, lineHeight: 1.8 }}>
-                        {world.ruins.causeDesc}
-                      </span>
+                    <div className="note-block" style={{ borderLeftColor: `${C.DANGER}44`, marginBottom: 6 }}>
+                      <span className="body-text" style={{ lineHeight: 1.8 }}>{world.ruins.causeDesc}</span>
                     </div>
-                    <div style={{ padding: '6px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${C.TEXT_FAINT}44` }}>
-                      <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT, lineHeight: 1.8 }}>
-                        {world.ruins.techDesc} · {world.ruins.ageDesc}
-                      </span>
+                    <div className="note-block" style={{ borderLeftColor: `${C.TEXT_FAINT}44` }}>
+                      <span className="hint" style={{ lineHeight: 1.8 }}>{world.ruins.techDesc} · {world.ruins.ageDesc}</span>
                     </div>
                   </div>
                 )}
@@ -404,27 +397,26 @@ function SpeciesCard({ species, index }) {
   const dispColor = species.disposition === 'Openly Hostile' ? C.DANGER : species.disposition === 'Welcoming' ? C.HABITABLE : C.PRIMARY;
   return (
     <div style={{ background: C.PANEL_ALT, border: `1px solid ${C.HABITABLE}33`, borderRadius: 3, padding: '12px 14px', marginBottom: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+      <div className="flex-row flex-wrap gap-md" style={{ marginBottom: 12 }}>
         <Label color={C.HABITABLE}>Species {index + 1}</Label>
         <Tag color={C.HABITABLE}>{species.tech}</Tag>
         <Tag color={dispColor}>{species.disposition}</Tag>
       </div>
-      {/* 2-col grid, each cell is label ABOVE value */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', marginBottom: 12 }}>
         <DataPair label="Biological Origin" value={species.origin}        color={C.TEXT}/>
         <DataPair label="Body Plan"         value={species.bodyPlan}      color={C.TEXT}/>
         <DataPair label="Primary Sense"     value={species.primarySense}  color={C.TEXT}/>
         <DataPair label="Social Structure"  value={species.social}        color={C.TEXT}/>
       </div>
-      <div style={{ marginBottom: 10, padding: '8px 10px', background: C.PANEL, borderRadius: 3, borderLeft: `2px solid ${C.HABITABLE}44` }}>
-        <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_DIM, lineHeight: 1.8 }}>
+      <div className="note-block" style={{ borderLeftColor: `${C.HABITABLE}44`, marginBottom: 10 }}>
+        <span className="value" style={{ lineHeight: 1.8 }}>
           {species.originDesc} · {species.bodyPlanDesc} · {species.senseDesc} · {species.socialDesc}
         </span>
       </div>
       {species.traits.length > 0 && (
         <div>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, letterSpacing: 2 }}>DISTINCTIVE TRAITS</span>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+          <span className="label">DISTINCTIVE TRAITS</span>
+          <div className="flex-wrap gap-sm" style={{ marginTop: 6 }}>
             {species.traits.map((t, i) => <Tag key={i} color={C.EXOTIC}>{t}</Tag>)}
           </div>
         </div>
@@ -449,16 +441,16 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
   return (
     <div style={{ ...panelStyle(), marginBottom: 16 }}>
       {isNeighbor && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, paddingBottom: 10, borderBottom: `1px solid ${C.BORDER}` }}>
+        <div className="flex-row gap-sm" style={{ marginBottom: 12, paddingBottom: 10, borderBottom: `1px solid ${C.BORDER}` }}>
           <button onClick={onBack} style={navBtn(false, C.PRIMARY, true)}>← Back to Primary System</button>
-          <span style={{ fontFamily: FONTS.MONO, fontSize: 10, color: C.TEXT_FAINT, letterSpacing: 2 }}>NEIGHBOR SYSTEM</span>
+          <span style={{ fontSize: 10, color: C.TEXT_FAINT, letterSpacing: 2 }}>NEIGHBOR SYSTEM</span>
         </div>
       )}
 
       {/* Inline name editor */}
       <div style={{ marginBottom: 12 }}>
         {editing ? (
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <div className="flex-row gap-sm">
             <input
               autoFocus
               value={nameVal}
@@ -469,7 +461,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
               placeholder="SYSTEM NAME..."
               style={{
                 background: C.PANEL_ALT, border: `1px solid ${C.PRIMARY}88`,
-                borderRadius: 3, color: C.TEXT, fontFamily: FONTS.MONO,
+                borderRadius: 3, color: C.TEXT,
                 fontSize: 15, letterSpacing: 3, padding: '4px 10px',
                 flex: 1, outline: 'none',
               }}
@@ -481,49 +473,47 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
           <div
             onClick={() => { setNameVal(system.name || ''); setEditing(true); }}
             title="Click to name this system"
-            style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'text' }}
+            className="flex-row"
+            style={{ gap: 10, cursor: 'text' }}
           >
-            <span style={{
-              fontFamily: FONTS.MONO, fontSize: 16, letterSpacing: 3,
-              color: system.name ? C.TEXT : C.TEXT_FAINT,
-            }}>
+            <span style={{ fontSize: 16, letterSpacing: 3, color: system.name ? C.TEXT : C.TEXT_FAINT }}>
               {system.name || 'UNNAMED SYSTEM'}
             </span>
-            <span style={{ fontFamily: FONTS.MONO, fontSize: 10, color: C.TEXT_FAINT, letterSpacing: 1 }}>✎ rename</span>
+            <span style={{ fontSize: 10, color: C.TEXT_FAINT, letterSpacing: 1 }}>✎ rename</span>
           </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div className="flex-wrap gap-xl align-start">
         <div>
-          <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, letterSpacing: 2, marginBottom: 6 }}>
+          <div className="stat-label">
             {system.isRoguePlanet ? 'ROGUE PLANET' : system.stars.length === 1 ? 'STAR' : system.stars.length === 2 ? 'BINARY' : 'TRIPLE'}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="flex-row gap-md">
             {system.stars.map((s, i) => (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {i > 0 && <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>+</span>}
+              <div key={s.id} className="flex-row gap-sm">
+                {i > 0 && <span style={{ fontSize: 11, color: C.TEXT_FAINT }}>+</span>}
                 <div style={{ width: 14, height: 14, borderRadius: '50%', background: s.color, boxShadow: `0 0 8px ${s.color}88` }}/>
-                <span style={{ fontFamily: FONTS.MONO, fontSize: 15, color: s.color }}>{s.spectralClass}</span>
+                <span style={{ fontSize: 15, color: s.color }}>{s.spectralClass}</span>
               </div>
             ))}
           </div>
         </div>
         <div>
-          <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, letterSpacing: 2, marginBottom: 6 }}>WORLDS</div>
-          <div style={{ fontFamily: FONTS.MONO, fontSize: 24, color: C.TEXT }}>{system.worlds.length}</div>
+          <div className="stat-label">WORLDS</div>
+          <div className="stat-value">{system.worlds.length}</div>
         </div>
         <div>
-          <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, letterSpacing: 2, marginBottom: 6 }}>HABITABLE</div>
-          <div style={{ fontFamily: FONTS.MONO, fontSize: 24, color: C.HABITABLE }}>{habitable}</div>
+          <div className="stat-label">HABITABLE</div>
+          <div className="stat-value" style={{ color: C.HABITABLE }}>{habitable}</div>
         </div>
         <div>
-          <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, letterSpacing: 2, marginBottom: 6 }}>SAPIENT SPECIES</div>
-          <div style={{ fontFamily: FONTS.MONO, fontSize: 24, color: C.EXOTIC }}>{totalSpecies}</div>
+          <div className="stat-label">SAPIENT SPECIES</div>
+          <div className="stat-value" style={{ color: C.EXOTIC }}>{totalSpecies}</div>
         </div>
         <div>
-          <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, letterSpacing: 2, marginBottom: 6 }}>HABITABLE ZONE</div>
-          <div style={{ fontFamily: FONTS.MONO, fontSize: 15, color: C.HABITABLE }}>{system.hz.inner}–{system.hz.outer} AU</div>
+          <div className="stat-label">HABITABLE ZONE</div>
+          <div style={{ fontSize: 15, color: C.HABITABLE }}>{system.hz.inner}–{system.hz.outer} AU</div>
         </div>
       </div>
     </div>
@@ -534,48 +524,37 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
 function ArchivePanel({ archive, onRestore, onDelete }) {
   if (!archive.length) return (
     <div style={{ textAlign: 'center', padding: '32px 0' }}>
-      <div style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_FAINT, marginBottom: 8 }}>NO SAVED SYSTEMS</div>
-      <div style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>Use ↓ SAVE SYSTEM in the system view to archive a system</div>
+      <div className="value" style={{ marginBottom: 8 }}>NO SAVED SYSTEMS</div>
+      <div className="hint">Use ↓ SAVE SYSTEM in the system view to archive a system</div>
     </div>
   );
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="flex-col gap-sm">
       {archive.map((entry, i) => (
-        <div key={entry.id} style={{ background: C.PANEL, border: `1px solid ${C.BORDER}`, borderRadius: 4, padding: '12px 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-            {/* Star dots */}
-            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+        <div key={entry.id} className="panel">
+          <div className="flex-row flex-wrap gap-sm" style={{ marginBottom: 8 }}>
+            <div className="flex-row gap-xs">
               {entry.summary.stars.map((s, si) => (
                 <div key={si} style={{ width: si === 0 ? 12 : 9, height: si === 0 ? 12 : 9, borderRadius: '50%', background: s.color, boxShadow: `0 0 6px ${s.color}88` }}/>
               ))}
             </div>
-            {/* Name */}
-            <span style={{ fontFamily: FONTS.MONO, fontSize: 14, color: entry.system.name ? C.TEXT : C.TEXT_FAINT, letterSpacing: 2, flex: 1 }}>
+            <span style={{ fontSize: 14, color: entry.system.name ? C.TEXT : C.TEXT_FAINT, letterSpacing: 2, flex: 1 }}>
               {entry.system.name || 'UNNAMED SYSTEM'}
             </span>
             <button onClick={() => onRestore(entry)} style={navBtn(false, C.PRIMARY, true)}>RESTORE</button>
             <button onClick={() => onDelete(entry.id)} style={navBtn(false, C.DANGER, true)}>✕</button>
           </div>
-          {/* Summary stats */}
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
-            <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>
-              {entry.summary.stars.map(s => s.spectralClass).join('+')}
-            </span>
-            <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM }}>
-              {entry.summary.worldCount} worlds
-            </span>
+          <div className="flex-wrap gap-lg" style={{ marginBottom: 6 }}>
+            <span className="label">{entry.summary.stars.map(s => s.spectralClass).join('+')}</span>
+            <span className="label">{entry.summary.worldCount} worlds</span>
             {entry.summary.habitableCount > 0 && (
-              <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.HABITABLE }}>
-                {entry.summary.habitableCount} habitable
-              </span>
+              <span className="label" style={{ color: C.HABITABLE }}>{entry.summary.habitableCount} habitable</span>
             )}
             {entry.summary.speciesCount > 0 && (
-              <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.EXOTIC }}>
-                {entry.summary.speciesCount} species
-              </span>
+              <span className="label" style={{ color: C.EXOTIC }}>{entry.summary.speciesCount} species</span>
             )}
           </div>
-          <div style={{ fontFamily: FONTS.MONO, fontSize: 10, color: C.TEXT_FAINT }}>
+          <div style={{ fontSize: 10, color: C.TEXT_FAINT }}>
             {new Date(entry.timestamp).toLocaleString()}
           </div>
         </div>
@@ -587,8 +566,8 @@ function ArchivePanel({ archive, onRestore, onDelete }) {
 // ─── STAR COUNT CONTROL ───────────────────────────────────────────────────────
 function StarCountControl({ count, onChange }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.TEXT_DIM, letterSpacing: 2 }}>SYSTEM TYPE</span>
+    <div className="flex-row gap-md">
+      <span style={{ fontSize: 13, color: C.TEXT_DIM, letterSpacing: 2 }}>SYSTEM TYPE</span>
       {['Single', 'Binary', 'Triple'].map((label, i) => (
         <button key={label} onClick={() => onChange(i + 1)} style={navBtn(count === i + 1, C.PRIMARY, true)}>{label}</button>
       ))}
@@ -784,7 +763,7 @@ export default function App() {
   const starLabels = active.stars.length === 1 ? ['Primary Star'] : active.stars.map((_, i) => `Star ${String.fromCharCode(65 + i)}`);
 
   return (
-    <div style={{ background: C.BG, minHeight: '100vh', color: C.TEXT, fontFamily: FONTS.MONO }}>
+    <div style={{ minHeight: '100vh' }}>
       <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 
       {/* BOOT SEQUENCE */}
@@ -792,16 +771,15 @@ export default function App() {
 
       {/* HEADER */}
       <div style={{ background: '#060a0f', borderBottom: `2px solid ${C.BORDER_HI}`, position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: 1024, margin: '0 auto', padding: '8px 16px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', minHeight: 54, gap: '6px 0' }}>
+        <div className="flex-row flex-wrap gap-sm" style={{ maxWidth: 1024, margin: '0 auto', padding: '8px 16px', minHeight: 54 }}>
           <div style={{ width: 4, background: C.PRIMARY, marginRight: 16, flexShrink: 0, alignSelf: 'stretch', minHeight: 38 }}/>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', minWidth: 160 }}>
+          <div className="flex-row flex-1" style={{ minWidth: 160 }}>
             <div>
-              <div style={{ fontFamily: FONTS.MONO, fontSize: 16, color: C.PRIMARY, letterSpacing: 5 }}>ARMILLARY</div>
-              <div style={{ fontFamily: FONTS.MONO, fontSize: 8, color: C.TEXT_FAINT, letterSpacing: 3 }}>STELLAR SYSTEM GENERATOR</div>
+              <div style={{ fontSize: 16, color: C.PRIMARY, letterSpacing: 5 }}>ARMILLARY</div>
+              <div style={{ fontSize: 8, color: C.TEXT_FAINT, letterSpacing: 3 }}>STELLAR SYSTEM GENERATOR</div>
             </div>
           </div>
-          {/* main control buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <div className="flex-row flex-wrap gap-sm">
             <button onClick={() => setView('system')}  style={navBtn(view === 'system')}>SYSTEM</button>
             <button onClick={() => setView('archive')} style={navBtn(view === 'archive')}>ARCHIVE{archive.length > 0 ? ` (${archive.length})` : ''}</button>
             <button onClick={() => setView('about')}   style={navBtn(view === 'about')}>ABOUT</button>
@@ -811,14 +789,14 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1024, margin: '0 auto', padding: '16px' }}>
+      <div className="container">
 
         {view === 'system' && (<>
           {/* Controls */}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16, padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.BORDER}`, borderRadius: 4 }}>
+          <div className="flex-row flex-wrap" style={{ gap: 10, marginBottom: 16, padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.BORDER}`, borderRadius: 4 }}>
             {!active.isRoguePlanet && <StarCountControl count={starCount} onChange={setStarCount}/>}
             {isNeighbor && (
-              <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT, letterSpacing: 1 }}>
+              <span style={{ fontSize: 11, color: C.TEXT_FAINT, letterSpacing: 1 }}>
                 {active.isRoguePlanet
                   ? '⬛ ROGUE PLANET — no host star'
                   : `— NEIGHBOR · ${active.stars[0]?.spectralClass} origin`}
@@ -831,16 +809,13 @@ export default function App() {
             <button onClick={handleSaveToArchive}   style={navBtn(false, C.EXOTIC)}>↓ Save System</button>
           </div>
 
-          {/* Star count change notice — not applicable for rogue planet systems */}
+          {/* Star count change notice */}
           {!active.isRoguePlanet && starCount !== active.stars.length && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-              marginBottom: 14, padding: '10px 14px',
-              background: C.HAZARD + '11',
-              border: `1px solid ${C.HAZARD}55`,
-              borderRadius: 4,
+            <div className="flex-row flex-wrap" style={{
+              gap: 12, marginBottom: 14, padding: '10px 14px',
+              background: C.HAZARD + '11', border: `1px solid ${C.HAZARD}55`, borderRadius: 4,
             }}>
-              <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.HAZARD, flex: 1 }}>
+              <span style={{ fontSize: 12, color: C.HAZARD, flex: 1 }}>
                 ⚠ SYSTEM TYPE CHANGED TO {['','SINGLE','BINARY','TRIPLE'][starCount]}
                 {isNeighbor ? ' for this neighbor' : ''} — this will add or remove stars and redraw unlocked worlds
               </span>
@@ -863,18 +838,17 @@ export default function App() {
 
           <div style={{ marginBottom: 14 }}>
             {active.isRoguePlanet ? (
-              // Rogue planet — no star, show a descriptive panel instead
               <div style={{ padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.PRIMARY}33`, borderRadius: 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <div className="flex-row gap-sm" style={{ marginBottom: 10 }}>
                   <span style={{ fontSize: 20 }}>⬛</span>
                   <Label color={C.PRIMARY}>Rogue Planetary Body</Label>
                 </div>
-                <div style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT_DIM, lineHeight: 1.9 }}>
+                <div className="body-text" style={{ color: C.TEXT_DIM, lineHeight: 1.9 }}>
                   No host star. This body drifts through interstellar space unbound to any stellar system.
                   Surface temperature approaches absolute zero. Any liquid water would require subsurface
                   geothermal heating from residual radioactive decay — a Europa-like scenario in permanent darkness.
                 </div>
-                <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="flex-wrap gap-md" style={{ marginTop: 10 }}>
                   <Tag color={C.COLD}>No Solar Energy</Tag>
                   <Tag color={C.COLD}>Geothermal Only</Tag>
                   <Tag color={C.TEXT_DIM}>No Habitable Zone</Tag>
@@ -882,17 +856,17 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <div className="flex-row flex-wrap" style={{ gap: 10 }}>
                   <Label color={C.PRIMARY}>
                     {active.stars.length === 1 ? 'Primary Star' : active.stars.length === 2 ? 'Binary System' : 'Triple System'}
                   </Label>
                   {active.stars.length > 1 && (
-                    <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>
+                    <span className="hint">
                       — habitable zone calculated from combined luminosity of all stars
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                <div className="flex-wrap" style={{ gap: 10, marginTop: 10 }}>
                   {active.stars.map((star, i) => (
                     <StarCard key={star.id} star={star} label={starLabels[i]} onLock={handleLockStar} onRedraw={() => handleRedrawStar(star.id)}/>
                   ))}
@@ -901,21 +875,21 @@ export default function App() {
             )}
           </div>
 
-          {/* HZ bar — suppress for rogue planets */}
+          {/* HZ bar */}
           {!active.isRoguePlanet && (
-            <div style={{ marginBottom: 14, padding: '10px 14px', background: C.PANEL, border: `1px solid ${C.HABITABLE}44`, borderRadius: 4, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="flex-row flex-wrap" style={{ gap: 16, marginBottom: 14, padding: '10px 14px', background: C.PANEL, border: `1px solid ${C.HABITABLE}44`, borderRadius: 4 }}>
               <Label color={C.HABITABLE}>Habitable Zone</Label>
-              <span style={{ fontFamily: FONTS.MONO, fontSize: 15, color: C.HABITABLE }}>{active.hz.inner} – {active.hz.outer} AU</span>
-              <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT_FAINT }}>Liquid water range (combined luminosity)</span>
+              <span style={{ fontSize: 15, color: C.HABITABLE }}>{active.hz.inner} – {active.hz.outer} AU</span>
+              <span className="hint">Liquid water range (combined luminosity)</span>
             </div>
           )}
 
           <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+            <div className="flex-between flex-wrap gap-md" style={{ marginBottom: 10 }}>
               <Label color={C.PRIMARY}>Planetary Bodies ({active.worlds.length})</Label>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div className="flex-row flex-wrap gap-md">
                 {Object.entries(ZONE_COLORS).map(([zone, color]) => (
-                  <span key={zone} style={{ fontFamily: FONTS.MONO, fontSize: 11, color, letterSpacing: 1 }}>■ {zone.replace('_', ' ')}</span>
+                  <span key={zone} style={{ fontSize: 11, color, letterSpacing: 1 }}>■ {zone.replace('_', ' ')}</span>
                 ))}
               </div>
             </div>
@@ -927,23 +901,19 @@ export default function App() {
           {/* Comets */}
           {active.comets?.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+              <div className="flex-row gap-sm" style={{ marginBottom: 10 }}>
                 <div style={{ width: 40, height: 4, background: C.COLD, borderRadius: 2 }}/>
                 <Label color={C.COLD}>Comets ({active.comets.length})</Label>
                 <div style={{ flex: 1, height: 4, background: C.COLD + '22', borderRadius: 2 }}/>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div className="flex-col gap-sm">
                 {active.comets.map((c, i) => (
-                  <div key={c.id} style={{ background: C.PANEL, border: `1px solid ${C.COLD}33`, borderRadius: 4, padding: '8px 14px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_FAINT }}>[C{i + 1}]</span>
+                  <div key={c.id} className="flex-row flex-wrap" style={{ gap: 12, background: C.PANEL, border: `1px solid ${C.COLD}33`, borderRadius: 4, padding: '8px 14px' }}>
+                    <span style={{ fontSize: 11, color: C.TEXT_FAINT }}>[C{i + 1}]</span>
                     <Tag color={C.COLD}>{c.composition}</Tag>
                     <Tag color={C.TEXT_DIM}>{c.periodType}</Tag>
-                    <span style={{ fontFamily: FONTS.MONO, fontSize: 12, color: C.TEXT }}>
-                      {c.period} yr period
-                    </span>
-                    <span style={{ fontFamily: FONTS.MONO, fontSize: 11, color: C.TEXT_DIM, flex: 1 }}>
-                      {c.compDesc}
-                    </span>
+                    <span style={{ fontSize: 12, color: C.TEXT }}>{c.period} yr period</span>
+                    <span style={{ fontSize: 11, color: C.TEXT_DIM, flex: 1 }}>{c.compDesc}</span>
                   </div>
                 ))}
               </div>
@@ -958,13 +928,13 @@ export default function App() {
 
         {view === 'archive' && (
           <div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
+            <div className="flex-row gap-md" style={{ marginBottom: 14 }}>
               <div style={{ width: 4, height: 44, background: C.EXOTIC, borderRadius: 2 }}/>
               <div style={{ flex: 1, height: 5, background: C.EXOTIC + '22', borderRadius: 3 }}/>
               <div style={{ width: 40, height: 5, background: C.EXOTIC, borderRadius: 3 }}/>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <span style={{ fontFamily: FONTS.MONO, fontSize: 13, color: C.EXOTIC, letterSpacing: 3 }}>
+            <div className="flex-between" style={{ marginBottom: 14 }}>
+              <span style={{ fontSize: 13, color: C.EXOTIC, letterSpacing: 3 }}>
                 SYSTEM ARCHIVE · {archive.length} / {MAX_SAVED}
               </span>
               {archive.length > 0 && (
@@ -982,7 +952,7 @@ export default function App() {
 
         {view === 'about' && (
           <div style={{ ...panelStyle(), maxWidth: 660, margin: '0 auto' }}>
-            <div style={{ fontFamily: FONTS.MONO, lineHeight: 1.9 }}>
+            <div style={{ lineHeight: 1.9 }}>
               <div style={{ fontSize: 18, color: C.PRIMARY, letterSpacing: 4, marginBottom: 16 }}>ABOUT ARMILLARY</div>
 
               <p style={{ marginBottom: 14, color: C.TEXT, fontSize: 14 }}>
@@ -1011,21 +981,11 @@ export default function App() {
               <p style={{ color: C.TEXT_DIM, fontSize: 13, marginBottom: 8 }}>
                 Built by Kummer Wolfe — fiction author and worldbuilder.
               </p>
-              <a 
-                href={LINKTREE} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                style={{ ...navBtn(false, C.PRIMARY), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}
-              >
+              <a href={LINKTREE} target="_blank" rel="noopener noreferrer" style={{ ...navBtn(false, C.PRIMARY), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}>
                 ✦ My Linktr.ee
               </a>
               <br/>
-              <a
-                href={SUBSTACK_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ ...navBtn(false, C.PRIMARY), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}
-              >
+              <a href={SUBSTACK_URL} target="_blank" rel="noopener noreferrer" style={{ ...navBtn(false, C.PRIMARY), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}>
                 ✦ Read my fiction on Substack
               </a>
               <p style={{ color: C.TEXT_FAINT, fontSize: 11, marginTop: 12 }}>
