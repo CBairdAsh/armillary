@@ -319,6 +319,7 @@ export const WORLD_TYPES = {
     icon: '⭕',
   },
   'Pulsar Planet': {
+    // Phase 1: generation hook for neutron-star primary systems
     description: 'World orbiting a neutron star',
     canSupportLife: false,
     atmosphereTypes: ['None', 'Exotic'],

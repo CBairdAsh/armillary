@@ -1,10 +1,9 @@
 // ─── GENERATION ENGINE ────────────────────────────────────────────────────────
 // Procedural generation logic based on GURPS Space 4e
-// All randomness is seeded through this module
+// All randomness flows through this module (seeded RNG planned for v1.3)
 
 import {
   SPECTRAL_CLASSES,
-  ORBITAL_ZONES,
   WORLD_TYPE_BY_ZONE,
   WORLD_TYPES,
   WORLD_HAZARDS,
@@ -134,21 +133,34 @@ function generateStar(index = 0, allowExotic = true, forcedSpectralClass = null)
 }
 
 // ─── MULTI-STAR SYSTEM ────────────────────────────────────────────────────────
-function generateStars(count) {
-  const stars = [];
-  for (let i = 0; i < count; i++) {
-    stars.push(generateStar(i, i === 0));
-  }
-  // Binary/triple: secondary stars are typically less massive
-  if (count > 1) {
-    for (let i = 1; i < stars.length; i++) {
-      // Ensure secondary is not more massive than primary
-      if (stars[i].mass > stars[0].mass) {
-        stars[i].mass = round2(stars[0].mass * rnd(0.3, 0.99));
-      }
+function enforceSecondaryMassLimits(stars) {
+  if (stars.length <= 1) return stars;
+  for (let i = 1; i < stars.length; i++) {
+    if (stars[i].mass > stars[0].mass) {
+      stars[i].mass = round2(stars[0].mass * rnd(0.3, 0.99));
     }
   }
   return stars;
+}
+
+function syncStarHabitableZones(stars) {
+  return stars.map(s => ({
+    ...s,
+    habitableZone: calculateHabitableZone(s.luminosity),
+  }));
+}
+
+function buildStarsArray(count, { locked = null, primarySpectralClass = null } = {}) {
+  const stars = [];
+  for (let i = 0; i < count; i++) {
+    if (locked?.[i]) {
+      stars.push(locked[i]);
+    } else {
+      stars.push(generateStar(i, i === 0, i === 0 ? primarySpectralClass : null));
+    }
+  }
+  enforceSecondaryMassLimits(stars);
+  return syncStarHabitableZones(stars);
 }
 
 // ─── ORBITAL ZONES ────────────────────────────────────────────────────────────
@@ -230,7 +242,6 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
         description:    moonType.description,
         canSupportLife: moonHabit,
         lifeNote:       moonHabit ? moonType.lifeNote || null : null,
-        hasLife:        moonHabit && Math.random() < 0.15,
       };
     });
   }
@@ -293,6 +304,94 @@ const SPECIES_COUNT_WEIGHTS = [[0, 30], [1, 50], [2, 15], [3, 4], [4, 1]];
 
 function generateSpeciesCount() {
   return parseInt(weightedPick(SPECIES_COUNT_WEIGHTS));
+}
+
+function assignWorldLife(world) {
+  if (!world.isHabitable) {
+    world.species = world.species || [];
+    return world;
+  }
+  if (world.locked && world.species?.length > 0) return world;
+
+  const count = generateSpeciesCount();
+  world.species = Array.from({ length: count }, () =>
+    generateSpecies(world.worldType, world.zone)
+  );
+
+  if (count === 0 && !world.ruins) {
+    world.ruins = Math.random() < RUINS_CHANCE ? generateRuins() : null;
+  } else if (count > 0) {
+    world.ruins = null;
+  }
+
+  world.moons = (world.moons || []).map(moon => {
+    if (!moon.canSupportLife) return { ...moon, species: moon.species || [] };
+    const moonSpeciesCount = Math.random() < 0.2 ? 1 : 0;
+    return {
+      ...moon,
+      species: Array.from({ length: moonSpeciesCount }, () =>
+        generateSpecies('Ice Planet', 'OUTER')
+      ),
+    };
+  });
+
+  return world;
+}
+
+function generateCircumbinaryWorld(orbitalAU, combinedHZ, totalLuminosity, index) {
+  const cbAU   = orbitalAU ?? round2(combinedHZ.outer * rnd(1.5, 4.0));
+  const cbZone = cbAU > combinedHZ.outer * 2 ? 'FRINGE' : 'OUTER';
+  const cbTypePool = WORLD_TYPE_BY_ZONE[cbZone];
+  const cbType     = weightedPick(cbTypePool);
+  const cbDef      = WORLD_TYPES[cbType] || WORLD_TYPES['Gas Giant'];
+  const cbAtmo     = weightedPick(cbDef.atmosphereTypes.map((t, i) => [t, cbDef.atmosphereWeights[i]]));
+  const cbHydro    = weightedPick(cbDef.hydrosphereTypes.map((t, i) => [t, cbDef.hydrosphereWeights[i]]));
+  const cbGravity  = round2(rnd(cbDef.gravityRange[0], cbDef.gravityRange[1]));
+  const cbTemp     = estimateTemperature(cbType, cbZone, totalLuminosity);
+  return {
+    id:              crypto.randomUUID(),
+    index,
+    orbitalAU:       cbAU,
+    zone:            cbZone,
+    worldType:       cbType,
+    atmosphere:      cbAtmo,
+    hydrosphere:     cbHydro,
+    gravity:         cbGravity,
+    temperature:     cbTemp,
+    isHabitable:     false,
+    isCircumbinary:  true,
+    tidallyLocked:   false,
+    tidalResonance:  false,
+    biosignature:    null,
+    hazards:         ['Stellar perturbation', 'Radiation from multiple sources'],
+    moons:           [],
+    worldNotes:      'Orbits the combined center of mass of all stars in the system. Tatooine-class world.',
+    locked:          false,
+    species:         [],
+    ruins:           null,
+  };
+}
+
+function regenerateWorldAtAU(world, system) {
+  const totalLuminosity = system.stars.reduce((sum, s) => sum + s.luminosity, 0);
+  const hz              = system.hz || calculateHabitableZone(totalLuminosity);
+  const primaryClass    = system.stars[0]?.spectralClass || 'G';
+  const index           = world.index ?? 0;
+
+  let fresh;
+  if (world.isCircumbinary) {
+    fresh = generateCircumbinaryWorld(world.orbitalAU, hz, totalLuminosity, index);
+  } else {
+    fresh = generateWorld(world.orbitalAU, hz, totalLuminosity, index, primaryClass);
+  }
+
+  const regenerated = {
+    ...fresh,
+    id:    world.id,
+    index: world.index ?? index,
+    locked: false,
+  };
+  return assignWorldLife(regenerated);
 }
 
 // ─── COMET GENERATION ────────────────────────────────────────────────────────
@@ -465,22 +564,8 @@ export function generateSystem({ starCount = 1, locked = {}, primarySpectralClas
 
   // Stars — force primary spectral class if provided (for neighbor navigation)
   const stars = locked.stars
-    ? locked.stars.map((s, i) => s || generateStar(i, i === 0))
-    : (() => {
-        const arr = [];
-        for (let i = 0; i < starCount; i++) {
-          arr.push(generateStar(i, i === 0, i === 0 ? primarySpectralClass : null));
-        }
-        // Binary/triple: secondary stars typically less massive than primary
-        if (arr.length > 1) {
-          for (let i = 1; i < arr.length; i++) {
-            if (arr[i].mass > arr[0].mass) {
-              arr[i].mass = round2(arr[0].mass * rnd(0.3, 0.99));
-            }
-          }
-        }
-        return arr;
-      })();
+    ? buildStarsArray(starCount, { locked: locked.stars, primarySpectralClass })
+    : buildStarsArray(starCount, { primarySpectralClass });
 
   // Primary star drives HZ and world count
   const primaryStar = stars[0];
@@ -509,69 +594,14 @@ export function generateSystem({ starCount = 1, locked = {}, primarySpectralClas
   // Orbits beyond the outermost star's influence — typically 3–5× the binary separation
   let circumbinaryWorld = null;
   if (stars.length > 1 && Math.random() < CIRCUMBINARY_CHANCE) {
-    const cbAU = round2(combinedHZ.outer * rnd(1.5, 4.0));
-    const cbZone = cbAU > combinedHZ.outer * 2 ? 'FRINGE' : 'OUTER';
-    const cbTypePool = WORLD_TYPE_BY_ZONE[cbZone];
-    const cbType     = weightedPick(cbTypePool);
-    const cbDef      = WORLD_TYPES[cbType] || WORLD_TYPES['Gas Giant'];
-    const cbAtmo     = weightedPick(cbDef.atmosphereTypes.map((t, i) => [t, cbDef.atmosphereWeights[i]]));
-    const cbHydro    = weightedPick(cbDef.hydrosphereTypes.map((t, i) => [t, cbDef.hydrosphereWeights[i]]));
-    const cbGravity  = round2(rnd(cbDef.gravityRange[0], cbDef.gravityRange[1]));
-    const cbTemp     = estimateTemperature(cbType, cbZone, totalLuminosity);
-    circumbinaryWorld = {
-      id:              crypto.randomUUID(),
-      index:           worlds.length,
-      orbitalAU:       cbAU,
-      zone:            cbZone,
-      worldType:       cbType,
-      atmosphere:      cbAtmo,
-      hydrosphere:     cbHydro,
-      gravity:         cbGravity,
-      temperature:     cbTemp,
-      isHabitable:     false, // circumbinary worlds rarely habitable at this distance
-      isCircumbinary:  true,
-      tidallyLocked:   false,
-      tidalResonance:  false,
-      biosignature:    null,
-      hazards:         ['Stellar perturbation', 'Radiation from multiple sources'],
-      moons:           [],
-      worldNotes:      'Orbits the combined center of mass of all stars in the system. Tatooine-class world.',
-      locked:          false,
-      species:         [],
-      ruins:           null,
-    };
+    circumbinaryWorld = generateCircumbinaryWorld(null, combinedHZ, totalLuminosity, worlds.length);
   }
 
   // Combine regular worlds with circumbinary world if present
   const allWorlds = circumbinaryWorld ? [...worlds, circumbinaryWorld] : worlds;
 
   // Generate species for habitable worlds + ruins for empty habitable worlds
-  allWorlds.forEach(world => {
-    if (!world.isHabitable) return;
-    if (world.locked && world.species.length > 0) return;
-
-    const count = generateSpeciesCount();
-    world.species = Array.from({ length: count }, () =>
-      generateSpecies(world.worldType, world.zone)
-    );
-
-    // Ruins — only on habitable worlds with NO current species
-    if (count === 0 && !world.ruins) {
-      world.ruins = Math.random() < RUINS_CHANCE ? generateRuins() : null;
-    }
-
-    // Moon species
-    world.moons = world.moons.map(moon => {
-      if (!moon.canSupportLife) return moon;
-      const moonSpeciesCount = Math.random() < 0.2 ? 1 : 0;
-      return {
-        ...moon,
-        species: Array.from({ length: moonSpeciesCount }, () =>
-          generateSpecies('Ice Planet', 'OUTER')
-        ),
-      };
-    });
-  });
+  allWorlds.forEach(world => assignWorldLife(world));
 
   // Generate comets
   const comets = generateComets();
@@ -607,18 +637,121 @@ export function redrawSystem(existingSystem, { redrawnStarCount } = {}) {
 
   const lockedWorlds = existingSystem.worlds.map(w => w.locked ? w : null);
 
-  const lockedWorldCount = existingSystem.worldCountLocked
-    ? existingSystem.worldCount : undefined;
-
   return generateSystem({
     starCount,
     locked: {
       neighborhood: lockedNeighborhood,
       stars:        lockedStars,
       worlds:       lockedWorlds,
-      worldCount:   lockedWorldCount,
     },
   });
+}
+
+// ─── TARGETED REDRAW (single star or world) ───────────────────────────────────
+export function redrawStar(system, starId) {
+  const starIndex = system.stars.findIndex(s => s.id === starId);
+  if (starIndex === -1) return system;
+
+  const existing = system.stars[starIndex];
+  if (existing.locked) return system;
+
+  const freshStar = generateStar(starIndex, starIndex === 0);
+  let stars = system.stars.map((s, i) =>
+    i === starIndex ? { ...freshStar, id: starId, locked: false } : s
+  );
+  enforceSecondaryMassLimits(stars);
+  stars = syncStarHabitableZones(stars);
+
+  const totalLuminosity = stars.reduce((sum, s) => sum + s.luminosity, 0);
+  const combinedHZ      = calculateHabitableZone(totalLuminosity);
+
+  const worlds = system.worlds.map(world => {
+    if (world.locked) return world;
+    return regenerateWorldAtAU(world, { ...system, stars, hz: combinedHZ });
+  });
+
+  return {
+    ...system,
+    stars,
+    hz:        combinedHZ,
+    worlds,
+    timestamp: Date.now(),
+  };
+}
+
+export function redrawWorld(system, worldId) {
+  const worldIndex = system.worlds.findIndex(w => w.id === worldId);
+  if (worldIndex === -1) return system;
+
+  const existing = system.worlds[worldIndex];
+  if (existing.locked) return system;
+
+  const worlds = [...system.worlds];
+  worlds[worldIndex] = regenerateWorldAtAU(existing, system);
+
+  return {
+    ...system,
+    worlds,
+    timestamp: Date.now(),
+  };
+}
+
+// ─── ROGUE PLANET SYSTEM (navigable neighbor) ────────────────────────────────
+function generateRogueWorld(index = 0) {
+  const worldType = 'Ice Planet';
+  const worldDef  = WORLD_TYPES[worldType];
+  const atmosphere = Math.random() < 0.3 ? 'Trace' : 'None';
+  const hydrosphere = weightedPick(
+    worldDef.hydrosphereTypes.map((t, i) => [t, worldDef.hydrosphereWeights[i]])
+  );
+  const gravity = round2(rnd(0.1, 0.5));
+  const temperature = rndInt(-250, -150);
+
+  return {
+    id:              crypto.randomUUID(),
+    index,
+    orbitalAU:       0,
+    zone:            'FRINGE',
+    worldType,
+    atmosphere,
+    hydrosphere,
+    gravity,
+    temperature,
+    isHabitable:     false,
+    tidallyLocked:   false,
+    tidalResonance:  false,
+    biosignature:    null,
+    hazards:         ['Extreme cold', 'No solar energy', 'Radiation from cosmic sources'],
+    moons:           [],
+    worldNotes:      'Unbound planetary body. Geothermal heat from radioactive decay may sustain subsurface liquid water.',
+    locked:          false,
+    species:         [],
+    ruins:           null,
+    isCircumbinary:  false,
+  };
+}
+
+export function generateRoguePlanetSystem() {
+  const hasBody = Math.random() < 0.4;
+  const worlds  = hasBody ? [generateRogueWorld()] : [];
+
+  return {
+    id:            crypto.randomUUID(),
+    timestamp:     Date.now(),
+    isRoguePlanet: true,
+    stars:         [],
+    hz:            { inner: 0, outer: 0 },
+    worldCount:    worlds.length,
+    worlds,
+    comets:        [],
+    neighborhood: {
+      id:          crypto.randomUUID(),
+      density:     'N/A',
+      densityDesc: 'Interstellar void',
+      neighbors:   [],
+      locked:      false,
+    },
+  };
 }
 
 // ─── SPECIES REGENERATION ─────────────────────────────────────────────────────

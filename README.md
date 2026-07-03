@@ -1,4 +1,4 @@
-# Armillary — Stellar System Generator - v 1.03
+# Armillary — Stellar System Generator - v 1.1
 
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
@@ -117,6 +117,13 @@ All methodology used for fan creative purposes with attribution.
 ## Local Development
 
 **Prerequisites:** Node.js 22.x or later
+
+```bash
+npm install
+npm run dev
+```
+
+Before deploying, run through [SMOKE_TEST.md](SMOKE_TEST.md) (quick pass ~5 min).
 
 ---
 

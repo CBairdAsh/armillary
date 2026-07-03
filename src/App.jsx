@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
-import { generateSystem, redrawSystem, regenerateSpeciesForWorld, generateTextSummary } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
 import { C, ZONE_COLORS, navBtn, cardStyle, lockStripeStyle, lockBtnStyle, panelStyle } from './tokens.js';
 import BootSequence from './components/BootSequence.jsx';
-import { KOFI_URL, SUBSTACK_URL, LIVE_URL, LINKTREE } from './config.js';
+import { KOFI_URL, SUBSTACK_URL, LIVE_URL, LINKTREE, APP_VERSION } from './config.js';
 
 // ─── UTILITY COMPONENTS ───────────────────────────────────────────────────────
 function Label({ children, color = C.PRIMARY_L }) {
@@ -514,6 +514,11 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
         <div>
           <div className="stat-label">HABITABLE ZONE</div>
           <div style={{ fontSize: 15, color: C.HABITABLE }}>{system.hz.inner}–{system.hz.outer} AU</div>
+          {system.stars.length > 1 && !system.isRoguePlanet && (
+            <div className="hint" style={{ marginTop: 4, maxWidth: 220 }}>
+              Combined luminosity. Per-star HZ on star cards below.
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -656,46 +661,9 @@ export default function App() {
 
   const handleNavigate = (neighbor) => {
     if (!neighborSystems[neighbor.id]) {
-      let ns;
-      if (neighbor.objectType === 'Rogue Planet') {
-        // Build a hand-crafted rogue body system — no star, no HZ, 0-1 captured bodies
-        const bodyCount = Math.random() < 0.4 ? 1 : 0; // 40% chance of a single captured moon/body
-        const rogueWorlds = bodyCount === 0 ? [] : [{
-          id:            crypto.randomUUID(),
-          index:         0,
-          orbitalAU:     0,
-          zone:          'FRINGE',
-          worldType:     Math.random() < 0.5 ? 'Subsurface Ocean' : 'Ice Planet',
-          atmosphere:    Math.random() < 0.3 ? 'Trace' : 'None',
-          hydrosphere:   'Subsurface Ocean',
-          gravity:       parseFloat((Math.random() * 0.4 + 0.1).toFixed(2)),
-          temperature:   Math.floor(Math.random() * -100 - 150), // -150 to -250°C
-          isHabitable:   false,
-          tidallyLocked: false,
-          tidalResonance:false,
-          biosignature:  null,
-          hazards:       ['Extreme cold', 'No solar energy', 'Radiation from cosmic sources'],
-          moons:         [],
-          worldNotes:    'Captured companion body. Geothermal heat from radioactive decay may sustain subsurface liquid water.',
-          locked:        false,
-          species:       [],
-          ruins:         null,
-          isCircumbinary:false,
-        }];
-        ns = {
-          id:           crypto.randomUUID(),
-          timestamp:    Date.now(),
-          isRoguePlanet:true,
-          stars:        [],
-          hz:           { inner: 0, outer: 0 },
-          worldCount:   rogueWorlds.length,
-          worlds:       rogueWorlds,
-          comets:       [],
-          neighborhood: { density: 'N/A', densityDesc: 'Interstellar void', neighbors: [], locked: false },
-        };
-      } else {
-        ns = generateSystem({ starCount: 1, primarySpectralClass: neighbor.spectralClass });
-      }
+      const ns = neighbor.objectType === 'Rogue Planet'
+        ? generateRoguePlanetSystem()
+        : generateSystem({ starCount: 1, primarySpectralClass: neighbor.spectralClass });
       setNeighborSystems(prev => ({ ...prev, [neighbor.id]: ns }));
     }
     setActiveNeighborId(neighbor.id);
@@ -713,19 +681,13 @@ export default function App() {
 
   const handleLockStar   = useCallback(id => updateActive({ ...active, stars: active.stars.map(s => s.id === id ? { ...s, locked: !s.locked } : s) }), [active, updateActive]);
   const handleRedrawStar = useCallback(id => {
-    const f = generateSystem({ starCount });
-    const i = active.stars.findIndex(s => s.id === id);
-    const fs = f.stars[i] || f.stars[0];
-    updateActive({ ...active, stars: active.stars.map(s => s.id === id ? { ...fs, id, locked: false } : s) });
-  }, [active, starCount, updateActive]);
+    updateActive(redrawStar(active, id));
+  }, [active, updateActive]);
 
   const handleLockWorld   = useCallback(id => updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? { ...w, locked: !w.locked } : w) }), [active, updateActive]);
   const handleRedrawWorld = useCallback(id => {
-    const f  = generateSystem({ starCount });
-    const wi = active.worlds.findIndex(w => w.id === id);
-    const fw = f.worlds[wi] || f.worlds[0];
-    updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? { ...fw, id, locked: false } : w) });
-  }, [active, starCount, updateActive]);
+    updateActive(redrawWorld(active, id));
+  }, [active, updateActive]);
 
   const handleSpecies = useCallback(id => updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? regenerateSpeciesForWorld(w) : w) }), [active, updateActive]);
 
@@ -880,7 +842,11 @@ export default function App() {
             <div className="flex-row flex-wrap" style={{ gap: 16, marginBottom: 14, padding: '10px 14px', background: C.PANEL, border: `1px solid ${C.HABITABLE}44`, borderRadius: 4 }}>
               <Label color={C.HABITABLE}>Habitable Zone</Label>
               <span style={{ fontSize: 15, color: C.HABITABLE }}>{active.hz.inner} – {active.hz.outer} AU</span>
-              <span className="hint">Liquid water range (combined luminosity)</span>
+              <span className="hint">
+                {active.stars.length > 1
+                  ? 'Combined luminosity of all stars. Per-star HZ shown on star cards.'
+                  : 'Liquid water range (combined luminosity)'}
+              </span>
             </div>
           )}
 
@@ -989,7 +955,7 @@ export default function App() {
                 ✦ Read my fiction on Substack
               </a>
               <p style={{ color: C.TEXT_FAINT, fontSize: 11, marginTop: 12 }}>
-                © 2026 Kummer Wolfe · Free for personal, commercial, and creative use · CC BY 4.0<br/>
+                v{APP_VERSION} · © 2026 Kummer Wolfe · Free for personal, commercial, and creative use · CC BY 4.0<br/>
                 <a href={LIVE_URL} style={{ color: C.TEXT_FAINT }}>armillary-star-gen.pages.dev</a>
               </p>
             </div>
