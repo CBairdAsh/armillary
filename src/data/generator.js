@@ -30,6 +30,7 @@ import {
   BIOSIGNATURE_CHANCE,
   BIOSIGNATURE_TYPES,
   CIRCUMBINARY_CHANCE,
+  PULSAR_PLANET_CHANCE,
   calculateHabitableZone,
   estimateTemperature,
 } from './stellarData.js';
@@ -61,6 +62,14 @@ function pickN(arr, n) {
 }
 function round2(n) { return Math.round(n * 100) / 100; }
 
+function applyWeightBoosts(items, boosts = {}) {
+  if (!Object.keys(boosts).length) return items;
+  return items.map(item => ({
+    ...item,
+    weight: item.weight * (boosts[item.label] ?? 1),
+  }));
+}
+
 // ─── SPECTRAL CLASS GENERATION ────────────────────────────────────────────────
 // GURPS Space uses a weighted roll favoring common stellar types
 const SPECTRAL_WEIGHTS = [
@@ -83,14 +92,16 @@ function generateSpectralClass(allowExotic = true) {
   return weightedPick(pool);
 }
 
-function generateLuminosity(spectralClass) {
+function generateLuminosityFromMass(spectralClass, mass) {
   const sc = SPECTRAL_CLASSES[spectralClass];
   if (!sc) return 1.0;
-  const [min, max] = sc.luminosityRange;
-  // Log-uniform distribution for luminosity (GURPS approach)
-  const logMin = Math.log10(min);
-  const logMax = Math.log10(max);
-  return round2(Math.pow(10, rnd(logMin, logMax)));
+  const [minM, maxM] = sc.massRange;
+  const [minL, maxL] = sc.luminosityRange;
+  const span = maxM - minM || 1;
+  const t    = Math.min(1, Math.max(0, (mass - minM) / span));
+  const logL = Math.log10(minL) + t * (Math.log10(maxL) - Math.log10(minL));
+  const jitter = rnd(-0.06, 0.06);
+  return round2(Math.pow(10, logL + jitter));
 }
 
 function generateMass(spectralClass) {
@@ -110,8 +121,8 @@ function generateAge(spectralClass) {
 // ─── SINGLE STAR GENERATION ───────────────────────────────────────────────────
 function generateStar(index = 0, allowExotic = true, forcedSpectralClass = null) {
   const spectralClass = forcedSpectralClass || generateSpectralClass(index === 0 ? allowExotic : false);
-  const luminosity    = generateLuminosity(spectralClass);
   const mass          = generateMass(spectralClass);
+  const luminosity    = generateLuminosityFromMass(spectralClass, mass);
   const age           = generateAge(spectralClass);
   const hz            = calculateHabitableZone(luminosity);
   const sc            = SPECTRAL_CLASSES[spectralClass];
@@ -184,10 +195,55 @@ function generateOrbitalPositions(count, hz) {
   return positions;
 }
 
-function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClass = 'G') {
+function resolveWorldType(zone, index, primarySpectralClass, forcedWorldType = null) {
+  if (forcedWorldType) return forcedWorldType;
+  if (primarySpectralClass === 'NS' && index === 0 && Math.random() < PULSAR_PLANET_CHANCE) {
+    return 'Pulsar Planet';
+  }
+  const typePool = WORLD_TYPE_BY_ZONE[zone] || WORLD_TYPE_BY_ZONE.OUTER;
+  return weightedPick(typePool);
+}
+
+function getSpeciesWeightBoosts(worldType, zone, { tidallyLocked = false, tidalResonance = false } = {}) {
+  const origin = {};
+  const sense  = {};
+  const social = {};
+  const body   = {};
+  const disp   = {};
+
+  if (worldType === 'Ocean Planet' || worldType === 'Hycean') {
+    origin['Carbon-based'] = 1.25;
+    sense['Chemoreception'] = 2.2;
+    sense['Echolocation'] = 1.4;
+  }
+  if (worldType === 'Desert') {
+    sense['Thermoreception'] = 2.2;
+    origin['Silicon-based'] = 1.5;
+  }
+  if (worldType === 'Ice Planet') {
+    origin['Carbon/Ammonia'] = 2.0;
+    sense['Mechanoreception'] = 1.6;
+  }
+  if (worldType === 'Double Planet') {
+    body['Modular'] = 1.5;
+  }
+  if (zone === 'OUTER' || zone === 'FRINGE') {
+    origin['Carbon/Ammonia'] = (origin['Carbon/Ammonia'] ?? 1) * 1.3;
+    origin['Exotic'] = 1.4;
+  }
+  if (tidallyLocked || tidalResonance) {
+    social['Hive'] = 1.6;
+    social['Networked'] = 1.4;
+    disp['Absorbed/Isolated'] = 1.7;
+    sense['Thermoreception'] = (sense['Thermoreception'] ?? 1) * 1.8;
+  }
+
+  return { origin, sense, social, body, disp };
+}
+
+function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClass = 'G', forcedWorldType = null) {
   const zone      = determineOrbitalZone(orbitalAU, hz);
-  const typePool  = WORLD_TYPE_BY_ZONE[zone] || WORLD_TYPE_BY_ZONE.OUTER;
-  const worldType = weightedPick(typePool);
+  const worldType = resolveWorldType(zone, index, primarySpectralClass, forcedWorldType);
   const worldDef  = WORLD_TYPES[worldType] || WORLD_TYPES['Terrestrial'];
 
   const atmosphere = weightedPick(
@@ -201,7 +257,7 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
   const gravityMax = worldDef.gravityRange[1];
   const gravity    = gravityMin === gravityMax ? gravityMin : round2(rnd(gravityMin, gravityMax));
 
-  const temperature = estimateTemperature(worldType, zone, starLuminosity);
+  const temperature = estimateTemperature(worldType, zone, starLuminosity, orbitalAU, hz);
 
   // Habitable check
   const inHZ        = zone === 'HABITABLE';
@@ -269,13 +325,15 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
 }
 
 // ─── SPECIES GENERATION ───────────────────────────────────────────────────────
-function generateSpecies(worldType, zone) {
-  const origin      = weightedPick(BIOLOGICAL_ORIGINS);
-  const bodyPlan    = weightedPick(BODY_PLANS);
-  const primarySense = weightedPick(PRIMARY_SENSES);
-  const social      = weightedPick(SOCIAL_STRUCTURES);
-  const tech        = weightedPick(TECH_LEVELS);
-  const disposition = weightedPick(DISPOSITIONS);
+function generateSpecies(worldType, zone, context = {}) {
+  const boosts = getSpeciesWeightBoosts(worldType, zone, context);
+
+  const origin       = weightedPick(applyWeightBoosts(BIOLOGICAL_ORIGINS, boosts.origin));
+  const bodyPlan     = weightedPick(applyWeightBoosts(BODY_PLANS, boosts.body));
+  const primarySense = weightedPick(applyWeightBoosts(PRIMARY_SENSES, boosts.sense));
+  const social       = weightedPick(applyWeightBoosts(SOCIAL_STRUCTURES, boosts.social));
+  const tech         = weightedPick(TECH_LEVELS);
+  const disposition  = weightedPick(applyWeightBoosts(DISPOSITIONS, boosts.disp));
   const traitCount  = rndInt(1, 2);
   const traits      = pickN(DISTINCTIVE_TRAITS, traitCount);
 
@@ -306,6 +364,13 @@ function generateSpeciesCount() {
   return parseInt(weightedPick(SPECIES_COUNT_WEIGHTS));
 }
 
+function speciesContextForWorld(world) {
+  return {
+    tidallyLocked:  world.tidallyLocked,
+    tidalResonance: world.tidalResonance,
+  };
+}
+
 function assignWorldLife(world) {
   if (!world.isHabitable) {
     world.species = world.species || [];
@@ -313,9 +378,10 @@ function assignWorldLife(world) {
   }
   if (world.locked && world.species?.length > 0) return world;
 
+  const ctx   = speciesContextForWorld(world);
   const count = generateSpeciesCount();
   world.species = Array.from({ length: count }, () =>
-    generateSpecies(world.worldType, world.zone)
+    generateSpecies(world.worldType, world.zone, ctx)
   );
 
   if (count === 0 && !world.ruins) {
@@ -347,7 +413,7 @@ function generateCircumbinaryWorld(orbitalAU, combinedHZ, totalLuminosity, index
   const cbAtmo     = weightedPick(cbDef.atmosphereTypes.map((t, i) => [t, cbDef.atmosphereWeights[i]]));
   const cbHydro    = weightedPick(cbDef.hydrosphereTypes.map((t, i) => [t, cbDef.hydrosphereWeights[i]]));
   const cbGravity  = round2(rnd(cbDef.gravityRange[0], cbDef.gravityRange[1]));
-  const cbTemp     = estimateTemperature(cbType, cbZone, totalLuminosity);
+  const cbTemp     = estimateTemperature(cbType, cbZone, totalLuminosity, cbAU, combinedHZ);
   return {
     id:              crypto.randomUUID(),
     index,
@@ -757,12 +823,13 @@ export function generateRoguePlanetSystem() {
 // ─── SPECIES REGENERATION ─────────────────────────────────────────────────────
 export function regenerateSpeciesForWorld(world) {
   if (!world.isHabitable) return world;
+  const ctx     = speciesContextForWorld(world);
   const count   = generateSpeciesCount();
   const species = world.species.map(s =>
-    s.locked ? s : generateSpecies(world.worldType, world.zone)
+    s.locked ? s : generateSpecies(world.worldType, world.zone, ctx)
   );
   while (species.length < count) {
-    species.push(generateSpecies(world.worldType, world.zone));
+    species.push(generateSpecies(world.worldType, world.zone, ctx));
   }
   const finalSpecies = species.slice(0, Math.max(count, species.filter(s => s.locked).length));
   // If no species left after regen, roll for ruins
@@ -825,7 +892,7 @@ export function generateTextSummary(system) {
   // Worlds
   lines.push('PLANETARY BODIES');
   worlds.forEach((world, i) => {
-    lines.push(`[${i + 1}] ${world.worldType} at ${world.orbitalAU} AU (${world.zone.replace('_', ' ')})${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}`);
+    lines.push(`[${i + 1}] ${world.worldType} at ${world.orbitalAU} AU (${world.zone.replace('_', ' ')})${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' ? ' ★ PULSAR ORBIT' : ''}`);
     lines.push(`  Atmosphere: ${world.atmosphere}  |  Hydrosphere: ${world.hydrosphere}`);
     lines.push(`  Gravity: ${world.gravity}g  |  Temperature: ${world.temperature}°C`);
     if (world.tidallyLocked)  lines.push(`  ⟳ TIDALLY LOCKED — permanent day/night hemispheres`);

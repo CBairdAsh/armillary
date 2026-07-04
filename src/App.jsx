@@ -252,6 +252,7 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
           <Tag color={zoneColor}>{world.zone.replace('_', ' ')}</Tag>
           <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{world.orbitalAU} AU</span>
           {world.isCircumbinary && <Tag color={C.STAR_G}>★ CIRCUMBINARY</Tag>}
+          {world.worldType === 'Pulsar Planet' && <Tag color={C.STAR_NS}>★ PULSAR ORBIT</Tag>}
           {world.isHabitable    && <Tag color={C.HABITABLE}>★ HABITABLE</Tag>}
           {world.tidallyLocked  && <Tag color={C.COLD}>⟳ TIDALLY LOCKED</Tag>}
           {world.tidalResonance && <Tag color={C.COLD}>⟳ RESONANCE</Tag>}

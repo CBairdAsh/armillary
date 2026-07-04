@@ -1,4 +1,4 @@
-# Armillary — Stellar System Generator - v 1.1
+# Armillary — Stellar System Generator - v 1.2
 
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
@@ -93,6 +93,9 @@ Species generation draws on **GURPS Aliens** biological origin and social struct
 
 Key physics:
 - Habitable zone: `inner = 0.95 × √L`, `outer = 1.37 × √L` (where L = solar luminosity)
+- Surface temperature: Stefan-Boltzmann–inspired scaling from orbital AU and luminosity
+- Stellar mass and luminosity: coupled within spectral-class bounds
+- Neutron-star primaries: ~65% chance of a pulsar planet on the innermost orbit
 - Orbital spacing: Titius-Bode inspired with randomized multiplier (1.4–2.2×)
 - Planetary type probability weighted by orbital zone (Inner / Habitable / Outer / Fringe)
 - Spectral class distribution weighted to realistic stellar population (M-type 76.5%, K 12.1%, G 7.6%, etc.)

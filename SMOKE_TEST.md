@@ -9,7 +9,9 @@ npm run dev
 
 Open the app in your browser. Keep DevTools (F12) → **Console** open; there should be no red errors during these steps.
 
-**Current target:** v1.1.0 (Phase 0 — trustworthy redraw)
+**Current target:** v1.2.0 (Phase 1 — generation coherence)
+
+See [Phase 1 checks](#phase-1-checks-v120) below after Phase 0 sign-off.
 
 ---
 
@@ -168,6 +170,22 @@ Ready to commit/push/deploy when all are true:
 - [ ] Archive + browser refresh persistence work
 - [ ] `npm run build` succeeds
 - [ ] No console errors during quick pass
+
+---
+
+## Phase 1 checks (v1.2.0)
+
+Run after Phase 1 release (generation coherence).
+
+| # | Action | Expected |
+|---|--------|----------|
+| P1-1 | Generate several systems; compare **T** on inner vs. outer worlds | Farther worlds (higher AU) tend to be **colder** at similar types |
+| P1-2 | **↻ Redraw** primary star repeatedly until **NS** (rare) or use a saved NS system | Innermost body is often **Pulsar Planet** (~65%); export shows `★ PULSAR ORBIT` |
+| P1-3 | Habitable **Ocean Planet** → regen species several times | Chemoreception / carbon-based appear more often than on random desert worlds |
+| P1-4 | Star card: mass and luminosity feel paired | Extreme mismatches (e.g. tiny mass, huge L) should be rare |
+| P1-5 | Phase 0 quick pass still passes | Locks, redraw, rogue planet, archive |
+
+**NS tip:** Neutron stars are rare in random generation. Redraw an unlocked primary, or explore until you see NS in the neighborhood and match it.
 
 ---
 

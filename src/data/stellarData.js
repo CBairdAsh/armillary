@@ -319,7 +319,6 @@ export const WORLD_TYPES = {
     icon: '⭕',
   },
   'Pulsar Planet': {
-    // Phase 1: generation hook for neutron-star primary systems
     description: 'World orbiting a neutron star',
     canSupportLife: false,
     atmosphereTypes: ['None', 'Exotic'],
@@ -328,6 +327,7 @@ export const WORLD_TYPES = {
     hydrosphereTypes: ['None'],
     hydrosphereWeights: [100],
     icon: '💫',
+    notes: 'Orbits a neutron star pulsar. Intense X-ray and particle radiation. Magnetosphere strips atmosphere; surface sterilized.',
   },
   'Coreless': {
     description: 'Rocky world with no iron core',
@@ -396,34 +396,45 @@ export const BIOSIGNATURE_TYPES = [
   },
 ];
 
+// Chance innermost body is a pulsar planet when primary is a neutron star
+export const PULSAR_PLANET_CHANCE = 0.65;
+
 // ─── CIRCUMBINARY PLANET ──────────────────────────────────────────────────────
 // Planets orbiting both stars in a binary/triple system
 export const CIRCUMBINARY_CHANCE = 0.25; // 25% chance per binary/triple system
 
-// ─── TEMPERATURE RANGES BY WORLD TYPE + ZONE ─────────────────────────────────
-export function estimateTemperature(worldType, zone, luminosity) {
-  // Simplified Stefan-Boltzmann approximation
-  // Returns average surface temp in Celsius
-  const baseByZone = {
-    INNER: 200,
-    HABITABLE: 15,
-    OUTER: -80,
-    FRINGE: -180,
-  };
+// ─── TEMPERATURE (orbital distance + luminosity) ─────────────────────────────
+// Stefan-Boltzmann–inspired: equilibrium temp scales as L^0.25 / AU^0.5
+// ~15°C reference at habitable-zone center for solar luminosity
+export function estimateTemperature(worldType, zone, luminosity, orbitalAU = null, hz = null) {
   const modByType = {
-    'Desert':      +30,
-    'Ocean Planet': -10,
-    'Ice Planet':   -60,
-    'Hycean':      +20,
-    'Chthonian':   +400,
-    'Gas Giant':   -100,
-    'Ice Giant':   -150,
-    'default':     0,
+    'Desert':         +30,
+    'Ocean Planet':   -10,
+    'Ice Planet':     -60,
+    'Hycean':         +20,
+    'Chthonian':      +400,
+    'Gas Giant':      -100,
+    'Ice Giant':      -150,
+    'Pulsar Planet':  +80,
+    'Disintegrating': +120,
+    'default':        0,
   };
-  const base = baseByZone[zone] || 0;
-  const mod  = modByType[worldType] ?? modByType['default'];
-  const lumoMod = Math.log10(luminosity || 1) * 15;
-  return Math.round(base + mod + lumoMod);
+
+  let base;
+  if (orbitalAU != null && hz && hz.inner > 0) {
+    const au       = Math.max(orbitalAU, 0.02);
+    const hzCenter = (hz.inner + hz.outer) / 2;
+    const l        = luminosity || 1;
+    base = 15 + 90 * (Math.pow(l, 0.25) * Math.pow(hzCenter / au, 0.5) - 1);
+  } else {
+    const baseByZone = {
+      INNER: 200, HABITABLE: 15, OUTER: -80, FRINGE: -180,
+    };
+    base = (baseByZone[zone] || 0) + Math.log10(luminosity || 1) * 15;
+  }
+
+  const mod = modByType[worldType] ?? modByType.default;
+  return Math.round(base + mod);
 }
 
 // ─── HAZARD TABLES ────────────────────────────────────────────────────────────
@@ -438,6 +449,7 @@ export const WORLD_HAZARDS = {
   'Chthonian':     ['Extreme heat', 'Lava flows', 'No atmosphere', 'Radiation'],
   'Double Planet': ['Tidal stress', 'Magnetic field interference', 'Unstable orbits', 'None'],
   'Asteroid Belt': ['Collision risk', 'Microgravity', 'Radiation exposure'],
+  'Pulsar Planet': ['Intense radiation', 'X-ray bursts', 'Magnetosphere stripping', 'Tidal flexing'],
   'default':       ['Unusual radiation', 'Unknown hazards', 'None'],
 };
 
