@@ -9,9 +9,9 @@ npm run dev
 
 Open the app in your browser. Keep DevTools (F12) → **Console** open; there should be no red errors during these steps.
 
-**Current target:** v1.2.0 (Phase 1 — generation coherence)
+**Current target:** v1.3.1 (Phase 2 — seeds, JSON import, archive search)
 
-See [Phase 1 checks](#phase-1-checks-v120) below after Phase 0 sign-off.
+See [Phase 2 checks](#phase-2-checks-v130) below.
 
 ---
 
@@ -170,6 +170,25 @@ Ready to commit/push/deploy when all are true:
 - [ ] Archive + browser refresh persistence work
 - [ ] `npm run build` succeeds
 - [ ] No console errors during quick pass
+
+---
+
+## Phase 2 checks (v1.3.1)
+
+| # | Action | Expected |
+|---|--------|----------|
+| P2-1 | **⚡ Generate New** (blank seed) | Overview shows new **SEED** row; boot/about show v1.3.1 |
+| P2-2 | Enter seed `test-alpha` → **From seed** twice (same star count) | Same stars/worlds layout both times |
+| P2-2b | **⚡ Generate New** twice (seed field empty or filled) | **Different** systems each time |
+| P2-2c | **↻ Redraw Free** with nothing locked | System changes each click |
+| P2-3 | Change star count → generate with same seed | **Different** system (seed + star count define roll) |
+| P2-4 | **COPY LINK** → open in new tab/incognito | Same system loads from URL; seed visible |
+| P2-5 | **⬇ Export JSON** → **⬆ Import JSON** (same or other browser) | Exact restore (name, worlds, locks, seed) |
+| P2-6 | Import invalid file (e.g. `{}`) | Clear error message; current system unchanged |
+| P2-7 | Save 2+ systems → **ARCHIVE** search by name / `G` / seed substring | Filters correctly; count shown |
+| P2-8 | Phase 0 quick pass | Still passes |
+
+**Seed note:** Same seed reproduces the **generation roll**, not edits, locks, or post-redraw state. Use JSON import for exact artifacts.
 
 ---
 

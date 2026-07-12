@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { generateSystem, redrawSystem, redrawStar, redrawWorld, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
+import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
+import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
 import { C, ZONE_COLORS, navBtn, cardStyle, lockStripeStyle, lockBtnStyle, panelStyle } from './tokens.js';
 import BootSequence from './components/BootSequence.jsx';
@@ -430,8 +432,16 @@ function SpeciesCard({ species, index }) {
 function SystemOverview({ system, isNeighbor, onBack, onRename }) {
   const [editing,  setEditing]  = useState(false);
   const [nameVal,  setNameVal]  = useState(system.name || '');
+  const [copied,   setCopied]   = useState(null);
   const habitable    = system.worlds.filter(w => w.isHabitable).length;
   const totalSpecies = system.worlds.reduce((sum, w) => sum + w.species.length, 0);
+
+  const copyText = (text, label) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(label);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  };
 
   const commitName = () => {
     setEditing(false);
@@ -485,6 +495,25 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
         )}
       </div>
 
+      {system.seed && !system.isRoguePlanet && !isNeighbor && (
+        <div className="flex-row flex-wrap gap-sm" style={{ marginBottom: 12, padding: '8px 10px', background: C.PANEL_ALT, border: `1px solid ${C.BORDER}`, borderRadius: 3 }}>
+          <span className="label">SEED</span>
+          <span className="value" style={{ letterSpacing: 2 }}>{system.seed}</span>
+          <span className="hint">· {system.starCount ?? system.stars.length} star{(system.starCount ?? system.stars.length) !== 1 ? 's' : ''}</span>
+          <div style={{ flex: 1 }}/>
+          <button type="button" onClick={() => copyText(system.seed, 'seed')} style={navBtn(copied === 'seed', C.PRIMARY, true)}>
+            {copied === 'seed' ? '✓ COPIED' : 'COPY SEED'}
+          </button>
+          <button
+            type="button"
+            onClick={() => copyText(buildSeedShareUrl(system.seed, system.starCount ?? system.stars.length), 'link')}
+            style={navBtn(copied === 'link', C.HABITABLE, true)}
+          >
+            {copied === 'link' ? '✓ COPIED' : 'COPY LINK'}
+          </button>
+        </div>
+      )}
+
       <div className="flex-wrap gap-xl align-start">
         <div>
           <div className="stat-label">
@@ -527,16 +556,52 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
 }
 
 // ─── ARCHIVE PANEL ────────────────────────────────────────────────────────────
-function ArchivePanel({ archive, onRestore, onDelete }) {
+function ArchivePanel({ archive, query, onQueryChange, onRestore, onDelete }) {
+  const filtered = archive.filter(entry => archiveEntryMatchesQuery(entry, query));
+
   if (!archive.length) return (
     <div style={{ textAlign: 'center', padding: '32px 0' }}>
       <div className="value" style={{ marginBottom: 8 }}>NO SAVED SYSTEMS</div>
       <div className="hint">Use ↓ SAVE SYSTEM in the system view to archive a system</div>
     </div>
   );
+
   return (
+    <>
+      <div style={{ marginBottom: 14 }}>
+        <input
+          type="search"
+          value={query}
+          onChange={e => onQueryChange(e.target.value)}
+          placeholder="Search name, seed, spectral class (e.g. G, K+M)..."
+          style={{
+            width: '100%',
+            background: C.PANEL_ALT,
+            border: `1px solid ${C.BORDER}`,
+            borderRadius: 3,
+            color: C.TEXT,
+            fontFamily: 'inherit',
+            fontSize: 13,
+            letterSpacing: 1,
+            padding: '8px 12px',
+            outline: 'none',
+          }}
+        />
+        {query.trim() && (
+          <div className="hint" style={{ marginTop: 6 }}>
+            {filtered.length} of {archive.length} matching
+          </div>
+        )}
+      </div>
+
+      {!filtered.length ? (
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          <div className="value" style={{ marginBottom: 8 }}>NO MATCHES</div>
+          <div className="hint">Try a different search term</div>
+        </div>
+      ) : (
     <div className="flex-col gap-sm">
-      {archive.map((entry, i) => (
+      {filtered.map((entry) => (
         <div key={entry.id} className="panel">
           <div className="flex-row flex-wrap gap-sm" style={{ marginBottom: 8 }}>
             <div className="flex-row gap-xs">
@@ -559,6 +624,9 @@ function ArchivePanel({ archive, onRestore, onDelete }) {
             {entry.summary.speciesCount > 0 && (
               <span className="label" style={{ color: C.EXOTIC }}>{entry.summary.speciesCount} species</span>
             )}
+            {entry.system?.seed && (
+              <span className="label" style={{ color: C.TEXT_FAINT }}>seed:{entry.system.seed}</span>
+            )}
           </div>
           <div style={{ fontSize: 10, color: C.TEXT_FAINT }}>
             {new Date(entry.timestamp).toLocaleString()}
@@ -566,6 +634,8 @@ function ArchivePanel({ archive, onRestore, onDelete }) {
         </div>
       ))}
     </div>
+      )}
+    </>
   );
 }
 
@@ -581,22 +651,56 @@ function StarCountControl({ count, onChange }) {
   );
 }
 
-// ─── EXPORT PANEL ─────────────────────────────────────────────────────────────
-function ExportPanel({ system }) {
+// ─── EXPORT / IMPORT PANEL ────────────────────────────────────────────────────
+function ExportPanel({ system, onImport }) {
   const [copied, setCopied] = useState(false);
+  const [importMsg, setImportMsg] = useState(null);
+
   const dl = (content, type, ext) => {
     const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `armillary-${Date.now()}.${ext}`; a.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = parseImportedJson(reader.result);
+      if (!result.ok) {
+        setImportMsg({ ok: false, text: result.error });
+        setTimeout(() => setImportMsg(null), 5000);
+        return;
+      }
+      onImport(result.system);
+      setImportMsg({ ok: true, text: 'System imported successfully.' });
+      setTimeout(() => setImportMsg(null), 3000);
+    };
+    reader.readAsText(file);
+  };
+
   return (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-      <button onClick={() => dl(JSON.stringify(system, null, 2), 'application/json', 'json')} style={navBtn(false, C.PRIMARY)}>⬇ Export JSON</button>
-      <button onClick={() => dl(generateTextSummary(system), 'text/plain', 'txt')} style={navBtn(false, C.PRIMARY)}>⬇ Export Text</button>
-      <button onClick={() => { navigator.clipboard.writeText(generateTextSummary(system)).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); }} style={navBtn(copied, C.HABITABLE)}>
-        {copied ? '✓ Copied!' : '⎘ Copy Text'}
-      </button>
+    <div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button onClick={() => dl(serializeSystemExport(system), 'application/json', 'json')} style={navBtn(false, C.PRIMARY)}>⬇ Export JSON</button>
+        <button onClick={() => dl(generateTextSummary(system), 'text/plain', 'txt')} style={navBtn(false, C.PRIMARY)}>⬇ Export Text</button>
+        <button onClick={() => { navigator.clipboard.writeText(generateTextSummary(system)).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); }} style={navBtn(copied, C.HABITABLE)}>
+          {copied ? '✓ Copied!' : '⎘ Copy Text'}
+        </button>
+        <button onClick={() => document.getElementById('armillary-import-file')?.click()} style={navBtn(false, C.EXOTIC)}>⬆ Import JSON</button>
+        <input id="armillary-import-file" type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={handleImportFile}/>
+      </div>
+      {importMsg && (
+        <div style={{ marginTop: 10, fontSize: 12, color: importMsg.ok ? C.HABITABLE : C.DANGER, letterSpacing: 1 }}>
+          {importMsg.text}
+        </div>
+      )}
+      <div className="hint" style={{ marginTop: 10 }}>
+        JSON export includes full system data for exact restore via Import. Use From seed to reproduce a roll; Generate New always rolls fresh.
+      </div>
     </div>
   );
 }
@@ -616,24 +720,47 @@ function buildSummary(system) {
     worldCount:    system.worlds.length,
     habitableCount: system.worlds.filter(w => w.isHabitable).length,
     speciesCount:  system.worlds.reduce((n, w) => n + w.species.length, 0),
+    seed:          system.seed || null,
+  };
+}
+
+function readUrlSeedParams() {
+  const params = new URLSearchParams(window.location.search);
+  const seed = params.get('seed')?.trim();
+  if (!seed) return null;
+  const parsed = parseInt(params.get('stars') || '1', 10);
+  const starCount = Math.min(3, Math.max(1, Number.isFinite(parsed) ? parsed : 1));
+  return { seed, starCount };
+}
+
+function createInitialAppState() {
+  const url = readUrlSeedParams();
+  if (url) {
+    const system = generateSystem({ seed: url.seed, starCount: url.starCount });
+    window.history.replaceState({}, '', window.location.pathname);
+    return { system, starCount: url.starCount, seedInput: url.seed };
+  }
+  const saved = loadSystem();
+  const starCount = saved?.stars?.length || saved?.starCount || 1;
+  return {
+    system:  saved || generateSystem({ starCount: 1 }),
+    starCount,
+    seedInput: saved?.seed || '',
   };
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [system,           setSystem]           = useState(() => {
-    const saved = loadSystem();
-    return saved || generateSystem({ starCount: 1 });
-  });
-  const [starCount,        setStarCount]        = useState(() => {
-    const saved = loadSystem();
-    return saved?.stars?.length || 1;
-  });
-  const [neighborSystems,  setNeighborSystems]  = useState({}); // map: neighbor.id → generated system
+  const [initial] = useState(createInitialAppState);
+  const [system,           setSystem]           = useState(initial.system);
+  const [starCount,        setStarCount]        = useState(initial.starCount);
+  const [seedInput,        setSeedInput]        = useState(initial.seedInput);
+  const [neighborSystems,  setNeighborSystems]  = useState({});
   const [activeNeighborId, setActiveNeighborId] = useState(null);
   const [view,             setView]             = useState('system');
   const [booted,           setBooted]           = useState(false);
   const [archive,          setArchive]          = useState(() => loadArchive());
+  const [archiveQuery,     setArchiveQuery]     = useState('');
 
   const active     = activeNeighborId ? (neighborSystems[activeNeighborId] || system) : system;
   const isNeighbor = !!activeNeighborId;
@@ -649,10 +776,21 @@ export default function App() {
 
   const handleGenerate  = () => {
     const s = generateSystem({ starCount });
-    setSystem(s); saveSystem(s);
+    setSystem(s);
+    setSeedInput('');
+    saveSystem(s);
     setActiveNeighborId(null);
     setNeighborSystems({});
-    // starCount already matches since we used it to generate
+  };
+
+  const handleGenerateFromSeed = () => {
+    const trimmed = seedInput.trim();
+    if (!trimmed) return;
+    const s = generateSystem({ starCount, seed: trimmed });
+    setSystem(s);
+    saveSystem(s);
+    setActiveNeighborId(null);
+    setNeighborSystems({});
   };
   const handleRedraw    = () => updateActive(redrawSystem(active, { redrawnStarCount: starCount }));
   const handleUnlockAll = () => updateActive({ ...active, neighborhood: { ...active.neighborhood, locked: false }, stars: active.stars.map(s => ({ ...s, locked: false })), worlds: active.worlds.map(w => ({ ...w, locked: false })) });
@@ -676,8 +814,8 @@ export default function App() {
 
   const handleBack = () => {
     setActiveNeighborId(null);
-    // Restore starCount to primary system's star count
     setStarCount(system.stars.length);
+    setSeedInput(system.seed || '');
   };
 
   const handleLockStar   = useCallback(id => updateActive({ ...active, stars: active.stars.map(s => s.id === id ? { ...s, locked: !s.locked } : s) }), [active, updateActive]);
@@ -711,7 +849,18 @@ export default function App() {
   const handleRestoreFromArchive = (entry) => {
     setSystem(entry.system);
     saveSystem(entry.system);
-    setStarCount(entry.system.stars.length);
+    setStarCount(entry.system.starCount ?? entry.system.stars.length);
+    setSeedInput(entry.system.seed || '');
+    setActiveNeighborId(null);
+    setNeighborSystems({});
+    setView('system');
+  };
+
+  const handleImportSystem = (imported) => {
+    setSystem(imported);
+    saveSystem(imported);
+    setStarCount(imported.starCount ?? imported.stars?.length ?? 1);
+    setSeedInput(imported.seed || '');
     setActiveNeighborId(null);
     setNeighborSystems({});
     setView('system');
@@ -764,6 +913,38 @@ export default function App() {
                   ? '⬛ ROGUE PLANET — no host star'
                   : `— NEIGHBOR · ${active.stars[0]?.spectralClass} origin`}
               </span>
+            )}
+            {!isNeighbor && (
+              <>
+              <input
+                type="text"
+                value={seedInput}
+                onChange={e => setSeedInput(e.target.value.replace(/\s+/g, '-').slice(0, 32))}
+                onKeyDown={e => { if (e.key === 'Enter') handleGenerateFromSeed(); }}
+                placeholder="Seed (optional)"
+                title="Enter a seed and click From seed to reproduce a roll"
+                style={{
+                  background: C.PANEL_ALT,
+                  border: `1px solid ${C.BORDER}`,
+                  borderRadius: 3,
+                  color: C.TEXT,
+                  fontSize: 12,
+                  letterSpacing: 1,
+                  padding: '5px 10px',
+                  width: 160,
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleGenerateFromSeed}
+                disabled={!seedInput.trim()}
+                style={navBtn(false, C.TEXT_DIM, true)}
+                title="Generate using the seed above (same star count)"
+              >
+                From seed
+              </button>
+              </>
             )}
             <div style={{ flex: 1 }}/>
             {!isNeighbor && <button onClick={handleGenerate} style={{ ...navBtn(false, C.HABITABLE), fontWeight: 700 }}>⚡ Generate New</button>}
@@ -889,7 +1070,7 @@ export default function App() {
 
           <div style={{ ...panelStyle(), marginBottom: 24 }}>
             <Label color={C.PRIMARY}>Export System</Label>
-            <div style={{ marginTop: 12 }}><ExportPanel system={active}/></div>
+            <div style={{ marginTop: 12 }}><ExportPanel system={active} onImport={handleImportSystem}/></div>
           </div>
         </>)}
 
@@ -913,7 +1094,13 @@ export default function App() {
                 </button>
               )}
             </div>
-            <ArchivePanel archive={archive} onRestore={handleRestoreFromArchive} onDelete={handleDeleteFromArchive}/>
+            <ArchivePanel
+              archive={archive}
+              query={archiveQuery}
+              onQueryChange={setArchiveQuery}
+              onRestore={handleRestoreFromArchive}
+              onDelete={handleDeleteFromArchive}
+            />
           </div>
         )}
 
@@ -933,7 +1120,7 @@ export default function App() {
 
               <Divider label="HOW TO USE"/>
               <p style={{ marginBottom: 14, color: C.TEXT, fontSize: 14 }}>
-                Choose a system type (Single, Binary, Triple) and click Generate New. Lock any card to preserve it during redraws — use Redraw Free to regenerate only unlocked elements. Click DETAILS on any world to see full data and species. Click any neighbor star in the Stellar Neighborhood to explore that system. Export to JSON or plain text for session notes and world bibles.
+                Choose a system type (Single, Binary, Triple) and click Generate New for a fresh random system. Enter a seed and click From seed to reproduce a specific roll. Lock any card to preserve it during redraws.
               </p>
 
               <Divider label="SUPPORT"/>

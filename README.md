@@ -1,4 +1,4 @@
-# Armillary — Stellar System Generator - v 1.2
+# Armillary — Stellar System Generator - v 1.3.1
 
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
@@ -77,7 +77,11 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 | See world detail | DETAILS ▾ on any world card |
 | Explore a neighbor star | Click any neighbor in the Stellar Neighborhood |
 | Name the system | Click the system name / UNNAMED SYSTEM in the overview |
+| Copy seed / share link | Seed row in system overview → COPY SEED or COPY LINK |
+| Optional seed on generate | Enter seed → **From seed** (Generate New always rolls fresh) |
+| Import a shared system | ⬆ Import JSON (Export panel) |
 | Save to archive | ↓ Save System button |
+| Find saved systems | ARCHIVE tab → search box |
 | Restore a saved system | ARCHIVE tab → RESTORE |
 | Export | ⬇ Export JSON / ⬇ Export Text / ⎘ Copy Text |
 

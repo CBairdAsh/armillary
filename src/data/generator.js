@@ -1,7 +1,9 @@
 // ─── GENERATION ENGINE ────────────────────────────────────────────────────────
 // Procedural generation logic based on GURPS Space 4e
-// All randomness flows through this module (seeded RNG planned for v1.3)
+// All randomness flows through this module; seeded via runWithSeed (v1.3+)
 
+import { getRandom, runWithSeed, generateRandomSeed } from './rng.js';
+import { APP_VERSION } from '../config.js';
 import {
   SPECTRAL_CLASSES,
   WORLD_TYPE_BY_ZONE,
@@ -37,18 +39,17 @@ import {
 
 // ─── UTILITY ─────────────────────────────────────────────────────────────────
 function rnd(min, max) {
-  return Math.random() * (max - min) + min;
+  return getRandom() * (max - min) + min;
 }
 function rndInt(min, max) {
   return Math.floor(rnd(min, max + 1));
 }
 function rndFrom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+  return arr[Math.floor(getRandom() * arr.length)];
 }
 function weightedPick(items) {
-  // items: array of { label, weight, ...rest } or [value, weight] tuples
   const total = items.reduce((sum, item) => sum + (Array.isArray(item) ? item[1] : item.weight), 0);
-  let roll = Math.random() * total;
+  let roll = getRandom() * total;
   for (const item of items) {
     const w = Array.isArray(item) ? item[1] : item.weight;
     roll -= w;
@@ -57,7 +58,7 @@ function weightedPick(items) {
   return Array.isArray(items[0]) ? items[0][0] : items[0];
 }
 function pickN(arr, n) {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  const shuffled = [...arr].sort(() => getRandom() - 0.5);
   return shuffled.slice(0, n);
 }
 function round2(n) { return Math.round(n * 100) / 100; }
@@ -197,7 +198,7 @@ function generateOrbitalPositions(count, hz) {
 
 function resolveWorldType(zone, index, primarySpectralClass, forcedWorldType = null) {
   if (forcedWorldType) return forcedWorldType;
-  if (primarySpectralClass === 'NS' && index === 0 && Math.random() < PULSAR_PLANET_CHANCE) {
+  if (primarySpectralClass === 'NS' && index === 0 && getRandom() < PULSAR_PLANET_CHANCE) {
     return 'Pulsar Planet';
   }
   const typePool = WORLD_TYPE_BY_ZONE[zone] || WORLD_TYPE_BY_ZONE.OUTER;
@@ -270,12 +271,12 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
   // M-dwarf and brown dwarf HZ worlds: fully tidally locked
   // K-dwarf HZ worlds: possible spin-orbit resonance
   const tidallyLocked = inHZ && TIDAL_LOCK_SPECTRAL_CLASSES.has(primarySpectralClass);
-  const tidalResonance = inHZ && !tidallyLocked && TIDAL_LOCK_PARTIAL_CLASSES.has(primarySpectralClass) && Math.random() < 0.4;
+  const tidalResonance = inHZ && !tidallyLocked && TIDAL_LOCK_PARTIAL_CLASSES.has(primarySpectralClass) && getRandom() < 0.4;
 
   // ── Biosignature ────────────────────────────────────────────────────────────
   // Only Hycean worlds in the HZ get a biosignature roll (inspired by K2-18b DMS detection)
   let biosignature = null;
-  if (worldType === 'Hycean' && inHZ && Math.random() < BIOSIGNATURE_CHANCE) {
+  if (worldType === 'Hycean' && inHZ && getRandom() < BIOSIGNATURE_CHANCE) {
     biosignature = rndFrom(BIOSIGNATURE_TYPES);
   }
 
@@ -385,14 +386,14 @@ function assignWorldLife(world) {
   );
 
   if (count === 0 && !world.ruins) {
-    world.ruins = Math.random() < RUINS_CHANCE ? generateRuins() : null;
+    world.ruins = getRandom() < RUINS_CHANCE ? generateRuins() : null;
   } else if (count > 0) {
     world.ruins = null;
   }
 
   world.moons = (world.moons || []).map(moon => {
     if (!moon.canSupportLife) return { ...moon, species: moon.species || [] };
-    const moonSpeciesCount = Math.random() < 0.2 ? 1 : 0;
+    const moonSpeciesCount = getRandom() < 0.2 ? 1 : 0;
     return {
       ...moon,
       species: Array.from({ length: moonSpeciesCount }, () =>
@@ -603,7 +604,7 @@ function generateNeighborhood() {
   // Chance to include 1–2 exotic objects based on density
   const exoticCount   = density.label === 'Dense' || density.label === 'Cluster'
     ? rndInt(0, 2)
-    : Math.random() < 0.3 ? 1 : 0;
+    : getRandom() < 0.3 ? 1 : 0;
 
   const exoticObjects = Array.from({ length: exoticCount }, () => {
     const distance = round2(rnd(minD, maxD));
@@ -624,7 +625,7 @@ function generateNeighborhood() {
 }
 
 // ─── FULL SYSTEM GENERATION ───────────────────────────────────────────────────
-export function generateSystem({ starCount = 1, locked = {}, primarySpectralClass = null } = {}) {
+function generateSystemCore({ starCount = 1, locked = {}, primarySpectralClass = null } = {}) {
   // Neighborhood
   const neighborhood = locked.neighborhood || generateNeighborhood();
 
@@ -659,7 +660,7 @@ export function generateSystem({ starCount = 1, locked = {}, primarySpectralClas
   // For binary/triple systems: chance of a world orbiting all stars combined
   // Orbits beyond the outermost star's influence — typically 3–5× the binary separation
   let circumbinaryWorld = null;
-  if (stars.length > 1 && Math.random() < CIRCUMBINARY_CHANCE) {
+  if (stars.length > 1 && getRandom() < CIRCUMBINARY_CHANCE) {
     circumbinaryWorld = generateCircumbinaryWorld(null, combinedHZ, totalLuminosity, worlds.length);
   }
 
@@ -684,6 +685,33 @@ export function generateSystem({ starCount = 1, locked = {}, primarySpectralClas
   };
 }
 
+export function generateSystem({ starCount = 1, locked = {}, primarySpectralClass = null, seed } = {}) {
+  const hasExplicitSeed = seed != null && String(seed).trim() !== '';
+
+  const build = () => {
+    const system = generateSystemCore({ starCount, locked, primarySpectralClass });
+    const assignedSeed = hasExplicitSeed ? String(seed).trim() : generateRandomSeed();
+    return {
+      ...system,
+      seed:       assignedSeed,
+      starCount,
+      appVersion: APP_VERSION,
+    };
+  };
+
+  if (hasExplicitSeed) {
+    return runWithSeed(String(seed).trim(), build);
+  }
+
+  // Fresh random roll (Generate New, Redraw Free, etc.)
+  return build();
+}
+
+/** Regenerate a fresh primary system from seed + star count (ignores locks). */
+export function generateSystemFromSeed(seed, starCount = 1) {
+  return generateSystem({ seed: String(seed).trim(), starCount });
+}
+
 // ─── PARTIAL REGENERATION ─────────────────────────────────────────────────────
 // Redraws only unlocked components, preserving locked ones
 export function redrawSystem(existingSystem, { redrawnStarCount } = {}) {
@@ -703,14 +731,18 @@ export function redrawSystem(existingSystem, { redrawnStarCount } = {}) {
 
   const lockedWorlds = existingSystem.worlds.map(w => w.locked ? w : null);
 
-  return generateSystem({
+  const opts = {
     starCount,
     locked: {
       neighborhood: lockedNeighborhood,
       stars:        lockedStars,
       worlds:       lockedWorlds,
     },
-  });
+  };
+
+  // Fresh RNG for unlocked parts — do not replay the stored seed (that would repeat the same roll)
+  const result = generateSystem(opts);
+  return { ...result, name: existingSystem.name, id: existingSystem.id };
 }
 
 // ─── TARGETED REDRAW (single star or world) ───────────────────────────────────
@@ -766,7 +798,7 @@ export function redrawWorld(system, worldId) {
 function generateRogueWorld(index = 0) {
   const worldType = 'Ice Planet';
   const worldDef  = WORLD_TYPES[worldType];
-  const atmosphere = Math.random() < 0.3 ? 'Trace' : 'None';
+  const atmosphere = getRandom() < 0.3 ? 'Trace' : 'None';
   const hydrosphere = weightedPick(
     worldDef.hydrosphereTypes.map((t, i) => [t, worldDef.hydrosphereWeights[i]])
   );
@@ -798,7 +830,7 @@ function generateRogueWorld(index = 0) {
 }
 
 export function generateRoguePlanetSystem() {
-  const hasBody = Math.random() < 0.4;
+  const hasBody = getRandom() < 0.4;
   const worlds  = hasBody ? [generateRogueWorld()] : [];
 
   return {
@@ -834,7 +866,7 @@ export function regenerateSpeciesForWorld(world) {
   const finalSpecies = species.slice(0, Math.max(count, species.filter(s => s.locked).length));
   // If no species left after regen, roll for ruins
   const ruins = finalSpecies.length === 0
-    ? (Math.random() < RUINS_CHANCE ? generateRuins() : null)
+    ? (getRandom() < RUINS_CHANCE ? generateRuins() : null)
     : null;
   return { ...world, species: finalSpecies, ruins };
 }
@@ -848,6 +880,11 @@ export function generateTextSummary(system) {
   lines.push('ARMILLARY — STAR SYSTEM RECORD');
   if (system.name) lines.push(`Name: ${system.name}`);
   lines.push(`Generated: ${new Date(system.timestamp).toLocaleString()}`);
+  if (system.seed) {
+    const sc = system.starCount ?? stars.length;
+    lines.push(`Seed: ${system.seed} · Stars: ${sc} · App: ${system.appVersion || APP_VERSION}`);
+    lines.push(`(Same seed + star count + app version reproduces this roll — not edits or locks.)`);
+  }
   lines.push('═══════════════════════════════════════════');
   lines.push('');
 
