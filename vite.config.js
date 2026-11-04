@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'Armillary',
         short_name: 'Armillary',
-        description: 'Deep Star System Generator for writers, GMs, and worldbuilders',
+        description: 'Free star system generator for writers, game masters, and worldbuilders. Roll a solar system with stars, planets, habitable zones, and sapient species.',
         theme_color: '#0D1B2A',
         background_color: '#080c10',
         display: 'standalone',
