@@ -865,10 +865,150 @@ function nextEjectedDistance(system) {
   return round2(Math.max(0.01, nearest * 0.5));
 }
 
+const CHEMOSYNTHETIC_ORIGIN = 'Sulfur-based';
+
+/**
+ * A dark ocean that does not need sunlight.
+ * Ice Planet + Subsurface Ocean is geothermal under ice.
+ * Hycean keeps a surface ocean liquid under its hydrogen atmosphere.
+ * @param {object} world
+ * @returns {'subsurface'|'hycean'|null}
+ */
+function darkOceanKind(world) {
+  if (world.worldType === 'Ice Planet' && world.hydrosphere === 'Subsurface Ocean') return 'subsurface';
+  if (world.worldType === 'Hycean') return 'hycean';
+  return null;
+}
+
+function moonKeepsDarkOcean(moon) {
+  return moon.type === 'Subsurface Ocean' || moon.type === 'Cryovolcanic';
+}
+
+/**
+ * Which species would still be alive after this world loses its star.
+ * Only a chemosynthetic species in a dark ocean continues, and its civilization with it.
+ * @param {object} world
+ * @returns {{ darkOcean: 'subsurface'|'hycean'|null, survivors: object[], lostCount: number }}
+ */
+export function ejectionLifeFate(world) {
+  const darkOcean = darkOceanKind(world);
+  const species = world.species || [];
+  const survivors = darkOcean
+    ? species.filter(sp => sp.origin === CHEMOSYNTHETIC_ORIGIN)
+    : [];
+  return {
+    darkOcean,
+    survivors,
+    lostCount: species.length - survivors.length,
+  };
+}
+
+function highestCivilizationTech(speciesList) {
+  const rank = new Map(TECH_LEVELS.map((entry, index) => [entry.label, index]));
+  let best = speciesList[0]?.tech || 'Primitive';
+  for (const species of speciesList) {
+    if ((rank.get(species.tech) ?? -1) > (rank.get(best) ?? -1)) best = species.tech;
+  }
+  if (best === 'Transcendent') best = 'Post-Scarcity';
+  return RUINS_TECH_LEVELS.find(entry => entry.label === best) || RUINS_TECH_LEVELS[0];
+}
+
+function ruinsFromLostCivilization(speciesList) {
+  const tech = highestCivilizationTech(speciesList);
+  const recent = RUINS_AGE_RANGES[0];
+  return {
+    ageLabel:  recent.label,
+    ageYears:  recent.range[0],
+    ageDesc:   'The collapse is the ejection. Structures are intact. The dead are recent.',
+    cause:     'Loss of star',
+    causeDesc: 'The world was ejected and sunlight ended. The biosphere that depended on the star died, and its civilization remains as ruins.',
+    tech:      tech.label,
+    techDesc:  tech.description,
+  };
+}
+
+function ejectedLifeNote(kind, hadSpecies, survivors, lostCount) {
+  if (!hadSpecies) {
+    if (kind === 'hycean') return 'The hydrogen atmosphere can hold the ocean liquid on internal heat.';
+    if (kind === 'subsurface') return 'A dark ocean may persist under the ice on geothermal heat.';
+    return '';
+  }
+  if (survivors.length && lostCount === 0) {
+    if (kind === 'hycean') {
+      return 'Chemosynthetic species persist in the dark ocean. The hydrogen atmosphere holds that ocean liquid on internal heat, and their civilization remains.';
+    }
+    return 'Chemosynthetic species persist in the subsurface ocean on geothermal heat, and their civilization remains.';
+  }
+  if (survivors.length) {
+    if (kind === 'hycean') {
+      return 'Sunlight-dependent species died with the loss of the star. Chemosynthetic species persist in the dark ocean. The hydrogen atmosphere holds that ocean liquid on internal heat, and their civilization remains.';
+    }
+    return 'Sunlight-dependent species died with the loss of the star. Chemosynthetic species persist in the subsurface ocean on geothermal heat, and their civilization remains.';
+  }
+  if (kind === 'hycean') {
+    return 'The hydrogen atmosphere can hold the ocean liquid on internal heat, but the species here depended on sunlight. Their civilization remains as ruins.';
+  }
+  if (kind === 'subsurface') {
+    return 'A dark ocean persists under the ice on geothermal heat, but the species here depended on sunlight. Their civilization remains as ruins.';
+  }
+  return 'The biosphere died with the loss of the star. The civilization remains as ruins.';
+}
+
+function settleMoonLife(moon) {
+  const species = moon.species || [];
+  if (!species.length) return moon;
+  const keeps = moonKeepsDarkOcean(moon);
+  const survivors = keeps ? species.filter(sp => sp.origin === CHEMOSYNTHETIC_ORIGIN) : [];
+  const note = survivors.length
+    ? 'Chemosynthetic life persists in the dark ocean on internal heat.'
+    : 'Life here depended on sunlight and died when the world was ejected.';
+  return {
+    ...moon,
+    species: survivors,
+    lifeNote: [moon.lifeNote, note].filter(Boolean).join(' '),
+  };
+}
+
+/**
+ * Drop sunlight-dependent life. Keep a chemosynthetic civilization only in a dark ocean.
+ * @param {object} world
+ * @returns {{ species: object[], ruins: object|null, moons: object[], note: string }}
+ */
+function settleEjectedLife(world) {
+  const fate = ejectionLifeFate(world);
+  const hadSpecies = (world.species || []).length > 0;
+  const moons = (world.moons || []).map(settleMoonLife);
+  if (!hadSpecies) {
+    return {
+      species: [],
+      ruins:   world.ruins || null,
+      moons,
+      note:    ejectedLifeNote(fate.darkOcean, false, [], 0),
+    };
+  }
+  if (fate.survivors.length) {
+    return {
+      species: fate.survivors,
+      ruins:   null,
+      moons,
+      note:    ejectedLifeNote(fate.darkOcean, true, fate.survivors, fate.lostCount),
+    };
+  }
+  return {
+    species: [],
+    ruins:   ruinsFromLostCivilization(world.species),
+    moons,
+    note:    ejectedLifeNote(fate.darkOcean, true, [], fate.lostCount),
+  };
+}
+
 /**
  * Eject an unlocked world from the ladder. Other orbits stay put.
  * The body is appended to system.ejected as a neighborhood rogue that is
- * that world: type, gravity, hydrosphere, moons, species, and ruins stay.
+ * that world: type, gravity, hydrosphere, and moons stay.
+ * Sunlight-dependent species die and their civilization becomes ruins.
+ * A chemosynthetic species on an Ice Planet with a subsurface ocean, or on a
+ * Hycean world, keeps living and keeps its civilization.
  * Habitability clears, the zone becomes Fringe, and the rogue world is locked
  * so a later redraw cannot replace it. A locked world is refused.
  * An asteroid belt is refused. A belt is not a body that can leave as a rogue.
@@ -889,6 +1029,7 @@ export function ejectWorld(system, worldId) {
     : `Ejected from ${world.orbitalAU} AU (${zoneLabel}).`;
   const hazards = [...(world.hazards || [])];
   if (!hazards.includes('No solar energy')) hazards.push('No solar energy');
+  const life = settleEjectedLife(world);
 
   const rogueWorld = {
     ...world,
@@ -902,7 +1043,10 @@ export function ejectWorld(system, worldId) {
     isCircumbinary:  false,
     locked:          true,
     hazards,
-    worldNotes:      [ejectionNote, world.worldNotes].filter(Boolean).join(' '),
+    species:         life.species,
+    ruins:           life.ruins,
+    moons:           life.moons,
+    worldNotes:      [ejectionNote, life.note, world.worldNotes].filter(Boolean).join(' '),
   };
 
   const rogueType = NEIGHBORHOOD_EXOTIC_TYPES.find(type => type.type === 'Rogue Planet');
@@ -1120,8 +1264,8 @@ export function generateTextSummary(system) {
       const detail = body ? ` — ${body.worldType}, ${body.gravity}g, ${body.temperature}°C` : '';
       lines.push(`  ${neighbor.distance} ly — ${neighbor.label || 'Ejected world'}${detail}`);
       if (body?.worldNotes) lines.push(`    Note: ${body.worldNotes}`);
-      if (body?.species?.length) lines.push(`    Species carried: ${body.species.length}`);
-      if (body?.ruins) lines.push(`    Ruins carried: ${body.ruins.tech}`);
+      if (body?.species?.length) lines.push(`    Species still living: ${body.species.length}`);
+      if (body?.ruins) lines.push(`    Ruins: ${body.ruins.tech}${body.ruins.cause ? ` (${body.ruins.cause})` : ''}`);
     });
     lines.push('');
   }

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, ejectionLifeFate, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -266,6 +266,26 @@ function StarCard({ star, label, onLock, onRedraw }) {
 }
 
 // ─── WORLD CARD ───────────────────────────────────────────────────────────────
+function ejectedLifeBlurb(world) {
+  const species = world.species || [];
+  if (species.length) return 'Chemosynthetic species are still living, and their civilization remains.';
+  if (world.ruins?.cause === 'Loss of star') return 'The species died with the loss of the star. Their civilization remains as ruins.';
+  return presencePhrase(world, 'are still here.');
+}
+
+function ejectionLifeSentence(world) {
+  const species = world.species || [];
+  if (!species.length) return presencePhrase(world, 'go with it.');
+  const fate = ejectionLifeFate(world);
+  if (fate.survivors.length === species.length) {
+    return 'Chemosynthetic species remain, and their civilization continues.';
+  }
+  if (fate.survivors.length > 0) {
+    return 'Sunlight-dependent species die. Chemosynthetic species remain, and their civilization continues.';
+  }
+  return 'Species die without the star. Their civilization becomes ruins.';
+}
+
 function presencePhrase(world, verb) {
   const parts = [];
   if (world.species?.length) parts.push('species');
@@ -357,7 +377,7 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
             <div style={{ fontSize: 12, color: C.HAZARD, lineHeight: 1.6 }}>
               ⚠ EJECT [{index + 1}] {world.worldType.toUpperCase()} AT {world.orbitalAU} AU
               {' '}— it leaves this system and becomes a rogue planet in the neighborhood. This cannot be undone.
-              {presencePhrase(world, 'go with it.') ? ` ${presencePhrase(world, 'go with it.')}` : ''}
+              {ejectionLifeSentence(world) ? ` ${ejectionLifeSentence(world)}` : ''}
             </div>
             <div className="flex-row flex-wrap" style={{ gap: 12, marginTop: 10, justifyContent: 'flex-end' }}>
               <button type="button" onClick={onConfirmEject} style={{ ...navBtn(false, C.HAZARD), fontSize: 11 }}>Eject</button>
@@ -1136,7 +1156,7 @@ export default function App() {
                 </div>
                 <div className="body-text" style={{ color: C.TEXT_DIM, lineHeight: 1.9 }}>
                   {active.ejectedFrom
-                    ? `Ejected ${active.ejectedFrom.worldType} from ${active.ejectedFrom.orbitalAU} AU (${String(active.ejectedFrom.zone || '').replaceAll('_', ' ')}). No host star. The body is unbound.${presencePhrase(active.worlds?.[0] || {}, 'are still here.') ? ` ${presencePhrase(active.worlds?.[0] || {}, 'are still here.')}` : ''}`
+                    ? `Ejected ${active.ejectedFrom.worldType} from ${active.ejectedFrom.orbitalAU} AU (${String(active.ejectedFrom.zone || '').replaceAll('_', ' ')}). No host star. The body is unbound. ${ejectedLifeBlurb(active.worlds?.[0] || {})}`
                     : `No host star. This body drifts through interstellar space unbound to any stellar system. Surface temperature approaches absolute zero. Any liquid water would require subsurface geothermal heating from residual radioactive decay — a Europa-like scenario in permanent darkness.`}
                 </div>
                 <div className="flex-wrap gap-md" style={{ marginTop: 10 }}>
