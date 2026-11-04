@@ -5,6 +5,7 @@ import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
 import { C, ZONE_COLORS, navBtn, cardStyle, lockStripeStyle, lockBtnStyle, panelStyle } from './tokens.js';
 import BootSequence from './components/BootSequence.jsx';
+import UpdateNotice, { releaseAlreadySeen, markReleaseSeen } from './components/UpdateNotice.jsx';
 import { KOFI_URL, SUBSTACK_URL, LIVE_URL, LINKTREE, APP_VERSION } from './config.js';
 
 // ─── UTILITY COMPONENTS ───────────────────────────────────────────────────────
@@ -911,6 +912,11 @@ export default function App() {
   const [activeNeighborId, setActiveNeighborId] = useState(null);
   const [view,             setView]             = useState('system');
   const [booted,           setBooted]           = useState(false);
+  const [showUpdates,     setShowUpdates]      = useState(() => !releaseAlreadySeen());
+  const dismissUpdates = useCallback(() => {
+    markReleaseSeen();
+    setShowUpdates(false);
+  }, []);
   const [archive,          setArchive]          = useState(() => loadArchive());
   const [archiveQuery,     setArchiveQuery]     = useState('');
   const [pendingWorldEdit, setPendingWorldEdit] = useState(null);
@@ -1082,6 +1088,7 @@ export default function App() {
 
       {/* BOOT SEQUENCE */}
       {!booted && <BootSequence onComplete={() => setBooted(true)}/>}
+      {booted && showUpdates && <UpdateNotice onDismiss={dismissUpdates}/>}
 
       {/* HEADER */}
       <div style={{ background: '#060a0f', borderBottom: `2px solid ${C.BORDER_HI}`, position: 'sticky', top: 0, zIndex: 10 }}>
