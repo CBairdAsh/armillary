@@ -721,6 +721,8 @@ export function generateSystemFromSeed(seed, starCount = 1) {
 // ─── PARTIAL REGENERATION ─────────────────────────────────────────────────────
 // Redraws only unlocked components, preserving locked ones
 export function redrawSystem(existingSystem, { redrawnStarCount } = {}) {
+  if (existingSystem.isRoguePlanet || !existingSystem.stars?.length) return existingSystem;
+
   const starCount = redrawnStarCount || existingSystem.stars.length;
 
   const lockedNeighborhood = existingSystem.neighborhood?.locked
@@ -748,7 +750,12 @@ export function redrawSystem(existingSystem, { redrawnStarCount } = {}) {
 
   // Fresh RNG for unlocked parts — do not replay the stored seed (that would repeat the same roll)
   const result = generateSystem(opts);
-  return { ...result, name: existingSystem.name, id: existingSystem.id };
+  return {
+    ...result,
+    name:    existingSystem.name,
+    id:      existingSystem.id,
+    ejected: existingSystem.ejected,
+  };
 }
 
 // ─── TARGETED REDRAW (single star or world) ───────────────────────────────────
@@ -844,6 +851,108 @@ export function crushWorld(system, worldId) {
   });
 
   return { ...system, worlds, timestamp: Date.now() };
+}
+
+function nextEjectedDistance(system) {
+  const listed = [
+    ...(system.neighborhood?.neighbors || []).map(neighbor => neighbor.distance),
+    ...(system.ejected || []).map(entry => entry.neighbor?.distance),
+  ].filter(distance => typeof distance === 'number' && distance > 0);
+  if (!listed.length) return 0.2;
+  const nearest = Math.min(...listed);
+  const inside = round2(nearest - 0.05);
+  if (inside > 0 && inside < nearest) return inside;
+  return round2(Math.max(0.01, nearest * 0.5));
+}
+
+/**
+ * Eject an unlocked world from the ladder. Other orbits stay put.
+ * The body is appended to system.ejected as a neighborhood rogue that is
+ * that world: type, gravity, hydrosphere, moons, species, and ruins stay.
+ * Habitability clears, the zone becomes Fringe, and the rogue world is locked
+ * so a later redraw cannot replace it. A locked world is refused.
+ * @param {object} system
+ * @param {string} worldId
+ * @returns {object} The same system when the world is missing or locked.
+ */
+export function ejectWorld(system, worldId) {
+  const index = system.worlds.findIndex(world => world.id === worldId);
+  if (index === -1) return system;
+
+  const world = system.worlds[index];
+  if (world.locked) return system;
+
+  const zoneLabel = String(world.zone || 'FRINGE').replaceAll('_', ' ');
+  const ejectionNote = world.isCircumbinary
+    ? `Ejected from ${world.orbitalAU} AU (${zoneLabel}, circumbinary orbit).`
+    : `Ejected from ${world.orbitalAU} AU (${zoneLabel}).`;
+  const hazards = [...(world.hazards || [])];
+  if (!hazards.includes('No solar energy')) hazards.push('No solar energy');
+
+  const rogueWorld = {
+    ...world,
+    index:           0,
+    orbitalAU:       0,
+    zone:            'FRINGE',
+    temperature:     estimateTemperature(world.worldType, 'FRINGE', 0, null, { inner: 0, outer: 0 }),
+    isHabitable:     false,
+    tidallyLocked:   false,
+    tidalResonance:  false,
+    isCircumbinary:  false,
+    locked:          true,
+    hazards,
+    worldNotes:      [ejectionNote, world.worldNotes].filter(Boolean).join(' '),
+  };
+
+  const rogueType = NEIGHBORHOOD_EXOTIC_TYPES.find(type => type.type === 'Rogue Planet');
+  const neighbor = {
+    id:            crypto.randomUUID(),
+    objectType:    'Rogue Planet',
+    navigable:     true,
+    icon:          rogueType?.icon || '⬛',
+    color:         rogueType?.color || '#6688AA',
+    distance:      nextEjectedDistance(system),
+    label:         `Ejected ${world.worldType}`,
+    description:   `Former ${world.worldType} ejected from this system at ${world.orbitalAU} AU.`,
+    notes:         ejectionNote,
+    spectralClass: null,
+    ejected:       true,
+  };
+
+  const rogueSystem = {
+    id:            crypto.randomUUID(),
+    timestamp:     Date.now(),
+    isRoguePlanet: true,
+    ejectedFrom: {
+      worldType: world.worldType,
+      orbitalAU: world.orbitalAU,
+      zone:      world.zone,
+    },
+    stars:         [],
+    hz:            { inner: 0, outer: 0 },
+    worldCount:    1,
+    worlds:        [rogueWorld],
+    comets:        [],
+    neighborhood: {
+      id:          crypto.randomUUID(),
+      density:     'N/A',
+      densityDesc: 'Interstellar void',
+      neighbors:   [],
+      locked:      false,
+    },
+  };
+
+  const worlds = system.worlds
+    .filter((_, i) => i !== index)
+    .map((entry, i) => (entry.index === i ? entry : { ...entry, index: i }));
+
+  return {
+    ...system,
+    worlds,
+    worldCount: worlds.filter(entry => !entry.isCircumbinary).length,
+    ejected:    [...(system.ejected || []), { neighbor, rogueSystem }],
+    timestamp:  Date.now(),
+  };
 }
 
 export function redrawWorld(system, worldId) {
@@ -975,6 +1084,20 @@ export function generateTextSummary(system) {
     }
   });
   lines.push('');
+
+  if (system.ejected?.length) {
+    lines.push('EJECTED');
+    system.ejected.forEach(entry => {
+      const neighbor = entry.neighbor || {};
+      const body = entry.rogueSystem?.worlds?.[0];
+      const detail = body ? ` — ${body.worldType}, ${body.gravity}g, ${body.temperature}°C` : '';
+      lines.push(`  ${neighbor.distance} ly — ${neighbor.label || 'Ejected world'}${detail}`);
+      if (body?.worldNotes) lines.push(`    Note: ${body.worldNotes}`);
+      if (body?.species?.length) lines.push(`    Species carried: ${body.species.length}`);
+      if (body?.ruins) lines.push(`    Ruins carried: ${body.ruins.tech}`);
+    });
+    lines.push('');
+  }
 
   // Stars
   lines.push('PRIMARY SYSTEM');

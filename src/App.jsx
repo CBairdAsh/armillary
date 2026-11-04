@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -94,7 +94,7 @@ function ExoticInfoPanel({ obj, onClose }) {
   );
 }
 
-function NeighborhoodCard({ neighborhood, onLock, onRedraw, onNavigate, exploredSystems = {} }) {
+function NeighborhoodCard({ neighborhood, ejected = [], onLock, onRedraw, onNavigate, exploredSystems = {} }) {
   const [infoObj, setInfoObj] = useState(null);
 
   // Close the info panel whenever the neighborhood is redrawn or regenerated
@@ -124,6 +124,39 @@ function NeighborhoodCard({ neighborhood, onLock, onRedraw, onNavigate, explored
           <Tag color={C.PRIMARY}>{neighborhood.density}</Tag>
           <Value color={C.TEXT_DIM} size={13}>{neighborhood.densityDesc}</Value>
         </div>
+        {ejected.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <Label color={C.COLD}>Ejected</Label>
+            <div className="flex-wrap gap-sm" style={{ marginTop: 6 }}>
+              {[...ejected].sort((a, b) => a.neighbor.distance - b.neighbor.distance).map(entry => {
+                const n = entry.neighbor;
+                const explored = !!exploredSystems[n.id];
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => onNavigate(n)}
+                    title={explored ? 'Return to ejected world' : 'Explore ejected world'}
+                    style={{
+                      background:   explored ? n.color + '18' : C.PANEL_ALT,
+                      border:       `1px solid ${explored ? n.color + '88' : C.BORDER}`,
+                      borderRadius: 3, padding: '6px 10px',
+                      display: 'flex', gap: 6, alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span style={{ fontSize: 14, lineHeight: 1 }}>{n.icon}</span>
+                    <span style={{ fontSize: 13, color: C.TEXT_DIM }}>{n.distance} ly</span>
+                    <span style={{ fontSize: 12, color: n.color }}>{n.label}</span>
+                    <span style={{ fontSize: 11, color: explored ? n.color + 'cc' : C.TEXT_FAINT }}>
+                      {explored ? '↺ Return' : '→ Explore'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div className="flex-wrap gap-sm">
           {neighborhood.neighbors.map(n => {
             const isStar      = !n.objectType || n.objectType === 'Star';
@@ -182,7 +215,7 @@ function NeighborhoodCard({ neighborhood, onLock, onRedraw, onNavigate, explored
 
         <div className="flex-col gap-xs" style={{ marginTop: 8 }}>
           <span className="hint">
-            Click stars to explore · Rogue planets navigable · Nebulae and black holes show info
+            Click stars to explore · Rogue planets navigable · Ejected worlds stay in this list · Nebulae and black holes show info
           </span>
           {Object.keys(exploredSystems).length > 0 && (
             <span style={{ fontSize: 10, color: C.TEXT_FAINT }}>
@@ -233,7 +266,7 @@ function StarCard({ star, label, onLock, onRedraw }) {
 }
 
 // ─── WORLD CARD ───────────────────────────────────────────────────────────────
-function destroyedLine(world) {
+function presencePhrase(world, verb) {
   const parts = [];
   if (world.species?.length) parts.push('species');
   if (world.ruins) parts.push('ruins');
@@ -244,10 +277,10 @@ function destroyedLine(world) {
     : parts.length === 2
       ? `${parts[0]} and ${parts[1]}`
       : `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
-  return `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)} are destroyed.`;
+  return `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)} ${verb}`;
 }
 
-function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canCrush = false, crushArmed = false, onArmCrush, onConfirmCrush, onCancelCrush }) {
+function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestructure = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onCancelEdit }) {
   const [expanded, setExpanded] = useState(false);
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
@@ -277,8 +310,11 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canCrush
           <div style={{ flex: 1 }}/>
           <LockBtn locked={locked} onToggle={() => onLock(world.id)} color={zoneColor}/>
           {!locked && <button onClick={onRedraw} style={navBtn(false, zoneColor, true)}>↻ Redraw</button>}
-          {canCrush && !locked && world.worldType !== 'Asteroid Belt' && !crushArmed && (
-            <button type="button" onClick={onArmCrush} style={navBtn(false, C.HAZARD, true)}>Crush</button>
+          {canRestructure && !locked && world.worldType !== 'Asteroid Belt' && pendingKind !== 'crush' && (
+            <button type="button" onClick={() => onArmEdit('crush')} style={navBtn(false, C.HAZARD, true)}>Crush</button>
+          )}
+          {canRestructure && !locked && pendingKind !== 'eject' && (
+            <button type="button" onClick={() => onArmEdit('eject')} style={navBtn(false, C.HAZARD, true)}>Eject</button>
           )}
           {hasDetails && (
             <button onClick={() => setExpanded(e => !e)} style={navBtn(expanded, C.PRIMARY, true)}>
@@ -294,7 +330,7 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canCrush
           <span style={{ fontSize: 13, color: C.TEXT_DIM }}>T: <span style={{ color: world.temperature > 50 ? C.HAZARD : world.temperature < -50 ? C.COLD : C.TEXT }}>{world.temperature}°C</span></span>
           {world.moons.length > 0 && <span style={{ fontSize: 13, color: C.TEXT_DIM }}>MOONS: <span style={{ color: C.TEXT }}>{world.moons.length}</span></span>}
         </div>
-        {crushArmed && (
+        {pendingKind === 'crush' && (
           <div style={{
             marginTop: 10, padding: '10px 14px',
             background: C.HAZARD + '11', border: `1px solid ${C.HAZARD}55`, borderRadius: 4,
@@ -302,11 +338,27 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canCrush
             <div style={{ fontSize: 12, color: C.HAZARD, lineHeight: 1.6 }}>
               ⚠ CRUSH [{index + 1}] {world.worldType.toUpperCase()} AT {world.orbitalAU} AU
               {' '}— it becomes an asteroid belt of this world's debris, in the same orbit. This cannot be undone.
-              {destroyedLine(world) ? ` ${destroyedLine(world)}` : ''}
+              {presencePhrase(world, 'are destroyed.') ? ` ${presencePhrase(world, 'are destroyed.')}` : ''}
             </div>
             <div className="flex-row flex-wrap" style={{ gap: 12, marginTop: 10, justifyContent: 'flex-end' }}>
               <button type="button" onClick={onConfirmCrush} style={{ ...navBtn(false, C.HAZARD), fontSize: 11 }}>Crush</button>
-              <button type="button" onClick={onCancelCrush} style={{ ...navBtn(false, C.TEXT_DIM, true), fontSize: 11 }}>✕ Cancel</button>
+              <button type="button" onClick={onCancelEdit} style={{ ...navBtn(false, C.TEXT_DIM, true), fontSize: 11 }}>✕ Cancel</button>
+            </div>
+          </div>
+        )}
+        {pendingKind === 'eject' && (
+          <div style={{
+            marginTop: 10, padding: '10px 14px',
+            background: C.HAZARD + '11', border: `1px solid ${C.HAZARD}55`, borderRadius: 4,
+          }}>
+            <div style={{ fontSize: 12, color: C.HAZARD, lineHeight: 1.6 }}>
+              ⚠ EJECT [{index + 1}] {world.worldType.toUpperCase()} AT {world.orbitalAU} AU
+              {' '}— it leaves this system and becomes a rogue planet in the neighborhood. This cannot be undone.
+              {presencePhrase(world, 'go with it.') ? ` ${presencePhrase(world, 'go with it.')}` : ''}
+            </div>
+            <div className="flex-row flex-wrap" style={{ gap: 12, marginTop: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={onConfirmEject} style={{ ...navBtn(false, C.HAZARD), fontSize: 11 }}>Eject</button>
+              <button type="button" onClick={onCancelEdit} style={{ ...navBtn(false, C.TEXT_DIM, true), fontSize: 11 }}>✕ Cancel</button>
             </div>
           </div>
         )}
@@ -388,16 +440,18 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canCrush
                 </div>
               </div>
             )}
-            {world.isHabitable && (
+            {(world.isHabitable || world.species?.length > 0 || world.ruins) && (
               <div style={{ marginTop: 8 }}>
                 <div className="flex-between" style={{ marginBottom: 8 }}>
-                  <Label color={C.HABITABLE}>Sapient Species ({world.species.length})</Label>
-                  <button onClick={() => onGenerateSpecies(world.id)} style={navBtn(false, C.HABITABLE, true)}>↻ Regen Species</button>
+                  <Label color={C.HABITABLE}>Sapient Species ({world.species?.length || 0})</Label>
+                  {world.isHabitable && (
+                    <button onClick={() => onGenerateSpecies(world.id)} style={navBtn(false, C.HABITABLE, true)}>↻ Regen Species</button>
+                  )}
                 </div>
-                {world.species.length === 0 && (
+                {world.isHabitable && world.species.length === 0 && (
                   <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>No sapient life detected on this world.</span>
                 )}
-                {world.species.map((sp, si) => <SpeciesCard key={sp.id} species={sp} index={si}/>)}
+                {(world.species || []).map((sp, si) => <SpeciesCard key={sp.id} species={sp} index={si}/>)}
 
                 {/* Lost civilization ruins */}
                 {world.ruins && world.species.length === 0 && (
@@ -795,7 +849,7 @@ export default function App() {
   const [booted,           setBooted]           = useState(false);
   const [archive,          setArchive]          = useState(() => loadArchive());
   const [archiveQuery,     setArchiveQuery]     = useState('');
-  const [pendingCrushId,   setPendingCrushId]   = useState(null);
+  const [pendingWorldEdit, setPendingWorldEdit] = useState(null);
 
   const active     = activeNeighborId ? (neighborSystems[activeNeighborId] || system) : system;
   const isNeighbor = !!activeNeighborId;
@@ -803,6 +857,17 @@ export default function App() {
   const updateActive = useCallback(s => {
     if (activeNeighborId) {
       setNeighborSystems(prev => ({ ...prev, [activeNeighborId]: s }));
+      setSystem(prev => {
+        if (!prev.ejected?.some(entry => entry.neighbor.id === activeNeighborId)) return prev;
+        const next = {
+          ...prev,
+          ejected: prev.ejected.map(entry => (
+            entry.neighbor.id === activeNeighborId ? { ...entry, rogueSystem: s } : entry
+          )),
+        };
+        saveSystem(next);
+        return next;
+      });
     } else {
       setSystem(s);
       saveSystem(s);
@@ -816,7 +881,7 @@ export default function App() {
     saveSystem(s);
     setActiveNeighborId(null);
     setNeighborSystems({});
-    setPendingCrushId(null);
+    setPendingWorldEdit(null);
   };
 
   const handleGenerateFromSeed = () => {
@@ -827,10 +892,10 @@ export default function App() {
     saveSystem(s);
     setActiveNeighborId(null);
     setNeighborSystems({});
-    setPendingCrushId(null);
+    setPendingWorldEdit(null);
   };
   const handleRedraw    = () => {
-    setPendingCrushId(null);
+    setPendingWorldEdit(null);
     updateActive(redrawSystem(active, { redrawnStarCount: starCount }));
   };
   const handleUnlockAll = () => updateActive({ ...active, neighborhood: { ...active.neighborhood, locked: false }, stars: active.stars.map(s => ({ ...s, locked: false })), worlds: active.worlds.map(w => ({ ...w, locked: false })) });
@@ -839,11 +904,14 @@ export default function App() {
   const handleRedrawNbhd = () => { const f = generateSystem({ starCount }); updateActive({ ...active, neighborhood: f.neighborhood }); };
 
   const handleNavigate = (neighbor) => {
-    setPendingCrushId(null);
+    setPendingWorldEdit(null);
     if (!neighborSystems[neighbor.id]) {
-      const ns = neighbor.objectType === 'Rogue Planet'
-        ? generateRoguePlanetSystem()
-        : generateSystem({ starCount: 1, primarySpectralClass: neighbor.spectralClass });
+      const ejectedEntry = (system.ejected || []).find(entry => entry.neighbor.id === neighbor.id);
+      const ns = ejectedEntry
+        ? ejectedEntry.rogueSystem
+        : neighbor.objectType === 'Rogue Planet'
+          ? generateRoguePlanetSystem()
+          : generateSystem({ starCount: 1, primarySpectralClass: neighbor.spectralClass });
       setNeighborSystems(prev => ({ ...prev, [neighbor.id]: ns }));
     }
     setActiveNeighborId(neighbor.id);
@@ -854,7 +922,7 @@ export default function App() {
   };
 
   const handleBack = () => {
-    setPendingCrushId(null);
+    setPendingWorldEdit(null);
     setActiveNeighborId(null);
     setStarCount(system.stars.length);
     setSeedInput(system.seed || '');
@@ -866,16 +934,20 @@ export default function App() {
   }, [active, updateActive]);
 
   const handleLockWorld   = useCallback(id => {
-    setPendingCrushId(pending => pending === id ? null : pending);
+    setPendingWorldEdit(pending => pending?.id === id ? null : pending);
     updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? { ...w, locked: !w.locked } : w) });
   }, [active, updateActive]);
   const handleRedrawWorld = useCallback(id => {
-    setPendingCrushId(pending => pending === id ? null : pending);
+    setPendingWorldEdit(pending => pending?.id === id ? null : pending);
     updateActive(redrawWorld(active, id));
   }, [active, updateActive]);
   const handleConfirmCrush = useCallback(id => {
-    setPendingCrushId(null);
+    setPendingWorldEdit(null);
     updateActive(crushWorld(active, id));
+  }, [active, updateActive]);
+  const handleConfirmEject = useCallback(id => {
+    setPendingWorldEdit(null);
+    updateActive(ejectWorld(active, id));
   }, [active, updateActive]);
 
   const handleSpecies = useCallback(id => updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? regenerateSpeciesForWorld(w) : w) }), [active, updateActive]);
@@ -903,7 +975,7 @@ export default function App() {
     setSeedInput(entry.system.seed || '');
     setActiveNeighborId(null);
     setNeighborSystems({});
-    setPendingCrushId(null);
+    setPendingWorldEdit(null);
     setView('system');
   };
 
@@ -914,7 +986,7 @@ export default function App() {
     setSeedInput(imported.seed || '');
     setActiveNeighborId(null);
     setNeighborSystems({});
-    setPendingCrushId(null);
+    setPendingWorldEdit(null);
     setView('system');
   };
 
@@ -1000,7 +1072,7 @@ export default function App() {
             )}
             <div style={{ flex: 1 }}/>
             {!isNeighbor && <button onClick={handleGenerate} style={{ ...navBtn(false, C.HABITABLE), fontWeight: 700 }}>⚡ Generate New</button>}
-            <button onClick={handleRedraw}          style={navBtn(false, C.PRIMARY)}>↻ Redraw Free</button>
+            {!active.isRoguePlanet && <button onClick={handleRedraw} style={navBtn(false, C.PRIMARY)}>↻ Redraw Free</button>}
             <button onClick={handleUnlockAll}       style={navBtn(false, C.TEXT_DIM, true)}>⊘ Unlock All</button>
             <button onClick={handleSaveToArchive}   style={navBtn(false, C.EXOTIC)}>↓ Save System</button>
           </div>
@@ -1025,6 +1097,7 @@ export default function App() {
           {!isNeighbor && (
             <NeighborhoodCard
               neighborhood={active.neighborhood}
+              ejected={active.ejected || []}
               onLock={handleLockNbhd}
               onRedraw={handleRedrawNbhd}
               onNavigate={handleNavigate}
@@ -1040,9 +1113,9 @@ export default function App() {
                   <Label color={C.PRIMARY}>Rogue Planetary Body</Label>
                 </div>
                 <div className="body-text" style={{ color: C.TEXT_DIM, lineHeight: 1.9 }}>
-                  No host star. This body drifts through interstellar space unbound to any stellar system.
-                  Surface temperature approaches absolute zero. Any liquid water would require subsurface
-                  geothermal heating from residual radioactive decay — a Europa-like scenario in permanent darkness.
+                  {active.ejectedFrom
+                    ? `Ejected ${active.ejectedFrom.worldType} from ${active.ejectedFrom.orbitalAU} AU (${String(active.ejectedFrom.zone || '').replaceAll('_', ' ')}). No host star. The body is unbound.${presencePhrase(active.worlds?.[0] || {}, 'are still here.') ? ` ${presencePhrase(active.worlds?.[0] || {}, 'are still here.')}` : ''}`
+                    : `No host star. This body drifts through interstellar space unbound to any stellar system. Surface temperature approaches absolute zero. Any liquid water would require subsurface geothermal heating from residual radioactive decay — a Europa-like scenario in permanent darkness.`}
                 </div>
                 <div className="flex-wrap gap-md" style={{ marginTop: 10 }}>
                   <Tag color={C.COLD}>No Solar Energy</Tag>
@@ -1101,11 +1174,12 @@ export default function App() {
                 onLock={handleLockWorld}
                 onRedraw={() => handleRedrawWorld(world.id)}
                 onGenerateSpecies={handleSpecies}
-                canCrush={!active.isRoguePlanet}
-                crushArmed={pendingCrushId === world.id}
-                onArmCrush={() => setPendingCrushId(world.id)}
+                canRestructure={!active.isRoguePlanet}
+                pendingKind={pendingWorldEdit?.id === world.id ? pendingWorldEdit.kind : null}
+                onArmEdit={kind => setPendingWorldEdit({ id: world.id, kind })}
                 onConfirmCrush={() => handleConfirmCrush(world.id)}
-                onCancelCrush={() => setPendingCrushId(null)}
+                onConfirmEject={() => handleConfirmEject(world.id)}
+                onCancelEdit={() => setPendingWorldEdit(null)}
               />
             ))}
           </div>

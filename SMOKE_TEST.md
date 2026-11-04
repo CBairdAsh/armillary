@@ -9,7 +9,7 @@ npm run dev
 
 Open the app in your browser. Keep DevTools (F12) → **Console** open; there should be no red errors during these steps.
 
-**Current target:** v1.4.0 (crush a world into a debris belt)
+**Current target:** v1.5.0 (eject a world into the neighborhood)
 
 See [Phase 2 checks](#phase-2-checks-v130) below.
 
@@ -177,7 +177,7 @@ Ready to commit/push/deploy when all are true:
 
 | # | Action | Expected |
 |---|--------|----------|
-| P2-1 | **⚡ Generate New** (blank seed) | Overview shows new **SEED** row; boot/about show v1.4.0 |
+| P2-1 | **⚡ Generate New** (blank seed) | Overview shows new **SEED** row; boot/about show v1.5.0 |
 | P2-2 | Enter seed `test-alpha` → **From seed** twice (same star count) | Same stars/worlds layout both times |
 | P2-2b | **⚡ Generate New** twice (seed field empty or filled) | **Different** systems each time |
 | P2-2c | **↻ Redraw Free** with nothing locked | System changes each click |
@@ -204,6 +204,21 @@ Ready to commit/push/deploy when all are true:
 | C-6 | Unlock the belt → **↻ Redraw** on that card only | A new body appears at the **same AU** |
 | C-7 | Rogue planet view | No **Crush** control |
 | C-8 | Habitable world with species or moons → **Crush** | Bar adds "Species … are destroyed." (and moons, when present) before confirm |
+
+---
+
+## v1.5 eject checks
+
+| # | Action | Expected |
+|---|--------|----------|
+| E-1 | **Eject** on a locked world | No **Eject** control |
+| E-2 | **Eject** on an unlocked world → **✕ Cancel** | World stays. Warning names it, its AU, and says it becomes a rogue in the neighborhood and cannot be undone |
+| E-3 | Confirm **Eject** | That world is gone. Every other world keeps its AU. Neighborhood gains an **Ejected** entry |
+| E-4 | **→ Explore** the ejected entry | The rogue is that world: same type, gravity, hydrosphere, species, and ruins. Zone is Fringe. Not habitable. Note records the former AU |
+| E-5 | **← Back** → **↻ Redraw Free**, then **↻ Redraw** on the neighborhood | The ejected entry is still there. Explore still opens that body |
+| E-6 | **⚡ Generate New** | Ejected list is gone |
+| E-7 | Export text | An **EJECTED** section names the body |
+| E-8 | Rogue planet view | No **Eject** control and no **Redraw Free** |
 
 ---
 
