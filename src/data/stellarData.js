@@ -437,6 +437,26 @@ export function estimateTemperature(worldType, zone, luminosity, orbitalAU = nul
   return Math.round(base + mod);
 }
 
+// ─── CRUSH DEBRIS ─────────────────────────────────────────────────────────────
+// Material that stays in orbit when a world is crushed into a belt.
+// Atmospheres are not debris. A giant leaves its core; the envelope is lost.
+export const CRUSH_DEBRIS = {
+  'Terrestrial':    'rock and metal',
+  'Desert':         'silicate rock',
+  'Ocean Planet':   'rock and water ice',
+  'Ice Planet':     'ice and rock',
+  'Hycean':         'rock and water ice',
+  'Gas Giant':      'rock and ice',
+  'Ice Giant':      'ice and rock',
+  'Gas Dwarf':      'rock and ice',
+  'Chthonian':      'rock and metal',
+  'Double Planet':  'rock and metal',
+  'Coreless':       'silicate rock',
+  'Pulsar Planet':  'irradiated rock and metal',
+  'Disintegrating': 'rock and metal',
+  'Rogue/Captured': 'rock and ice',
+};
+
 // ─── HAZARD TABLES ────────────────────────────────────────────────────────────
 export const WORLD_HAZARDS = {
   'Terrestrial':   ['Seismic activity', 'Volcanic regions', 'Severe storms', 'Toxic atmosphere pockets', 'None'],

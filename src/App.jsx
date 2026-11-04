@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -233,7 +233,21 @@ function StarCard({ star, label, onLock, onRedraw }) {
 }
 
 // ─── WORLD CARD ───────────────────────────────────────────────────────────────
-function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
+function destroyedLine(world) {
+  const parts = [];
+  if (world.species?.length) parts.push('species');
+  if (world.ruins) parts.push('ruins');
+  if (world.moons?.length) parts.push('moons');
+  if (!parts.length) return '';
+  const phrase = parts.length === 1
+    ? parts[0]
+    : parts.length === 2
+      ? `${parts[0]} and ${parts[1]}`
+      : `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
+  return `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)} are destroyed.`;
+}
+
+function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canCrush = false, crushArmed = false, onArmCrush, onConfirmCrush, onCancelCrush }) {
   const [expanded, setExpanded] = useState(false);
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
@@ -255,6 +269,7 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
           <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{world.orbitalAU} AU</span>
           {world.isCircumbinary && <Tag color={C.STAR_G}>★ CIRCUMBINARY</Tag>}
           {world.worldType === 'Pulsar Planet' && <Tag color={C.STAR_NS}>★ PULSAR ORBIT</Tag>}
+          {world.debris         && <Tag color={zoneColor}>DEBRIS · {world.debris.toUpperCase()}</Tag>}
           {world.isHabitable    && <Tag color={C.HABITABLE}>★ HABITABLE</Tag>}
           {world.tidallyLocked  && <Tag color={C.COLD}>⟳ TIDALLY LOCKED</Tag>}
           {world.tidalResonance && <Tag color={C.COLD}>⟳ RESONANCE</Tag>}
@@ -262,6 +277,9 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
           <div style={{ flex: 1 }}/>
           <LockBtn locked={locked} onToggle={() => onLock(world.id)} color={zoneColor}/>
           {!locked && <button onClick={onRedraw} style={navBtn(false, zoneColor, true)}>↻ Redraw</button>}
+          {canCrush && !locked && world.worldType !== 'Asteroid Belt' && !crushArmed && (
+            <button type="button" onClick={onArmCrush} style={navBtn(false, C.HAZARD, true)}>Crush</button>
+          )}
           {hasDetails && (
             <button onClick={() => setExpanded(e => !e)} style={navBtn(expanded, C.PRIMARY, true)}>
               {expanded ? 'CLOSE ▲' : 'DETAILS ▾'}
@@ -276,6 +294,22 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies }) {
           <span style={{ fontSize: 13, color: C.TEXT_DIM }}>T: <span style={{ color: world.temperature > 50 ? C.HAZARD : world.temperature < -50 ? C.COLD : C.TEXT }}>{world.temperature}°C</span></span>
           {world.moons.length > 0 && <span style={{ fontSize: 13, color: C.TEXT_DIM }}>MOONS: <span style={{ color: C.TEXT }}>{world.moons.length}</span></span>}
         </div>
+        {crushArmed && (
+          <div style={{
+            marginTop: 10, padding: '10px 14px',
+            background: C.HAZARD + '11', border: `1px solid ${C.HAZARD}55`, borderRadius: 4,
+          }}>
+            <div style={{ fontSize: 12, color: C.HAZARD, lineHeight: 1.6 }}>
+              ⚠ CRUSH [{index + 1}] {world.worldType.toUpperCase()} AT {world.orbitalAU} AU
+              {' '}— it becomes an asteroid belt of this world's debris, in the same orbit. This cannot be undone.
+              {destroyedLine(world) ? ` ${destroyedLine(world)}` : ''}
+            </div>
+            <div className="flex-row flex-wrap" style={{ gap: 12, marginTop: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={onConfirmCrush} style={{ ...navBtn(false, C.HAZARD), fontSize: 11 }}>Crush</button>
+              <button type="button" onClick={onCancelCrush} style={{ ...navBtn(false, C.TEXT_DIM, true), fontSize: 11 }}>✕ Cancel</button>
+            </div>
+          </div>
+        )}
         {/* Expanded */}
         {expanded && (
           <div style={{ marginTop: 12 }}>
@@ -761,6 +795,7 @@ export default function App() {
   const [booted,           setBooted]           = useState(false);
   const [archive,          setArchive]          = useState(() => loadArchive());
   const [archiveQuery,     setArchiveQuery]     = useState('');
+  const [pendingCrushId,   setPendingCrushId]   = useState(null);
 
   const active     = activeNeighborId ? (neighborSystems[activeNeighborId] || system) : system;
   const isNeighbor = !!activeNeighborId;
@@ -781,6 +816,7 @@ export default function App() {
     saveSystem(s);
     setActiveNeighborId(null);
     setNeighborSystems({});
+    setPendingCrushId(null);
   };
 
   const handleGenerateFromSeed = () => {
@@ -791,14 +827,19 @@ export default function App() {
     saveSystem(s);
     setActiveNeighborId(null);
     setNeighborSystems({});
+    setPendingCrushId(null);
   };
-  const handleRedraw    = () => updateActive(redrawSystem(active, { redrawnStarCount: starCount }));
+  const handleRedraw    = () => {
+    setPendingCrushId(null);
+    updateActive(redrawSystem(active, { redrawnStarCount: starCount }));
+  };
   const handleUnlockAll = () => updateActive({ ...active, neighborhood: { ...active.neighborhood, locked: false }, stars: active.stars.map(s => ({ ...s, locked: false })), worlds: active.worlds.map(w => ({ ...w, locked: false })) });
 
   const handleLockNbhd   = () => updateActive({ ...active, neighborhood: { ...active.neighborhood, locked: !active.neighborhood.locked } });
   const handleRedrawNbhd = () => { const f = generateSystem({ starCount }); updateActive({ ...active, neighborhood: f.neighborhood }); };
 
   const handleNavigate = (neighbor) => {
+    setPendingCrushId(null);
     if (!neighborSystems[neighbor.id]) {
       const ns = neighbor.objectType === 'Rogue Planet'
         ? generateRoguePlanetSystem()
@@ -813,6 +854,7 @@ export default function App() {
   };
 
   const handleBack = () => {
+    setPendingCrushId(null);
     setActiveNeighborId(null);
     setStarCount(system.stars.length);
     setSeedInput(system.seed || '');
@@ -823,9 +865,17 @@ export default function App() {
     updateActive(redrawStar(active, id));
   }, [active, updateActive]);
 
-  const handleLockWorld   = useCallback(id => updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? { ...w, locked: !w.locked } : w) }), [active, updateActive]);
+  const handleLockWorld   = useCallback(id => {
+    setPendingCrushId(pending => pending === id ? null : pending);
+    updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? { ...w, locked: !w.locked } : w) });
+  }, [active, updateActive]);
   const handleRedrawWorld = useCallback(id => {
+    setPendingCrushId(pending => pending === id ? null : pending);
     updateActive(redrawWorld(active, id));
+  }, [active, updateActive]);
+  const handleConfirmCrush = useCallback(id => {
+    setPendingCrushId(null);
+    updateActive(crushWorld(active, id));
   }, [active, updateActive]);
 
   const handleSpecies = useCallback(id => updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? regenerateSpeciesForWorld(w) : w) }), [active, updateActive]);
@@ -853,6 +903,7 @@ export default function App() {
     setSeedInput(entry.system.seed || '');
     setActiveNeighborId(null);
     setNeighborSystems({});
+    setPendingCrushId(null);
     setView('system');
   };
 
@@ -863,6 +914,7 @@ export default function App() {
     setSeedInput(imported.seed || '');
     setActiveNeighborId(null);
     setNeighborSystems({});
+    setPendingCrushId(null);
     setView('system');
   };
 
@@ -1042,7 +1094,19 @@ export default function App() {
               </div>
             </div>
             {active.worlds.map((world, i) => (
-              <WorldCard key={world.id} world={world} index={i} onLock={handleLockWorld} onRedraw={() => handleRedrawWorld(world.id)} onGenerateSpecies={handleSpecies}/>
+              <WorldCard
+                key={world.id}
+                world={world}
+                index={i}
+                onLock={handleLockWorld}
+                onRedraw={() => handleRedrawWorld(world.id)}
+                onGenerateSpecies={handleSpecies}
+                canCrush={!active.isRoguePlanet}
+                crushArmed={pendingCrushId === world.id}
+                onArmCrush={() => setPendingCrushId(world.id)}
+                onConfirmCrush={() => handleConfirmCrush(world.id)}
+                onCancelCrush={() => setPendingCrushId(null)}
+              />
             ))}
           </div>
 

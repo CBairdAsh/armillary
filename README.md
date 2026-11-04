@@ -1,4 +1,4 @@
-# Armillary — Stellar System Generator - v 1.3.1
+# Armillary — Stellar System Generator - v 1.4.0
 
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
@@ -75,6 +75,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 | Redraw unlocked cards | ↻ Redraw Free |
 | Change star count | Single / Binary / Triple selector — amber notice appears, confirm with Apply & Redraw |
 | See world detail | DETAILS ▾ on any world card |
+| Crush a world into a belt | CRUSH on an unlocked world → confirm. Debris stays in that orbit. Atmosphere is lost. This cannot be undone |
 | Explore a neighbor star | Click any neighbor in the Stellar Neighborhood |
 | Name the system | Click the system name / UNNAMED SYSTEM in the overview |
 | Copy seed / share link | Seed row in system overview → COPY SEED or COPY LINK |

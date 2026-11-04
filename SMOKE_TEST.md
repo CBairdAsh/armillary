@@ -9,7 +9,7 @@ npm run dev
 
 Open the app in your browser. Keep DevTools (F12) → **Console** open; there should be no red errors during these steps.
 
-**Current target:** v1.3.1 (Phase 2 — seeds, JSON import, archive search)
+**Current target:** v1.4.0 (crush a world into a debris belt)
 
 See [Phase 2 checks](#phase-2-checks-v130) below.
 
@@ -177,7 +177,7 @@ Ready to commit/push/deploy when all are true:
 
 | # | Action | Expected |
 |---|--------|----------|
-| P2-1 | **⚡ Generate New** (blank seed) | Overview shows new **SEED** row; boot/about show v1.3.1 |
+| P2-1 | **⚡ Generate New** (blank seed) | Overview shows new **SEED** row; boot/about show v1.4.0 |
 | P2-2 | Enter seed `test-alpha` → **From seed** twice (same star count) | Same stars/worlds layout both times |
 | P2-2b | **⚡ Generate New** twice (seed field empty or filled) | **Different** systems each time |
 | P2-2c | **↻ Redraw Free** with nothing locked | System changes each click |
@@ -189,6 +189,21 @@ Ready to commit/push/deploy when all are true:
 | P2-8 | Phase 0 quick pass | Still passes |
 
 **Seed note:** Same seed reproduces the **generation roll**, not edits, locks, or post-redraw state. Use JSON import for exact artifacts.
+
+---
+
+## v1.4 crush checks
+
+| # | Action | Expected |
+|---|--------|----------|
+| C-1 | Unlock a non-belt world → **Crush** | Amber bar names that world, its AU, and says this cannot be undone. **✕ Cancel** leaves the world unchanged |
+| C-2 | **Crush** on the bar | World becomes **Asteroid Belt** in the same AU. Header shows **DEBRIS ·** the former world's material. Atmosphere is N/A. Card is locked |
+| C-3 | Open **DETAILS** | Note names the former type. If it had an atmosphere, the note says atmosphere lost. Moons, species, and ruins are gone |
+| C-4 | Crush a world between two unlocked worlds | Each unlocked neighbor gains hazard **Debris from a disrupted neighbor**. A locked neighbor is unchanged |
+| C-5 | **↻ Redraw Free** | The crushed belt is still there, same AU, still locked |
+| C-6 | Unlock the belt → **↻ Redraw** on that card only | A new body appears at the **same AU** |
+| C-7 | Rogue planet view | No **Crush** control |
+| C-8 | Habitable world with species or moons → **Crush** | Bar adds "Species … are destroyed." (and moons, when present) before confirm |
 
 ---
 

@@ -9,6 +9,7 @@ import {
   WORLD_TYPE_BY_ZONE,
   WORLD_TYPES,
   WORLD_HAZARDS,
+  CRUSH_DEBRIS,
   MOON_TYPES,
   NEIGHBORHOOD_DENSITY,
   DISTANCE_RANGES,
@@ -642,10 +643,14 @@ function generateSystemCore({ starCount = 1, locked = {}, primarySpectralClass =
   const totalLuminosity = stars.reduce((sum, s) => sum + s.luminosity, 0);
   const combinedHZ      = calculateHabitableZone(totalLuminosity);
 
-  // World count from star type
+  // World count from star type. A locked world past the roll is kept,
+  // so a crushed belt (or any lock) cannot vanish on Redraw Free.
   const sc          = SPECTRAL_CLASSES[primaryStar.spectralClass];
   const [minW, maxW] = sc?.planetBodyRange || [3, 8];
-  const worldCount  = locked.worldCount ?? rndInt(minW, maxW);
+  const lastLocked  = Array.isArray(locked.worlds)
+    ? locked.worlds.reduce((max, world, i) => (world ? i : max), -1)
+    : -1;
+  const worldCount  = Math.max(locked.worldCount ?? rndInt(minW, maxW), lastLocked + 1);
 
   // Generate orbital positions
   const orbitalPositions = generateOrbitalPositions(worldCount, combinedHZ);
@@ -660,7 +665,8 @@ function generateSystemCore({ starCount = 1, locked = {}, primarySpectralClass =
   // For binary/triple systems: chance of a world orbiting all stars combined
   // Orbits beyond the outermost star's influence — typically 3–5× the binary separation
   let circumbinaryWorld = null;
-  if (stars.length > 1 && getRandom() < CIRCUMBINARY_CHANCE) {
+  const hasLockedCircumbinary = locked.worlds?.some(world => world?.isCircumbinary);
+  if (stars.length > 1 && !hasLockedCircumbinary && getRandom() < CIRCUMBINARY_CHANCE) {
     circumbinaryWorld = generateCircumbinaryWorld(null, combinedHZ, totalLuminosity, worlds.length);
   }
 
@@ -775,6 +781,69 @@ export function redrawStar(system, starId) {
     worlds,
     timestamp: Date.now(),
   };
+}
+
+const DEBRIS_HAZARD = 'Debris from a disrupted neighbor';
+
+/**
+ * Crush an unlocked world into an asteroid belt in the same orbit.
+ * Debris is the world's remaining material. Atmosphere, hydrosphere,
+ * moons, species, and ruins are discarded. The belt is locked.
+ * Each unlocked neighbor gains a debris hazard. Locked neighbors are left untouched.
+ * @param {object} system
+ * @param {string} worldId
+ * @returns {object} The same system when the world is missing, locked, or already a belt.
+ */
+export function crushWorld(system, worldId) {
+  const index = system.worlds.findIndex(world => world.id === worldId);
+  if (index === -1) return system;
+
+  const world = system.worlds[index];
+  if (world.locked || world.worldType === 'Asteroid Belt') return system;
+
+  const debris = CRUSH_DEBRIS[world.worldType] || 'rock';
+  const moonCount = world.moons?.length || 0;
+  const hadAtmosphere = Boolean(world.atmosphere) && !['None', 'N/A'].includes(world.atmosphere);
+  const note = [
+    `Former ${world.worldType}, crushed in place.`,
+    `Debris: ${debris}.`,
+    hadAtmosphere ? 'Atmosphere lost.' : null,
+    moonCount === 1 ? '1 former moon folded into the belt.' : null,
+    moonCount > 1 ? `${moonCount} former moons folded into the belt.` : null,
+  ].filter(Boolean).join(' ');
+
+  const totalLuminosity = (system.stars || []).reduce((sum, star) => sum + (star.luminosity || 0), 0);
+  const hz = system.hz || calculateHabitableZone(totalLuminosity || 1);
+
+  const crushed = {
+    ...world,
+    worldType:       'Asteroid Belt',
+    atmosphere:      'N/A',
+    hydrosphere:     'N/A',
+    gravity:         0,
+    temperature:     estimateTemperature('Asteroid Belt', world.zone, totalLuminosity, world.orbitalAU, hz),
+    isHabitable:     false,
+    tidallyLocked:   false,
+    tidalResonance:  false,
+    biosignature:    null,
+    hazards:         [...WORLD_HAZARDS['Asteroid Belt']],
+    moons:           [],
+    species:         [],
+    ruins:           null,
+    debris,
+    worldNotes:      note,
+    locked:          true,
+  };
+
+  const worlds = system.worlds.map((entry, i) => {
+    if (i === index) return crushed;
+    const adjacent = i === index - 1 || i === index + 1;
+    if (!adjacent || entry.locked) return entry;
+    if (entry.hazards?.includes(DEBRIS_HAZARD)) return entry;
+    return { ...entry, hazards: [...(entry.hazards || []), DEBRIS_HAZARD] };
+  });
+
+  return { ...system, worlds, timestamp: Date.now() };
 }
 
 export function redrawWorld(system, worldId) {
@@ -938,6 +1007,7 @@ export function generateTextSummary(system) {
     if (world.isHabitable)    lines.push(`  ★ HABITABLE`);
     if (world.biosignature)   lines.push(`  🔬 BIOSIGNATURE: ${world.biosignature.label} (${world.biosignature.confidence})`);
     if (world.moons.length)   lines.push(`  Moons: ${world.moons.length} (${world.moons.map(m => m.type).join(', ')})`);
+    if (world.debris)         lines.push(`  Debris: ${world.debris}`);
     if (world.worldNotes)     lines.push(`  Note: ${world.worldNotes}`);
     if (world.ruins) {
       lines.push(`  ☠ RUINS: ${world.ruins.tech} civilization (${world.ruins.ageLabel}, ~${world.ruins.ageYears.toLocaleString()} yrs ago)`);
