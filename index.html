@@ -19,17 +19,26 @@
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: #080c10; color: #c8d8e8; overflow-x: hidden; }
       #root { min-height: 100vh; }
+      .armillary-summary {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+        border: 0;
+      }
     </style>
   </head>
   <body>
-    <div id="root">
-      <main style="max-width: 36rem; padding: 12vh 8vw; font-family: ui-monospace, monospace;">
-        <h1 style="margin: 0; font-size: 1.25rem; font-weight: 500; letter-spacing: 0.14em; color: #7B9BAF;">Armillary star system generator</h1>
-        <p style="margin: 1.25rem 0 0; font-size: 0.95rem; line-height: 1.7; color: #d4e4f0;">
-          Armillary is a free star system generator for writers, game masters, and worldbuilders. It rolls a solar system with stars, planets, habitable zones, and sapient species. No account is required.
-        </p>
-      </main>
-    </div>
+    <main class="armillary-summary">
+      <h1>Armillary star system generator</h1>
+      <p>Armillary is a free star system generator for writers, game masters, and worldbuilders. It rolls a solar system with stars, planets, habitable zones, and sapient species. No account is required.</p>
+    </main>
+    <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
