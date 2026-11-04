@@ -241,7 +241,7 @@ Ready to commit/push/deploy when all are true:
 
 | # | Action | Expected |
 |---|--------|----------|
-| U-1 | First visit this version, after boot | A notice names **v1.6.0** and Crush, Eject, Destroy, and Insert. It says it is shown once for this version |
+| U-1 | First visit this version, after boot | A notice names **v1.6.0** and Crush, Eject, Destroy, and Insert. The card ends with the Ko-fi line and the Kummer Wolfe links. It does not say it is shown once |
 | U-2 | **Continue**, then reload | The notice does not return |
 | U-3 | Clear site data for this origin, reload | The notice returns |
 

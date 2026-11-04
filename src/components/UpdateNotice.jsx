@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { C, FONTS, navBtn } from '../tokens.js';
-import { APP_VERSION, RELEASE_NOTES } from '../config.js';
+import { APP_VERSION, KOFI_URL, LINKTREE, RELEASE_NOTES, SUBSTACK_URL } from '../config.js';
 
 const SEEN_KEY = 'armillary_seen_release';
 
@@ -81,8 +81,26 @@ export default function UpdateNotice({ onDismiss }) {
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: C.TEXT_FAINT, letterSpacing: 1 }}>Shown once for this version.</span>
+        <div style={{ borderTop: `1px solid ${C.BORDER}`, marginTop: 4, paddingTop: 12 }}>
+          <p style={{ margin: '0 0 12px', color: C.TEXT, fontSize: 13, lineHeight: 1.6 }}>
+            Armillary is free and no account is required. Your current system saves automatically in your browser. If it's useful to you, a coffee is always appreciated.
+          </p>
+          <a href={KOFI_URL} target="_blank" rel="noopener noreferrer" style={{ ...navBtn(false, '#FF6B6B'), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}>
+            ☕ Buy me a coffee on Ko-fi
+          </a>
+          <p style={{ color: C.TEXT_DIM, fontSize: 13, margin: '14px 0 8px' }}>
+            Built by Kummer Wolfe — fiction author and worldbuilder.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+            <a href={LINKTREE} target="_blank" rel="noopener noreferrer" style={{ ...navBtn(false, C.PRIMARY), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}>
+              ✦ My Linktr.ee
+            </a>
+            <a href={SUBSTACK_URL} target="_blank" rel="noopener noreferrer" style={{ ...navBtn(false, C.PRIMARY), textDecoration: 'none', display: 'inline-block', fontSize: 13 }}>
+              ✦ Read my fiction on Substack
+            </a>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
           <button ref={buttonRef} type="button" onClick={onDismiss} style={navBtn(true, C.PRIMARY)}>Continue</button>
         </div>
       </div>
