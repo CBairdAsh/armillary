@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, ejectionLifeFate, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -298,6 +298,32 @@ function presencePhrase(world, verb) {
       ? `${parts[0]} and ${parts[1]}`
       : `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
   return `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)} ${verb}`;
+}
+
+function InsertSlot({ slot, armed, onArm, onConfirm, onCancel }) {
+  const zoneColor = ZONE_COLORS[slot.zone] || C.PRIMARY;
+  if (!armed) {
+    return (
+      <div style={{ margin: '2px 0 8px' }}>
+        <button type="button" onClick={onArm} style={navBtn(false, zoneColor, true)}>+ Insert · {slot.au} AU · {slot.zone.replace('_', ' ')}</button>
+      </div>
+    );
+  }
+  return (
+    <div style={{
+      margin: '2px 0 8px', padding: '10px 14px',
+      background: C.HAZARD + '11', border: `1px solid ${C.HAZARD}55`, borderRadius: 4,
+    }}>
+      <div style={{ fontSize: 12, color: C.HAZARD, lineHeight: 1.6 }}>
+        ⚠ INSERT A WORLD AT {slot.au} AU ({slot.zone.replace('_', ' ')})
+        {' '}— a new body is generated in this orbit and locked. Other orbits stay put.
+      </div>
+      <div className="flex-row flex-wrap" style={{ gap: 12, marginTop: 10, justifyContent: 'flex-end' }}>
+        <button type="button" onClick={onConfirm} style={{ ...navBtn(false, C.HAZARD), fontSize: 11 }}>Insert</button>
+        <button type="button" onClick={onCancel} style={{ ...navBtn(false, C.TEXT_DIM, true), fontSize: 11 }}>✕ Cancel</button>
+      </div>
+    </div>
+  );
 }
 
 function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestructure = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
@@ -888,6 +914,11 @@ export default function App() {
   const [archive,          setArchive]          = useState(() => loadArchive());
   const [archiveQuery,     setArchiveQuery]     = useState('');
   const [pendingWorldEdit, setPendingWorldEdit] = useState(null);
+  const [pendingInsert, setPendingInsert] = useState(null);
+  const clearPendingEdits = () => {
+    setPendingWorldEdit(null);
+    setPendingInsert(null);
+  };
 
   const active     = activeNeighborId ? (neighborSystems[activeNeighborId] || system) : system;
   const isNeighbor = !!activeNeighborId;
@@ -919,7 +950,7 @@ export default function App() {
     saveSystem(s);
     setActiveNeighborId(null);
     setNeighborSystems({});
-    setPendingWorldEdit(null);
+    clearPendingEdits();
   };
 
   const handleGenerateFromSeed = () => {
@@ -930,10 +961,10 @@ export default function App() {
     saveSystem(s);
     setActiveNeighborId(null);
     setNeighborSystems({});
-    setPendingWorldEdit(null);
+    clearPendingEdits();
   };
   const handleRedraw    = () => {
-    setPendingWorldEdit(null);
+    clearPendingEdits();
     updateActive(redrawSystem(active, { redrawnStarCount: starCount }));
   };
   const handleUnlockAll = () => updateActive({ ...active, neighborhood: { ...active.neighborhood, locked: false }, stars: active.stars.map(s => ({ ...s, locked: false })), worlds: active.worlds.map(w => ({ ...w, locked: false })) });
@@ -942,7 +973,7 @@ export default function App() {
   const handleRedrawNbhd = () => { const f = generateSystem({ starCount }); updateActive({ ...active, neighborhood: f.neighborhood }); };
 
   const handleNavigate = (neighbor) => {
-    setPendingWorldEdit(null);
+    clearPendingEdits();
     if (!neighborSystems[neighbor.id]) {
       const ejectedEntry = (system.ejected || []).find(entry => entry.neighbor.id === neighbor.id);
       const ns = ejectedEntry
@@ -960,7 +991,7 @@ export default function App() {
   };
 
   const handleBack = () => {
-    setPendingWorldEdit(null);
+    clearPendingEdits();
     setActiveNeighborId(null);
     setStarCount(system.stars.length);
     setSeedInput(system.seed || '');
@@ -991,6 +1022,11 @@ export default function App() {
     setPendingWorldEdit(null);
     updateActive(destroyBelt(active, id));
   }, [active, updateActive]);
+  const handleConfirmInsert = useCallback(au => {
+    setPendingInsert(null);
+    setPendingWorldEdit(null);
+    updateActive(insertWorld(active, au));
+  }, [active, updateActive]);
 
   const handleSpecies = useCallback(id => updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? regenerateSpeciesForWorld(w) : w) }), [active, updateActive]);
 
@@ -1017,7 +1053,7 @@ export default function App() {
     setSeedInput(entry.system.seed || '');
     setActiveNeighborId(null);
     setNeighborSystems({});
-    setPendingWorldEdit(null);
+    clearPendingEdits();
     setView('system');
   };
 
@@ -1028,7 +1064,7 @@ export default function App() {
     setSeedInput(imported.seed || '');
     setActiveNeighborId(null);
     setNeighborSystems({});
-    setPendingWorldEdit(null);
+    clearPendingEdits();
     setView('system');
   };
 
@@ -1208,23 +1244,45 @@ export default function App() {
                 ))}
               </div>
             </div>
-            {active.worlds.map((world, i) => (
-              <WorldCard
-                key={world.id}
-                world={world}
-                index={i}
-                onLock={handleLockWorld}
-                onRedraw={() => handleRedrawWorld(world.id)}
-                onGenerateSpecies={handleSpecies}
-                canRestructure={!active.isRoguePlanet}
-                pendingKind={pendingWorldEdit?.id === world.id ? pendingWorldEdit.kind : null}
-                onArmEdit={kind => setPendingWorldEdit({ id: world.id, kind })}
-                onConfirmCrush={() => handleConfirmCrush(world.id)}
-                onConfirmEject={() => handleConfirmEject(world.id)}
-                onConfirmDestroy={() => handleConfirmDestroy(world.id)}
-                onCancelEdit={() => setPendingWorldEdit(null)}
-              />
-            ))}
+            {(() => {
+              const slots = active.isRoguePlanet ? [] : insertionSlots(active);
+              const after = new Map(slots.filter(slot => slot.afterId).map(slot => [slot.afterId, slot]));
+              const leading = slots.find(slot => !slot.afterId) || null;
+              const row = slot => slot && (
+                <InsertSlot
+                  key={`insert-${slot.au}`}
+                  slot={slot}
+                  armed={pendingInsert === slot.au}
+                  onArm={() => { setPendingWorldEdit(null); setPendingInsert(slot.au); }}
+                  onConfirm={() => handleConfirmInsert(slot.au)}
+                  onCancel={() => setPendingInsert(null)}
+                />
+              );
+              return (
+                <>
+                  {leading && row(leading)}
+                  {active.worlds.map((world, i) => (
+                    <div key={world.id}>
+                      <WorldCard
+                        world={world}
+                        index={i}
+                        onLock={handleLockWorld}
+                        onRedraw={() => handleRedrawWorld(world.id)}
+                        onGenerateSpecies={handleSpecies}
+                        canRestructure={!active.isRoguePlanet}
+                        pendingKind={pendingWorldEdit?.id === world.id ? pendingWorldEdit.kind : null}
+                        onArmEdit={kind => { setPendingInsert(null); setPendingWorldEdit({ id: world.id, kind }); }}
+                        onConfirmCrush={() => handleConfirmCrush(world.id)}
+                        onConfirmEject={() => handleConfirmEject(world.id)}
+                        onConfirmDestroy={() => handleConfirmDestroy(world.id)}
+                        onCancelEdit={() => setPendingWorldEdit(null)}
+                      />
+                      {row(after.get(world.id))}
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
           </div>
 
           {/* Comets */}

@@ -1,4 +1,4 @@
-# Armillary — Stellar System Generator - v 1.5.0
+# Armillary — Stellar System Generator - v 1.6.0
 
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
@@ -78,6 +78,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 | Crush a world into a belt | CRUSH on an unlocked world → confirm. Debris stays in that orbit. Atmosphere is lost. This cannot be undone |
 | Eject a world | EJECT on an unlocked world → confirm. That body leaves the ladder and appears under Ejected in the neighborhood. Other orbits stay put. Species that needed sunlight die, and their civilization becomes ruins. A chemosynthetic species on an Ice Planet with a subsurface ocean, or on a Hycean world, stays alive. Hazards that needed the host star are removed. A double planet keeps tidal stress from its companion. This cannot be undone. Belts have no Eject |
 | Destroy a belt | DESTROY on an unlocked asteroid belt → confirm. The belt is removed. Nothing is added to the neighborhood. This cannot be undone |
+| Insert a world | + INSERT on a gap between orbits → confirm. A new body is generated at that AU and locked. Other orbits stay put |
 | Explore a neighbor star | Click any neighbor in the Stellar Neighborhood |
 | Name the system | Click the system name / UNNAMED SYSTEM in the overview |
 | Copy seed / share link | Seed row in system overview → COPY SEED or COPY LINK |

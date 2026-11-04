@@ -1175,6 +1175,105 @@ export function destroyBelt(system, worldId) {
   };
 }
 
+const MIN_ORBIT_AU = 0.01;
+
+function betweenAU(inner, outer) {
+  if (!(outer > inner)) return null;
+  let au = round2(Math.sqrt(inner * outer));
+  if (au <= inner) au = round2(inner + 0.01);
+  if (au >= outer) au = round2(outer - 0.01);
+  if (au <= inner || au >= outer) return null;
+  return au;
+}
+
+function openInnerAU(au) {
+  let next = round2(au / 1.8);
+  if (next >= au) next = round2(au - 0.01);
+  if (next < MIN_ORBIT_AU || next >= au) return null;
+  return next;
+}
+
+function openOuterAU(au, ceiling) {
+  let next = round2(au * 1.8);
+  if (ceiling != null && next >= ceiling) next = betweenAU(au, ceiling);
+  if (next == null || next <= au) return null;
+  if (ceiling != null && next >= ceiling) return null;
+  return next;
+}
+
+/**
+ * Orbits where a new world can be placed without moving anyone.
+ * Between two worlds the AU is the geometric mean. Open ends use the
+ * same 1.8 spacing step the ladder uses. A circumbinary world is a ceiling,
+ * not a slot of its own.
+ * @param {object} system
+ * @returns {{ au: number, zone: string, afterId: string|null }[]}
+ */
+export function insertionSlots(system) {
+  if (!system?.stars?.length || system.isRoguePlanet) return [];
+  const worlds = system.worlds || [];
+  const regular = worlds.filter(world => !world.isCircumbinary).sort((a, b) => a.orbitalAU - b.orbitalAU);
+  const ceiling = worlds
+    .filter(world => world.isCircumbinary)
+    .reduce((min, world) => Math.min(min, world.orbitalAU), Infinity);
+  const hz = system.hz || { inner: 1, outer: 1.5 };
+  const taken = au => au == null || worlds.some(world => world.orbitalAU === au);
+  const slot = (au, afterId) => taken(au) ? null : { au, zone: determineOrbitalZone(au, hz), afterId };
+
+  if (!regular.length) {
+    const au = ceiling < Infinity
+      ? betweenAU(MIN_ORBIT_AU, ceiling)
+      : round2(Math.sqrt(hz.inner * hz.outer));
+    const only = slot(au, null);
+    return only ? [only] : [];
+  }
+
+  const slots = [];
+  const inner = slot(openInnerAU(regular[0].orbitalAU), null);
+  if (inner) slots.push(inner);
+  for (let i = 0; i < regular.length - 1; i++) {
+    const gap = slot(betweenAU(regular[i].orbitalAU, regular[i + 1].orbitalAU), regular[i].id);
+    if (gap) slots.push(gap);
+  }
+  const outer = slot(openOuterAU(regular[regular.length - 1].orbitalAU, ceiling < Infinity ? ceiling : null), regular[regular.length - 1].id);
+  if (outer) slots.push(outer);
+  return slots;
+}
+
+/**
+ * Generate one world at an open AU and lock it. Every other orbit stays put.
+ * A rogue system, or an AU that is already taken, is refused.
+ * @param {object} system
+ * @param {number} orbitalAU
+ * @returns {object} The same system when the AU cannot be used.
+ */
+export function insertWorld(system, orbitalAU) {
+  if (!system?.stars?.length || system.isRoguePlanet) return system;
+  const au = round2(Number(orbitalAU));
+  if (!Number.isFinite(au) || au < MIN_ORBIT_AU) return system;
+  if ((system.worlds || []).some(world => world.orbitalAU === au)) return system;
+
+  const totalLuminosity = system.stars.reduce((sum, star) => sum + star.luminosity, 0);
+  const hz = system.hz || calculateHabitableZone(totalLuminosity);
+  const primaryClass = system.stars[0]?.spectralClass || 'G';
+  const index = (system.worlds || []).filter(world => !world.isCircumbinary && world.orbitalAU < au).length;
+  const fresh = generateWorld(au, hz, totalLuminosity, index, primaryClass);
+  assignWorldLife(fresh);
+  fresh.locked = true;
+  fresh.worldNotes = [fresh.worldNotes, 'Inserted into this orbit.'].filter(Boolean).join(' ');
+
+  const worlds = [...(system.worlds || []), fresh]
+    .sort((a, b) => a.orbitalAU - b.orbitalAU)
+    .map((entry, i) => (entry.index === i ? entry : { ...entry, index: i }));
+
+  return {
+    ...system,
+    worlds,
+    worldCount: worlds.filter(entry => !entry.isCircumbinary).length,
+    timestamp: Date.now(),
+  };
+}
+
 export function redrawWorld(system, worldId) {
   const worldIndex = system.worlds.findIndex(w => w.id === worldId);
   if (worldIndex === -1) return system;

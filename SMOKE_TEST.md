@@ -9,7 +9,7 @@ npm run dev
 
 Open the app in your browser. Keep DevTools (F12) → **Console** open; there should be no red errors during these steps.
 
-**Current target:** v1.5.0 (eject a world into the neighborhood)
+**Current target:** v1.6.0 (insert a world into a chosen orbit)
 
 See [Phase 2 checks](#phase-2-checks-v130) below.
 
@@ -177,7 +177,7 @@ Ready to commit/push/deploy when all are true:
 
 | # | Action | Expected |
 |---|--------|----------|
-| P2-1 | **⚡ Generate New** (blank seed) | Overview shows new **SEED** row; boot/about show v1.5.0 |
+| P2-1 | **⚡ Generate New** (blank seed) | Overview shows new **SEED** row; boot/about show v1.6.0 |
 | P2-2 | Enter seed `test-alpha` → **From seed** twice (same star count) | Same stars/worlds layout both times |
 | P2-2b | **⚡ Generate New** twice (seed field empty or filled) | **Different** systems each time |
 | P2-2c | **↻ Redraw Free** with nothing locked | System changes each click |
@@ -222,6 +222,18 @@ Ready to commit/push/deploy when all are true:
 | E-9 | Unlocked **Asteroid Belt** | **Destroy** is offered. **Eject** is not |
 | E-10 | **Destroy** → confirm | The belt is gone. Other worlds keep their AU. No **Ejected** entry is added |
 | E-11 | Locked belt | No **Destroy** control |
+
+---
+
+## v1.6 insert checks
+
+| # | Action | Expected |
+|---|--------|----------|
+| I-1 | **+ Insert** between two worlds → **✕ Cancel** | No new world. The bar names the AU and says the body is locked and other orbits stay put |
+| I-2 | Confirm **Insert** | A new locked world appears at that AU. Every other world keeps its AU |
+| I-3 | **↻ Redraw Free** | The inserted world is still there, same AU, still locked |
+| I-4 | Unlock it → **↻ Redraw** on that card only | A new body appears at the **same AU** |
+| I-5 | Rogue planet view | No **+ Insert** control |
 
 ---
 
