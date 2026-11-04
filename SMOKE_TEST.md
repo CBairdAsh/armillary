@@ -219,6 +219,9 @@ Ready to commit/push/deploy when all are true:
 | E-6 | **⚡ Generate New** | Ejected list is gone |
 | E-7 | Export text | An **EJECTED** section names the body |
 | E-8 | Rogue planet view | No **Eject** control and no **Redraw Free** |
+| E-9 | Unlocked **Asteroid Belt** | **Destroy** is offered. **Eject** is not |
+| E-10 | **Destroy** → confirm | The belt is gone. Other worlds keep their AU. No **Ejected** entry is added |
+| E-11 | Locked belt | No **Destroy** control |
 
 ---
 

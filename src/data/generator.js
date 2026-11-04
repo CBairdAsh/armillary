@@ -871,16 +871,17 @@ function nextEjectedDistance(system) {
  * that world: type, gravity, hydrosphere, moons, species, and ruins stay.
  * Habitability clears, the zone becomes Fringe, and the rogue world is locked
  * so a later redraw cannot replace it. A locked world is refused.
+ * An asteroid belt is refused. A belt is not a body that can leave as a rogue.
  * @param {object} system
  * @param {string} worldId
- * @returns {object} The same system when the world is missing or locked.
+ * @returns {object} The same system when the world is missing, locked, or a belt.
  */
 export function ejectWorld(system, worldId) {
   const index = system.worlds.findIndex(world => world.id === worldId);
   if (index === -1) return system;
 
   const world = system.worlds[index];
-  if (world.locked) return system;
+  if (world.locked || world.worldType === 'Asteroid Belt') return system;
 
   const zoneLabel = String(world.zone || 'FRINGE').replaceAll('_', ' ');
   const ejectionNote = world.isCircumbinary
@@ -942,16 +943,42 @@ export function ejectWorld(system, worldId) {
     },
   };
 
+  return {
+    ...system,
+    ...dropWorld(system, index),
+    ejected:    [...(system.ejected || []), { neighbor, rogueSystem }],
+    timestamp:  Date.now(),
+  };
+}
+
+function dropWorld(system, index) {
   const worlds = system.worlds
     .filter((_, i) => i !== index)
     .map((entry, i) => (entry.index === i ? entry : { ...entry, index: i }));
+  return {
+    worlds,
+    worldCount: worlds.filter(entry => !entry.isCircumbinary).length,
+  };
+}
+
+/**
+ * Remove an unlocked asteroid belt from the ladder. Other orbits stay put.
+ * Nothing is added to the neighborhood. A locked belt, or any non-belt, is refused.
+ * @param {object} system
+ * @param {string} worldId
+ * @returns {object} The same system when the world is missing, locked, or not a belt.
+ */
+export function destroyBelt(system, worldId) {
+  const index = system.worlds.findIndex(world => world.id === worldId);
+  if (index === -1) return system;
+
+  const world = system.worlds[index];
+  if (world.locked || world.worldType !== 'Asteroid Belt') return system;
 
   return {
     ...system,
-    worlds,
-    worldCount: worlds.filter(entry => !entry.isCircumbinary).length,
-    ejected:    [...(system.ejected || []), { neighbor, rogueSystem }],
-    timestamp:  Date.now(),
+    ...dropWorld(system, index),
+    timestamp: Date.now(),
   };
 }
 

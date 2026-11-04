@@ -76,7 +76,8 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 | Change star count | Single / Binary / Triple selector — amber notice appears, confirm with Apply & Redraw |
 | See world detail | DETAILS ▾ on any world card |
 | Crush a world into a belt | CRUSH on an unlocked world → confirm. Debris stays in that orbit. Atmosphere is lost. This cannot be undone |
-| Eject a world | EJECT on an unlocked world → confirm. That body leaves the ladder and appears under Ejected in the neighborhood. Other orbits stay put. This cannot be undone |
+| Eject a world | EJECT on an unlocked world → confirm. That body leaves the ladder and appears under Ejected in the neighborhood. Other orbits stay put. This cannot be undone. Belts have no Eject |
+| Destroy a belt | DESTROY on an unlocked asteroid belt → confirm. The belt is removed. Nothing is added to the neighborhood. This cannot be undone |
 | Explore a neighbor star | Click any neighbor in the Stellar Neighborhood |
 | Name the system | Click the system name / UNNAMED SYSTEM in the overview |
 | Copy seed / share link | Seed row in system overview → COPY SEED or COPY LINK |

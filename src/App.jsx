@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -280,7 +280,7 @@ function presencePhrase(world, verb) {
   return `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)} ${verb}`;
 }
 
-function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestructure = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onCancelEdit }) {
+function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestructure = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
   const [expanded, setExpanded] = useState(false);
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
@@ -313,8 +313,11 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
           {canRestructure && !locked && world.worldType !== 'Asteroid Belt' && pendingKind !== 'crush' && (
             <button type="button" onClick={() => onArmEdit('crush')} style={navBtn(false, C.HAZARD, true)}>Crush</button>
           )}
-          {canRestructure && !locked && pendingKind !== 'eject' && (
+          {canRestructure && !locked && world.worldType !== 'Asteroid Belt' && pendingKind !== 'eject' && (
             <button type="button" onClick={() => onArmEdit('eject')} style={navBtn(false, C.HAZARD, true)}>Eject</button>
+          )}
+          {canRestructure && !locked && world.worldType === 'Asteroid Belt' && pendingKind !== 'destroy' && (
+            <button type="button" onClick={() => onArmEdit('destroy')} style={navBtn(false, C.HAZARD, true)}>Destroy</button>
           )}
           {hasDetails && (
             <button onClick={() => setExpanded(e => !e)} style={navBtn(expanded, C.PRIMARY, true)}>
@@ -358,6 +361,21 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
             </div>
             <div className="flex-row flex-wrap" style={{ gap: 12, marginTop: 10, justifyContent: 'flex-end' }}>
               <button type="button" onClick={onConfirmEject} style={{ ...navBtn(false, C.HAZARD), fontSize: 11 }}>Eject</button>
+              <button type="button" onClick={onCancelEdit} style={{ ...navBtn(false, C.TEXT_DIM, true), fontSize: 11 }}>✕ Cancel</button>
+            </div>
+          </div>
+        )}
+        {pendingKind === 'destroy' && (
+          <div style={{
+            marginTop: 10, padding: '10px 14px',
+            background: C.HAZARD + '11', border: `1px solid ${C.HAZARD}55`, borderRadius: 4,
+          }}>
+            <div style={{ fontSize: 12, color: C.HAZARD, lineHeight: 1.6 }}>
+              ⚠ DESTROY [{index + 1}] {world.worldType.toUpperCase()} AT {world.orbitalAU} AU
+              {' '}— the belt is removed from this system. This cannot be undone.
+            </div>
+            <div className="flex-row flex-wrap" style={{ gap: 12, marginTop: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={onConfirmDestroy} style={{ ...navBtn(false, C.HAZARD), fontSize: 11 }}>Destroy</button>
               <button type="button" onClick={onCancelEdit} style={{ ...navBtn(false, C.TEXT_DIM, true), fontSize: 11 }}>✕ Cancel</button>
             </div>
           </div>
@@ -949,6 +967,10 @@ export default function App() {
     setPendingWorldEdit(null);
     updateActive(ejectWorld(active, id));
   }, [active, updateActive]);
+  const handleConfirmDestroy = useCallback(id => {
+    setPendingWorldEdit(null);
+    updateActive(destroyBelt(active, id));
+  }, [active, updateActive]);
 
   const handleSpecies = useCallback(id => updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? regenerateSpeciesForWorld(w) : w) }), [active, updateActive]);
 
@@ -1179,6 +1201,7 @@ export default function App() {
                 onArmEdit={kind => setPendingWorldEdit({ id: world.id, kind })}
                 onConfirmCrush={() => handleConfirmCrush(world.id)}
                 onConfirmEject={() => handleConfirmEject(world.id)}
+                onConfirmDestroy={() => handleConfirmDestroy(world.id)}
                 onCancelEdit={() => setPendingWorldEdit(null)}
               />
             ))}
