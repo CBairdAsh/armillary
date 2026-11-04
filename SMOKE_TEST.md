@@ -214,7 +214,7 @@ Ready to commit/push/deploy when all are true:
 | E-1 | **Eject** on a locked world | No **Eject** control |
 | E-2 | **Eject** on an unlocked world → **✕ Cancel** | World stays. Warning names it, its AU, and says it becomes a rogue in the neighborhood and cannot be undone |
 | E-3 | Confirm **Eject** | That world is gone. Every other world keeps its AU. Neighborhood gains an **Ejected** entry |
-| E-4 | **→ Explore** the ejected entry | The rogue is that world: same type, gravity, and hydrosphere. Zone is Fringe. Not habitable. Note records the former AU. Species that needed sunlight are gone, and a **Loss of star** ruin names their civilization. A chemosynthetic species on an Ice Planet with a subsurface ocean, or on a Hycean world, is still listed and no ruin replaces it |
+| E-4 | **→ Explore** the ejected entry | The rogue is that world: same type, gravity, and hydrosphere. Zone is Fringe. Not habitable. Note records the former AU. Species that needed sunlight are gone, and a **Loss of star** ruin names their civilization. A chemosynthetic species on an Ice Planet with a subsurface ocean, or on a Hycean world, is still listed and no ruin replaces it. Solar flare exposure, pulsar radiation, stellar perturbation, and tidal stress are gone, unless tidal stress belongs to a double planet. The note names each hazard that was removed |
 | E-5 | **← Back** → **↻ Redraw Free**, then **↻ Redraw** on the neighborhood | The ejected entry is still there. Explore still opens that body |
 | E-6 | **⚡ Generate New** | Ejected list is gone |
 | E-7 | Export text | An **EJECTED** section names the body |

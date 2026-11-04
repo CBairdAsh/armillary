@@ -865,6 +865,53 @@ function nextEjectedDistance(system) {
   return round2(Math.max(0.01, nearest * 0.5));
 }
 
+const STAR_BOUND_HAZARDS = new Set([
+  'Solar flare exposure',
+  'Intense radiation',
+  'X-ray bursts',
+  'Magnetosphere stripping',
+  'Tidal flexing',
+  'Stellar perturbation',
+  'Radiation from multiple sources',
+]);
+
+const STAR_BOUND_NOTES = new Set([
+  WORLD_TYPES['Pulsar Planet']?.notes,
+  WORLD_TYPES['Disintegrating']?.notes,
+  'Orbits the combined center of mass of all stars in the system. Tatooine-class world.',
+].filter(Boolean));
+
+/**
+ * Drop hazards that only exist because of a host star.
+ * A double planet keeps tidal stress and an unstable mutual orbit: the companion is still there.
+ * @param {object} world
+ * @returns {{ hazards: string[], stripped: string[] }}
+ */
+function hazardsForRogue(world) {
+  const stripped = [];
+  const hazards = [];
+  for (const hazard of world.hazards || []) {
+    const fromCompanion = world.worldType === 'Double Planet'
+      && (hazard === 'Tidal stress' || hazard === 'Unstable orbits');
+    if (!fromCompanion && (STAR_BOUND_HAZARDS.has(hazard) || hazard === 'Tidal stress' || hazard === 'Unstable orbits')) {
+      stripped.push(hazard);
+    } else {
+      hazards.push(hazard);
+    }
+  }
+  if (!hazards.includes('No solar energy')) hazards.push('No solar energy');
+  return { hazards, stripped };
+}
+
+function rogueHazardNote(stripped) {
+  if (!stripped.length) return '';
+  const head = stripped.slice(0, -1).join(', ');
+  const list = stripped.length === 1
+    ? stripped[0]
+    : `${head}${stripped.length > 2 ? ',' : ''} and ${stripped[stripped.length - 1]}`;
+  return `${list} no longer ${stripped.length === 1 ? 'applies' : 'apply'}. There is no host star.`;
+}
+
 const CHEMOSYNTHETIC_ORIGIN = 'Sulfur-based';
 
 /**
@@ -1009,6 +1056,8 @@ function settleEjectedLife(world) {
  * Sunlight-dependent species die and their civilization becomes ruins.
  * A chemosynthetic species on an Ice Planet with a subsurface ocean, or on a
  * Hycean world, keeps living and keeps its civilization.
+ * Hazards that needed the host star are removed. A double planet keeps tidal
+ * stress and an unstable mutual orbit, because the companion is still there.
  * Habitability clears, the zone becomes Fringe, and the rogue world is locked
  * so a later redraw cannot replace it. A locked world is refused.
  * An asteroid belt is refused. A belt is not a body that can leave as a rogue.
@@ -1027,9 +1076,9 @@ export function ejectWorld(system, worldId) {
   const ejectionNote = world.isCircumbinary
     ? `Ejected from ${world.orbitalAU} AU (${zoneLabel}, circumbinary orbit).`
     : `Ejected from ${world.orbitalAU} AU (${zoneLabel}).`;
-  const hazards = [...(world.hazards || [])];
-  if (!hazards.includes('No solar energy')) hazards.push('No solar energy');
   const life = settleEjectedLife(world);
+  const unbound = hazardsForRogue(world);
+  const priorNotes = STAR_BOUND_NOTES.has(world.worldNotes) ? null : world.worldNotes;
 
   const rogueWorld = {
     ...world,
@@ -1042,11 +1091,11 @@ export function ejectWorld(system, worldId) {
     tidalResonance:  false,
     isCircumbinary:  false,
     locked:          true,
-    hazards,
+    hazards:         unbound.hazards,
     species:         life.species,
     ruins:           life.ruins,
     moons:           life.moons,
-    worldNotes:      [ejectionNote, life.note, world.worldNotes].filter(Boolean).join(' '),
+    worldNotes:      [ejectionNote, life.note, rogueHazardNote(unbound.stripped), priorNotes].filter(Boolean).join(' '),
   };
 
   const rogueType = NEIGHBORHOOD_EXOTIC_TYPES.find(type => type.type === 'Rogue Planet');
@@ -1292,7 +1341,7 @@ export function generateTextSummary(system) {
   // Worlds
   lines.push('PLANETARY BODIES');
   worlds.forEach((world, i) => {
-    lines.push(`[${i + 1}] ${world.worldType} at ${world.orbitalAU} AU (${world.zone.replace('_', ' ')})${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' ? ' ★ PULSAR ORBIT' : ''}`);
+    lines.push(`[${i + 1}] ${world.worldType} at ${world.orbitalAU} AU (${world.zone.replace('_', ' ')})${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 ? ' ★ PULSAR ORBIT' : ''}`);
     lines.push(`  Atmosphere: ${world.atmosphere}  |  Hydrosphere: ${world.hydrosphere}`);
     lines.push(`  Gravity: ${world.gravity}g  |  Temperature: ${world.temperature}°C`);
     if (world.tidallyLocked)  lines.push(`  ⟳ TIDALLY LOCKED — permanent day/night hemispheres`);
