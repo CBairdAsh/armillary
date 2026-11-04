@@ -54,7 +54,7 @@ export default function UpdateNotice({ onDismiss }) {
         style={{
           width: '100%',
           maxWidth: 520,
-          maxHeight: 'min(80vh, 640px)',
+          maxHeight: '92vh',
           overflow: 'auto',
           background: C.PANEL,
           border: `1px solid ${C.PRIMARY}`,
