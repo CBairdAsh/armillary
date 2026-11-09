@@ -1,6 +1,6 @@
 // ─── STELLAR DATA ────────────────────────────────────────────────────────────
 // Based on GURPS Space 4e stellar generation tables
-// Supplemented with NASA exoplanet data for M-dwarf habitability notes
+// Supplemented with NASA, ESA, and JWST findings through 2026
 
 export const SPECTRAL_CLASSES = {
   O: {
@@ -98,7 +98,7 @@ export const SPECTRAL_CLASSES = {
     habitableZoneAU: [0.1, 0.4],
     planetBodyRange: [2, 8],
     rarity: 0.765,
-    notes: 'Most common star type. HZ worlds likely tidally locked. Flare activity concern.',
+    notes: 'Most common star type. HZ worlds likely tidally locked. Flares run stronger than expected, and inner rocky worlds are often airless.',
     exotic: false,
   },
   // ── EXOTIC TYPES ──────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ export const SPECTRAL_CLASSES = {
     habitableZoneAU: [0.005, 0.02],
     planetBodyRange: [0, 4],
     rarity: 0.05,
-    notes: 'Remnant of a dead star. HZ extremely close. Surviving worlds possible.',
+    notes: 'Remnant of a dead star. HZ extremely close. Surviving worlds possible. Spectra often show mantle debris from a shredded rocky world.',
     exotic: true,
   },
   NS: {
@@ -358,7 +358,7 @@ export const WORLD_TYPES = {
     hydrosphereTypes: ['None'],
     hydrosphereWeights: [100],
     icon: '💫',
-    notes: 'Planet sheds material into space each orbit. Estimated lifespan: 1–100 million years before complete evaporation.',
+    notes: 'Sheds a variable tail of mantle silicates. The dust can fade from orbit to orbit. Estimated lifespan: 1–100 million years before complete evaporation.',
   },
 };
 
@@ -368,6 +368,33 @@ export const TIDAL_LOCK_SPECTRAL_CLASSES = new Set(['M', 'BD']);
 // K-dwarf HZ worlds may be partially tidally locked (resonance)
 export const TIDAL_LOCK_PARTIAL_CLASSES  = new Set(['K']);
 
+// Inner rocky worlds of red dwarfs rarely keep a thick atmosphere.
+// JWST phase curves: TRAPPIST-1 b is bare rock; c has nothing above about a bar.
+// Habitable-zone worlds keep the ordinary atmosphere table.
+const M_DWARF_INNER_ROCKY = new Set([
+  'Terrestrial', 'Desert', 'Ocean Planet', 'Double Planet', 'Ice Planet',
+]);
+
+export const M_DWARF_INNER_ATMOSPHERE_SCALE = {
+  None: 4,
+  Trace: 4,
+  Thin: 1,
+  Standard: 0.25,
+  Dense: 0.25,
+  Exotic: 0.25,
+};
+
+export function atmosphereWeightPairs(worldDef, spectralClass, zone, worldType) {
+  const scaleInner = spectralClass === 'M'
+    && zone === 'INNER'
+    && M_DWARF_INNER_ROCKY.has(worldType);
+  return worldDef.atmosphereTypes.map((label, i) => {
+    const weight = worldDef.atmosphereWeights[i];
+    const factor = scaleInner ? (M_DWARF_INNER_ATMOSPHERE_SCALE[label] ?? 1) : 1;
+    return [label, weight * factor];
+  });
+}
+
 // ─── BIOSIGNATURE ─────────────────────────────────────────────────────────────
 // Only rolls on Hycean worlds in HZ
 export const BIOSIGNATURE_CHANCE = 0.08; // 8% — rare but not impossible
@@ -376,8 +403,8 @@ export const BIOSIGNATURE_TYPES = [
   {
     label:       'Dimethyl Sulfide',
     shortLabel:  'DMS',
-    description: 'Atmospheric DMS detected via infrared spectroscopy. On Earth, produced exclusively by marine phytoplankton. Strong candidate for biological origin.',
-    confidence:  'Candidate',
+    description: 'Dimethyl sulfide in the hydrogen atmosphere. On Earth, marine life produces it. A disputed candidate: the signal is easy to mistake for noise, and abiotic sources remain open.',
+    confidence:  'Disputed',
     color:       '#88FFCC',
   },
   {
@@ -453,7 +480,7 @@ export const CRUSH_DEBRIS = {
   'Double Planet':  'rock and metal',
   'Coreless':       'silicate rock',
   'Pulsar Planet':  'irradiated rock and metal',
-  'Disintegrating': 'rock and metal',
+  'Disintegrating': 'mantle silicates',
   'Rogue/Captured': 'rock and ice',
 };
 
@@ -689,7 +716,7 @@ export const NEIGHBORHOOD_EXOTIC_TYPES = [
     weight:      5,
     // Compositions observed in 1I/Oumuamua, 2I/Borisov, 3I/ATLAS
     compositions: [
-      { label: 'Icy-organic',     description: 'CO₂, water ice, carbon monoxide. Similar to 2I/Borisov and 3I/ATLAS. Reddish dust coma.'    },
+      { label: 'Icy-organic',     description: 'CO₂, water ice, and carbon monoxide. Similar to 2I/Borisov and 3I/ATLAS. The coma can be CO₂-dominated, with cosmic-ray-processed outer layers. Reddish dust.' },
       { label: 'Metallic-rocky',  description: 'High metal content, no detected outgassing. Tumbling elongated body. Similar to 1I/ʻOumuamua.' },
       { label: 'Carbon-rich',     description: 'Organic compounds dominant. Dark albedo. Likely origin in a carbon-rich stellar system.'       },
       { label: 'Exotic',          description: 'Composition unlike any known solar system body. Origin and formation mechanism unclear.'        },

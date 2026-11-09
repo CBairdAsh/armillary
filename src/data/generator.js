@@ -32,6 +32,7 @@ import {
   TIDAL_LOCK_PARTIAL_CLASSES,
   BIOSIGNATURE_CHANCE,
   BIOSIGNATURE_TYPES,
+  atmosphereWeightPairs,
   CIRCUMBINARY_CHANCE,
   PULSAR_PLANET_CHANCE,
   calculateHabitableZone,
@@ -249,7 +250,7 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
   const worldDef  = WORLD_TYPES[worldType] || WORLD_TYPES['Terrestrial'];
 
   const atmosphere = weightedPick(
-    worldDef.atmosphereTypes.map((t, i) => [t, worldDef.atmosphereWeights[i]])
+    atmosphereWeightPairs(worldDef, primarySpectralClass, zone, worldType)
   );
   const hydrosphere = weightedPick(
     worldDef.hydrosphereTypes.map((t, i) => [t, worldDef.hydrosphereWeights[i]])
@@ -275,7 +276,7 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
   const tidalResonance = inHZ && !tidallyLocked && TIDAL_LOCK_PARTIAL_CLASSES.has(primarySpectralClass) && getRandom() < 0.4;
 
   // ── Biosignature ────────────────────────────────────────────────────────────
-  // Only Hycean worlds in the HZ get a biosignature roll (inspired by K2-18b DMS detection)
+  // Only Hycean worlds in the HZ get a biosignature roll. DMS stays a disputed candidate.
   let biosignature = null;
   if (worldType === 'Hycean' && inHZ && getRandom() < BIOSIGNATURE_CHANCE) {
     biosignature = rndFrom(BIOSIGNATURE_TYPES);
