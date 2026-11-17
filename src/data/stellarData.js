@@ -225,6 +225,8 @@ export const WORLD_TYPES = {
     hydrosphereWeights: [100],
     icon: '🌊',
   },
+  // Desert, Double Planet, Coreless, and Rogue/Captured are drawn in
+  // WorldMarks. The character on each of those entries is a text fallback.
   'Desert': {
     description: 'Arid rocky world, minimal water',
     canSupportLife: true,
@@ -688,6 +690,7 @@ export const NEIGHBORHOOD_EXOTIC_TYPES = [
   {
     type:        'Rogue Planet',
     navigable:   true,
+    // Drawn as the drift trail in WorldMarks. The square is the text fallback.
     icon:        '⬛',
     color:       '#6688AA',
     weight:      8,

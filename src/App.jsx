@@ -5,6 +5,7 @@ import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
 import { C, ZONE_COLORS, navBtn, cardStyle, lockStripeStyle, lockBtnStyle, panelStyle } from './tokens.js';
 import BootSequence from './components/BootSequence.jsx';
+import { MarkSlot, WorldMark, worldMarkKind } from './components/WorldMarks.jsx';
 import UpdateNotice, { releaseAlreadySeen, markReleaseSeen } from './components/UpdateNotice.jsx';
 import { KOFI_URL, SUBSTACK_URL, LIVE_URL, LINKTREE, APP_VERSION } from './config.js';
 
@@ -65,7 +66,7 @@ function ExoticInfoPanel({ obj, onClose }) {
     <div style={{ background: C.PANEL_ALT, border: `1px solid ${color}55`, borderRadius: 4, padding: '14px 16px', marginTop: 8 }}>
       <div className="flex-between" style={{ marginBottom: 10 }}>
         <div className="flex-row gap-md">
-          <span style={{ fontSize: 18 }}>{obj.icon}</span>
+          <MarkSlot kind={obj.objectType === 'Rogue Planet' ? 'drift' : null} glyph={obj.icon} size={18} />
           <span style={{ fontSize: 14, color, letterSpacing: 2 }}>{obj.label}</span>
           <Tag color={color}>{obj.objectType.toUpperCase()}</Tag>
         </div>
@@ -146,7 +147,7 @@ function NeighborhoodCard({ neighborhood, ejected = [], onLock, onRedraw, onNavi
                       cursor: 'pointer',
                     }}
                   >
-                    <span style={{ fontSize: 14, lineHeight: 1 }}>{n.icon}</span>
+                    <MarkSlot kind="drift" glyph={n.icon} size={14} />
                     <span style={{ fontSize: 13, color: C.TEXT_DIM }}>{n.distance} ly</span>
                     <span style={{ fontSize: 12, color: n.color }}>{n.label}</span>
                     <span style={{ fontSize: 11, color: explored ? n.color + 'cc' : C.TEXT_FAINT }}>
@@ -193,7 +194,7 @@ function NeighborhoodCard({ neighborhood, ejected = [], onLock, onRedraw, onNavi
                     }
                   </div>
                 ) : (
-                  <span style={{ fontSize: 14, lineHeight: 1 }}>{n.icon}</span>
+                  <MarkSlot kind={n.objectType === 'Rogue Planet' ? 'drift' : null} glyph={n.icon} size={14} />
                 )}
                 <span style={{ fontSize: 13, color: C.TEXT_DIM }}>{n.distance} ly</span>
                 {isStar ? (
@@ -344,7 +345,7 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
         <div className="flex-row flex-wrap gap-md" style={{ marginBottom: 8 }}>
           <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>[{index + 1}]</span>
           <span style={{ fontSize: 15, color: zoneColor }}>{world.worldType}</span>
-          <span style={{ fontSize: 15 }}>{worldDef?.icon || ''}</span>
+          <MarkSlot kind={worldMarkKind(world.worldType)} glyph={worldDef?.icon} size={15} />
           <Tag color={zoneColor}>{world.zone.replace('_', ' ')}</Tag>
           <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{unbound ? 'UNBOUND' : `${world.orbitalAU} AU`}</span>
           {world.isCircumbinary && <Tag color={C.STAR_G}>★ CIRCUMBINARY</Tag>}
@@ -1125,7 +1126,7 @@ export default function App() {
             {isNeighbor && (
               <span style={{ fontSize: 11, color: C.TEXT_FAINT, letterSpacing: 1 }}>
                 {active.isRoguePlanet
-                  ? '⬛ ROGUE PLANET — no host star'
+                  ? <><WorldMark kind="drift" size={14} /> ROGUE PLANET — no host star</>
                   : `— NEIGHBOR · ${active.stars[0]?.spectralClass} origin`}
               </span>
             )}
@@ -1200,7 +1201,7 @@ export default function App() {
             {active.isRoguePlanet ? (
               <div style={{ padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.PRIMARY}33`, borderRadius: 4 }}>
                 <div className="flex-row gap-sm" style={{ marginBottom: 10 }}>
-                  <span style={{ fontSize: 20 }}>⬛</span>
+                  <WorldMark kind="drift" size={20} />
                   <Label color={C.PRIMARY}>Rogue Planetary Body</Label>
                 </div>
                 <div className="body-text" style={{ color: C.TEXT_DIM, lineHeight: 1.9 }}>
