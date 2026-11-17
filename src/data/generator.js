@@ -471,6 +471,7 @@ function regenerateWorldAtAU(world, system) {
     fresh = generateWorld(world.orbitalAU, hz, totalLuminosity, index, primaryClass);
   }
 
+  // A new body in the same slot. A name typed for the previous body is not copied.
   const regenerated = {
     ...fresh,
     id:    world.id,
@@ -815,7 +816,7 @@ const DEBRIS_HAZARD = 'Debris from a disrupted neighbor';
 /**
  * Crush an unlocked world into an asteroid belt in the same orbit.
  * Debris is the world's remaining material. Atmosphere, hydrosphere,
- * moons, species, and ruins are discarded. The belt is locked.
+ * moons, species, ruins, and a typed name are discarded. The belt is locked.
  * Each unlocked neighbor gains a debris hazard. Locked neighbors are left untouched.
  * @param {object} system
  * @param {string} worldId
@@ -831,8 +832,9 @@ export function crushWorld(system, worldId) {
   const debris = CRUSH_DEBRIS[world.worldType] || 'rock';
   const moonCount = world.moons?.length || 0;
   const hadAtmosphere = Boolean(world.atmosphere) && !['None', 'N/A'].includes(world.atmosphere);
+  const former = world.name ? `${world.name} (${world.worldType})` : world.worldType;
   const note = [
-    `Former ${world.worldType}, crushed in place.`,
+    `Former ${former}, crushed in place.`,
     `Debris: ${debris}.`,
     hadAtmosphere ? 'Atmosphere lost.' : null,
     moonCount === 1 ? '1 former moon folded into the belt.' : null,
@@ -859,6 +861,7 @@ export function crushWorld(system, worldId) {
     ruins:           null,
     debris,
     worldNotes:      note,
+    name:            '',
     locked:          true,
   };
 
@@ -1395,6 +1398,8 @@ export function regenerateSpeciesForWorld(world) {
   while (species.length < count) {
     species.push(generateSpecies(world.worldType, world.zone, ctx));
   }
+  // An unlocked species is a new people, so a typed name is not kept.
+  // A locked species is the same people and keeps its name.
   const finalSpecies = species.slice(0, Math.max(count, species.filter(s => s.locked).length));
   // If no species left after regen, roll for ruins
   const ruins = finalSpecies.length === 0
@@ -1445,9 +1450,13 @@ export function generateTextSummary(system) {
       const neighbor = entry.neighbor || {};
       const body = entry.rogueSystem?.worlds?.[0];
       const detail = body ? ` — ${body.worldType}, ${body.gravity}g, ${body.temperature}°C` : '';
-      lines.push(`  ${neighbor.distance} ly — ${neighbor.label || 'Ejected world'}${detail}`);
+      const named = body?.name ? `${body.name} — ` : '';
+      lines.push(`  ${neighbor.distance} ly — ${named}${neighbor.label || 'Ejected world'}${detail}`);
       if (body?.worldNotes) lines.push(`    Note: ${body.worldNotes}`);
-      if (body?.species?.length) lines.push(`    Species still living: ${body.species.length}`);
+      if (body?.species?.length) {
+        const names = body.species.map(species => species.name).filter(Boolean);
+        lines.push(`    Species still living: ${body.species.length}${names.length ? ` (${names.join(', ')})` : ''}`);
+      }
       if (body?.ruins) lines.push(`    Ruins: ${body.ruins.tech}${body.ruins.cause ? ` (${body.ruins.cause})` : ''}`);
     });
     lines.push('');
@@ -1487,7 +1496,8 @@ export function generateTextSummary(system) {
     const place = system.isRoguePlanet
       ? 'unbound'
       : `${world.orbitalAU} AU (${world.zone.replace('_', ' ')})`;
-    lines.push(`[${i + 1}] ${world.worldType} at ${place}${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 ? ' ★ PULSAR ORBIT' : ''}`);
+    const title = world.name ? `${world.name} — ${world.worldType}` : world.worldType;
+    lines.push(`[${i + 1}] ${title} at ${place}${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 ? ' ★ PULSAR ORBIT' : ''}`);
     lines.push(`  Atmosphere: ${world.atmosphere}  |  Hydrosphere: ${world.hydrosphere}`);
     lines.push(`  Gravity: ${world.gravity}g  |  Temperature: ${world.temperature}°C`);
     if (world.tidallyLocked)  lines.push(`  ⟳ TIDALLY LOCKED — permanent day/night hemispheres`);
@@ -1506,7 +1516,7 @@ export function generateTextSummary(system) {
     if (world.species.length) {
       lines.push('  SAPIENT SPECIES:');
       world.species.forEach((sp, si) => {
-        lines.push(`  Species ${si + 1}:`);
+        lines.push(sp.name ? `  Species ${si + 1}: ${sp.name}` : `  Species ${si + 1}:`);
         lines.push(`    Origin: ${sp.origin} — ${sp.originDesc}`);
         lines.push(`    Body Plan: ${sp.bodyPlan}  |  Primary Sense: ${sp.primarySense}`);
         lines.push(`    Society: ${sp.social}  |  Technology: ${sp.tech}`);

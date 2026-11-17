@@ -73,6 +73,15 @@ export function archiveEntryMatchesQuery(entry, query) {
     .map(s => s.spectralClass)
     .join('+')
     .toLowerCase();
+  const bodies = [
+    ...(sys.worlds || []),
+    ...(sys.ejected || []).flatMap(item => item.rogueSystem?.worlds || []),
+  ];
+  const given = bodies
+    .flatMap(world => [world.name, ...(world.species || []).map(species => species.name)])
+    .filter(label => typeof label === 'string' && label)
+    .join(' ')
+    .toLowerCase();
 
-  return name.includes(q) || seed.includes(q) || spectral.includes(q);
+  return name.includes(q) || seed.includes(q) || spectral.includes(q) || given.includes(q);
 }
