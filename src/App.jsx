@@ -216,7 +216,7 @@ function NeighborhoodCard({ neighborhood, ejected = [], onLock, onRedraw, onNavi
             <div className="flex-wrap gap-sm" style={{ marginTop: 6 }}>
               {[...ejected].sort((a, b) => a.neighbor.distance - b.neighbor.distance).map(entry => {
                 const n = entry.neighbor;
-                const explored = !!exploredSystems[n.id];
+                const explored = !!entry.rogueSystem || !!exploredSystems[n.id];
                 return (
                   <button
                     key={n.id}
@@ -246,7 +246,7 @@ function NeighborhoodCard({ neighborhood, ejected = [], onLock, onRedraw, onNavi
         <div className="flex-wrap gap-sm">
           {neighborhood.neighbors.map(n => {
             const isStar      = !n.objectType || n.objectType === 'Star';
-            const explored    = isStar && !!exploredSystems[n.id];
+            const explored    = n.navigable !== false && !!exploredSystems[n.id];
             const exploredSys = exploredSystems[n.id] || null;
             const actualStar  = exploredSys?.stars?.[0];
             const displayClass = actualStar?.spectralClass || n.spectralClass;
@@ -301,7 +301,7 @@ function NeighborhoodCard({ neighborhood, ejected = [], onLock, onRedraw, onNavi
 
         <div className="flex-col gap-xs" style={{ marginTop: 8 }}>
           <span className="hint">
-            Click stars to explore · Rogue planets navigable · Ejected worlds stay in this list · Nebulae and black holes show info
+            Click stars to explore · Rogue planets navigable · Ejected worlds stay in this list · Opened neighbors stay with this system · Nebulae and black holes show info
           </span>
           {Object.keys(exploredSystems).length > 0 && (
             <span style={{ fontSize: 10, color: C.TEXT_FAINT }}>
@@ -982,12 +982,44 @@ function readUrlSeedParams() {
   return { seed, starCount };
 }
 
+// Opened neighbors are stored on the primary system. Ejected bodies are
+// stored on their own and are already a saved roll, so the page treats
+// both as systems that can be returned to.
+function openedNeighborMap(system) {
+  if (!system) return {};
+  const map = {};
+  for (const [id, neighborSystem] of Object.entries(system.explored || {})) {
+    if (neighborSystem && typeof neighborSystem === 'object') map[id] = neighborSystem;
+  }
+  for (const entry of system.ejected || []) {
+    if (entry?.neighbor?.id && entry.rogueSystem) map[entry.neighbor.id] = entry.rogueSystem;
+  }
+  return map;
+}
+
+// Write a neighbor roll back onto the primary. An ejected body stays on
+// system.ejected. Any other opened neighbor stays on system.explored.
+function rememberOpened(primary, neighborId, neighborSystem) {
+  if (primary.ejected?.some(entry => entry.neighbor?.id === neighborId)) {
+    return {
+      ...primary,
+      ejected: primary.ejected.map(entry => (
+        entry.neighbor.id === neighborId ? { ...entry, rogueSystem: neighborSystem } : entry
+      )),
+    };
+  }
+  return {
+    ...primary,
+    explored: { ...(primary.explored || {}), [neighborId]: neighborSystem },
+  };
+}
+
 function createInitialAppState() {
   const url = readUrlSeedParams();
   if (url) {
     const system = generateSystem({ seed: url.seed, starCount: url.starCount });
     window.history.replaceState({}, '', window.location.pathname);
-    return { system, starCount: url.starCount, seedInput: url.seed };
+    return { system, starCount: url.starCount, seedInput: url.seed, neighborSystems: {} };
   }
   const saved = loadSystem();
   const starCount = saved?.stars?.length || saved?.starCount || 1;
@@ -995,6 +1027,7 @@ function createInitialAppState() {
     system:  saved || generateSystem({ starCount: 1 }),
     starCount,
     seedInput: saved?.seed || '',
+    neighborSystems: openedNeighborMap(saved),
   };
 }
 
@@ -1004,7 +1037,7 @@ export default function App() {
   const [system,           setSystem]           = useState(initial.system);
   const [starCount,        setStarCount]        = useState(initial.starCount);
   const [seedInput,        setSeedInput]        = useState(initial.seedInput);
-  const [neighborSystems,  setNeighborSystems]  = useState({});
+  const [neighborSystems,  setNeighborSystems]  = useState(initial.neighborSystems || {});
   const [activeNeighborId, setActiveNeighborId] = useState(null);
   const [view,             setView]             = useState('system');
   const [booted,           setBooted]           = useState(false);
@@ -1023,9 +1056,9 @@ export default function App() {
   };
 
   // `system` is the generated primary. Exploring a neighbor shows a separate
-  // view and leaves the primary in place. An ejected world is not rolled
-  // again: system.ejected already holds that body as a rogue, and edits made
-  // while it is on screen are written back onto that entry.
+  // view and leaves the primary in place. The first roll is written onto
+  // the primary and saved, so a refresh returns to it. An ejected world is
+  // already stored that way. A seed does not include opened neighbors.
   const active     = activeNeighborId ? (neighborSystems[activeNeighborId] || system) : system;
   const isNeighbor = !!activeNeighborId;
 
@@ -1033,13 +1066,7 @@ export default function App() {
     if (activeNeighborId) {
       setNeighborSystems(prev => ({ ...prev, [activeNeighborId]: s }));
       setSystem(prev => {
-        if (!prev.ejected?.some(entry => entry.neighbor.id === activeNeighborId)) return prev;
-        const next = {
-          ...prev,
-          ejected: prev.ejected.map(entry => (
-            entry.neighbor.id === activeNeighborId ? { ...entry, rogueSystem: s } : entry
-          )),
-        };
+        const next = rememberOpened(prev, activeNeighborId, s);
         saveSystem(next);
         return next;
       });
@@ -1076,25 +1103,47 @@ export default function App() {
   const handleUnlockAll = () => updateActive({ ...active, neighborhood: { ...active.neighborhood, locked: false }, stars: active.stars.map(s => ({ ...s, locked: false })), worlds: active.worlds.map(w => ({ ...w, locked: false })) });
 
   const handleLockNbhd   = () => updateActive({ ...active, neighborhood: { ...active.neighborhood, locked: !active.neighborhood.locked } });
-  const handleRedrawNbhd = () => { const f = generateSystem({ starCount }); updateActive({ ...active, neighborhood: f.neighborhood }); };
+  const handleRedrawNbhd = () => {
+    const fresh = generateSystem({ starCount });
+    const next = { ...active, neighborhood: fresh.neighborhood };
+    delete next.explored;
+    updateActive(next);
+    setNeighborSystems(prev => {
+      const kept = {};
+      for (const entry of active.ejected || []) {
+        const id = entry?.neighbor?.id;
+        if (id && prev[id]) kept[id] = prev[id];
+      }
+      return kept;
+    });
+  };
 
-  // An ejected neighbor opens the body that left. Any other rogue neighbor
-  // is a separate unbound ice world, rolled the first time it is opened.
+  // An ejected neighbor opens the body that left. A star or rogue planet
+  // opens the roll already saved on this system. The first visit rolls one
+  // and writes it onto the primary.
   const handleNavigate = (neighbor) => {
     clearPendingEdits();
-    if (!neighborSystems[neighbor.id]) {
+    let ns = neighborSystems[neighbor.id];
+    if (!ns) {
       const ejectedEntry = (system.ejected || []).find(entry => entry.neighbor.id === neighbor.id);
-      const ns = ejectedEntry
+      const saved = system.explored?.[neighbor.id];
+      ns = ejectedEntry
         ? ejectedEntry.rogueSystem
-        : neighbor.objectType === 'Rogue Planet'
-          ? generateRoguePlanetSystem()
-          : generateSystem({ starCount: 1, primarySpectralClass: neighbor.spectralClass });
+        : saved
+          ? saved
+          : neighbor.objectType === 'Rogue Planet'
+            ? generateRoguePlanetSystem()
+            : generateSystem({ starCount: 1, primarySpectralClass: neighbor.spectralClass });
       setNeighborSystems(prev => ({ ...prev, [neighbor.id]: ns }));
+      if (!ejectedEntry && !saved) {
+        const next = rememberOpened(system, neighbor.id, ns);
+        setSystem(next);
+        saveSystem(next);
+      }
     }
     setActiveNeighborId(neighbor.id);
-    const existingNs = neighborSystems[neighbor.id];
-    if (!existingNs?.isRoguePlanet && neighbor.objectType !== 'Rogue Planet') {
-      setStarCount(existingNs?.stars?.length || 1);
+    if (!ns?.isRoguePlanet && neighbor.objectType !== 'Rogue Planet') {
+      setStarCount(ns?.stars?.length || 1);
     }
   };
 
@@ -1160,11 +1209,12 @@ export default function App() {
   }, [active, updateActive]);
 
   const handleSaveToArchive = () => {
+    const record = isNeighbor ? rememberOpened(system, activeNeighborId, active) : system;
     const entry = {
       id:        crypto.randomUUID(),
       timestamp: Date.now(),
-      system:    active,
-      summary:   buildSummary(active),
+      system:    record,
+      summary:   buildSummary(record),
     };
     const updated = [entry, ...archive].slice(0, MAX_SAVED);
     setArchive(updated);
@@ -1177,7 +1227,7 @@ export default function App() {
     setStarCount(entry.system.starCount ?? entry.system.stars.length);
     setSeedInput(entry.system.seed || '');
     setActiveNeighborId(null);
-    setNeighborSystems({});
+    setNeighborSystems(openedNeighborMap(entry.system));
     clearPendingEdits();
     setView('system');
   };
@@ -1188,7 +1238,7 @@ export default function App() {
     setStarCount(imported.starCount ?? imported.stars?.length ?? 1);
     setSeedInput(imported.seed || '');
     setActiveNeighborId(null);
-    setNeighborSystems({});
+    setNeighborSystems(openedNeighborMap(imported));
     clearPendingEdits();
     setView('system');
   };
