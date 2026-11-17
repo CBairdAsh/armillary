@@ -76,6 +76,7 @@ export function archiveEntryMatchesQuery(entry, query) {
   const bodies = [
     ...(sys.worlds || []),
     ...(sys.ejected || []).flatMap(item => item.rogueSystem?.worlds || []),
+    ...Object.values(sys.explored || {}).flatMap(item => item?.worlds || []),
   ];
   const given = bodies
     .flatMap(world => [world.name, ...(world.species || []).map(species => species.name)])

@@ -86,7 +86,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 | Destroy a belt | DESTROY on an unlocked asteroid belt → confirm. The belt is removed. Nothing is added to the neighborhood. This cannot be undone |
 | Insert a world | + INSERT on a gap between orbits → confirm. A new body is generated at that AU and locked. Other orbits stay put |
 | Update note | After boot, once per version, a notice lists the current edits and ends with the Ko-fi and author links. Continue stores that and it does not return |
-| Explore a neighbor star | Click any neighbor in the Stellar Neighborhood |
+| Explore a neighbor | Click a star or rogue planet in the neighborhood. That roll is saved on this system. A refresh, archive restore, or JSON export brings it back, including names and other edits made there. A seed does not. Redrawing the neighborhood drops opened neighbors that are no longer in the list |
 | Name the system | Click the system name / UNNAMED SYSTEM in the overview |
 | Name a world | Click ✎ name on a world card. The name stays through lock, save, export, and ejection. Redraw and crush clear it. A seed does not carry it |
 | Name a species | Open Details and click Species N. Regenerating species clears that name |

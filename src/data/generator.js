@@ -776,7 +776,23 @@ export function redrawSystem(existingSystem, { redrawnStarCount } = {}) {
     name:    existingSystem.name,
     id:      existingSystem.id,
     ejected: existingSystem.ejected,
+    // An opened neighbor belongs to a star still in the list. A new
+    // neighborhood has new ids, so those opened systems are dropped.
+    // A locked neighborhood keeps its ids, and the opened systems stay.
+    explored: keepOpenedNeighbors(existingSystem.explored, result.neighborhood),
   };
+}
+
+// Keep opened neighbor systems whose star is still in this neighborhood.
+// The seed does not carry these. They are a saved edit, like a typed name.
+function keepOpenedNeighbors(explored, neighborhood) {
+  if (!explored || typeof explored !== 'object') return undefined;
+  const ids = new Set((neighborhood?.neighbors || []).map(neighbor => neighbor?.id).filter(Boolean));
+  const kept = {};
+  for (const [id, neighborSystem] of Object.entries(explored)) {
+    if (ids.has(id) && neighborSystem && typeof neighborSystem === 'object') kept[id] = neighborSystem;
+  }
+  return Object.keys(kept).length ? kept : undefined;
 }
 
 // ─── TARGETED REDRAW (single star or world) ───────────────────────────────────
