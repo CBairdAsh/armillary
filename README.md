@@ -49,6 +49,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 - Atmosphere, hydrosphere, gravity, temperature per world
 - Orbital zone classification (Inner / Habitable / Outer / Fringe)
 - Year length beside the AU, from the orbit and the star's mass. A circumbinary world uses the combined mass. An unbound body has none
+- Day length beside the year. A tidally locked world has a day equal to its year. A resonant world has a day of twice its year. Other worlds show a spin marked as a roll. A belt has no day. An unbound body shows a spin, not a day
 - Hazards, moon generation (Rocky, Icy, Subsurface Ocean, Cryovolcanic, Volcanic, Terrestrial, Thin Atmosphere)
 - Europa and Enceladus analog moons flagged with life potential notes
 
@@ -112,6 +113,7 @@ Species generation draws on **GURPS Aliens** biological origin and social struct
 Key physics:
 - Habitable zone: `inner = 0.95 × √L`, `outer = 1.37 × √L` (where L = solar luminosity)
 - Orbital period: `P = √(a³ / M)` in Earth years (`a` in AU, `M` in solar masses). A circumbinary world uses the combined mass. The period is calculated for display and is not part of the seed
+- Day length: a locked world uses its year. A resonant world uses twice its year. Any other spin is derived from the body and marked as a roll. It is not part of the seed
 - Surface temperature: Stefan-Boltzmann–inspired scaling from orbital AU and luminosity
 - Stellar mass and luminosity: coupled within spectral-class bounds
 - Neutron-star primaries: ~65% chance of a pulsar planet on the innermost orbit

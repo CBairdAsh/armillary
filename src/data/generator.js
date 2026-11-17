@@ -1449,12 +1449,70 @@ export function formatOrbitalPeriod(years) {
   return `${hours} hr`;
 }
 
+function stellarMassForWorld(world, stars) {
+  if (world?.isCircumbinary) {
+    return (stars || []).reduce((sum, star) => sum + (star.mass || 0), 0);
+  }
+  return stars?.[0]?.mass || 0;
+}
+
 export function worldYearLabel(world, stars) {
   if (!world || !(world.orbitalAU > 0)) return null;
-  const mass = world.isCircumbinary
-    ? (stars || []).reduce((sum, star) => sum + (star.mass || 0), 0)
-    : (stars?.[0]?.mass || 0);
-  return formatOrbitalPeriod(orbitalPeriodYears(world.orbitalAU, mass));
+  return formatOrbitalPeriod(orbitalPeriodYears(world.orbitalAU, stellarMassForWorld(world, stars)));
+}
+
+// A day is the sunrise-to-sunrise period. It is computed for display.
+// A locked world keeps one face sunward, so its day is its year.
+// A resonant world is the Mercury case: the solar day is twice the year.
+// Every other spin is a hash of the body the seed already fixed:
+// type, air, water, and gravity. Those four survive ejection, so the
+// spin stays with the body. A redraw replaces the body and the spin
+// changes. The id is left out, because a fresh roll of the same seed
+// assigns new ids. The orbit is left out, because ejection clears it.
+const FAST_SPIN_TYPES = new Set(['Gas Giant', 'Ice Giant', 'Gas Dwarf']);
+
+function hashUnit(text) {
+  let hash = 2166136261;
+  const value = String(text);
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967296;
+}
+
+function rotationHours(world) {
+  const unit = hashUnit(`${world.worldType}|${world.atmosphere}|${world.hydrosphere}|${world.gravity}`);
+  if (FAST_SPIN_TYPES.has(world.worldType)) return 6 + unit * 12;
+  if (unit >= 5 / 6) {
+    const slow = (unit - 5 / 6) / (1 / 6);
+    return (2 + slow * 98) * 24;
+  }
+  const usual = unit / (5 / 6);
+  return 10 * Math.pow(4.8, usual);
+}
+
+function formatHours(hours) {
+  const rounded = Math.max(1, Math.round(hours));
+  if (rounded >= 24) return formatOrbitalPeriod(rounded / 24 / EARTH_DAYS_PER_YEAR);
+  return `${rounded} hr`;
+}
+
+// rolled is true when the number is a spin hash. Locked and resonant days follow the year.
+export function worldSpinLabel(world, stars) {
+  if (!world || world.worldType === 'Asteroid Belt') return null;
+  const unbound = !(world.orbitalAU > 0);
+  const yearYears = unbound
+    ? null
+    : orbitalPeriodYears(world.orbitalAU, stellarMassForWorld(world, stars));
+  if (!unbound && yearYears && world.tidallyLocked) {
+    return { text: `day ${formatOrbitalPeriod(yearYears)}`, rolled: false };
+  }
+  if (!unbound && yearYears && world.tidalResonance) {
+    return { text: `day ${formatOrbitalPeriod(yearYears * 2)}`, rolled: false };
+  }
+  const period = formatHours(rotationHours(world));
+  return { text: `${unbound ? 'spin' : 'day'} ${period} (roll)`, rolled: true };
 }
 
 // ─── TEXT EXPORT ──────────────────────────────────────────────────────────────
@@ -1543,9 +1601,10 @@ export function generateTextSummary(system) {
   lines.push('PLANETARY BODIES');
   worlds.forEach((world, i) => {
     const year = worldYearLabel(world, stars);
+    const spin = worldSpinLabel(world, stars);
     const place = system.isRoguePlanet
-      ? 'unbound'
-      : `${world.orbitalAU} AU${year ? ` · ${year}` : ''} (${world.zone.replace('_', ' ')})`;
+      ? `unbound${spin ? ` · ${spin.text}` : ''}`
+      : `${world.orbitalAU} AU${year ? ` · year ${year}` : ''}${spin ? ` · ${spin.text}` : ''} (${world.zone.replace('_', ' ')})`;
     const title = world.name ? `${world.name} — ${world.worldType}` : world.worldType;
     lines.push(`[${i + 1}] ${title} at ${place}${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 ? ' ★ PULSAR ORBIT' : ''}`);
     lines.push(`  Atmosphere: ${world.atmosphere}  |  Hydrosphere: ${world.hydrosphere}`);
