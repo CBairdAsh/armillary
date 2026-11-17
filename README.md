@@ -88,6 +88,8 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 | Update note | After boot, once per version, a notice lists the current edits and ends with the Ko-fi and author links. Continue stores that and it does not return |
 | Explore a neighbor star | Click any neighbor in the Stellar Neighborhood |
 | Name the system | Click the system name / UNNAMED SYSTEM in the overview |
+| Name a world | Click ✎ name on a world card. The name stays through lock, save, export, and ejection. Redraw and crush clear it. A seed does not carry it |
+| Name a species | Open Details and click Species N. Regenerating species clears that name |
 | Copy seed / share link | Seed row in system overview → COPY SEED or COPY LINK |
 | Optional seed on generate | Enter seed → **From seed** (Generate New always rolls fresh) |
 | Import a shared system | ⬆ Import JSON (Export panel) |

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
@@ -50,6 +50,90 @@ function Tag({ children, color = C.PRIMARY }) {
       {children}
     </span>
   );
+}
+
+// A typed label. The generator never fills this in. Enter and clicking
+// away save, Escape puts the previous text back, and a blank value clears it.
+function EditableName({ value = '', placeholder, emptyText, onCommit, color = C.TEXT, emptyColor = C.TEXT_FAINT, fontSize = 15, letterSpacing = 2, quiet = false }) {
+  const stored = typeof value === 'string' ? value : '';
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(stored);
+  const skipCommit = useRef(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(stored);
+  }, [stored, editing]);
+
+  const stop = (event) => event.stopPropagation();
+
+  const commit = () => {
+    if (skipCommit.current) {
+      skipCommit.current = false;
+      return;
+    }
+    setEditing(false);
+    onCommit(draft.trim());
+  };
+
+  const cancel = () => {
+    skipCommit.current = true;
+    setDraft(stored);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="flex-row flex-wrap gap-sm" onClick={stop} onMouseDown={stop} style={{ flex: '1 1 200px' }}>
+        <input
+          autoFocus
+          value={draft}
+          onChange={e => setDraft(e.target.value.toUpperCase())}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === 'Enter') commit();
+            if (e.key === 'Escape') cancel();
+          }}
+          maxLength={48}
+          placeholder={placeholder}
+          aria-label={placeholder}
+          style={{
+            background: C.PANEL_ALT, border: `1px solid ${C.PRIMARY}88`,
+            borderRadius: 3, color: C.TEXT,
+            fontSize, letterSpacing, padding: '4px 10px',
+            flex: '1 1 140px', minWidth: 0, outline: 'none',
+          }}
+        />
+        <button type="button" onMouseDown={e => e.preventDefault()} onClick={commit} style={navBtn(false, C.PRIMARY, true)}>Save</button>
+        <button type="button" onMouseDown={e => e.preventDefault()} onClick={cancel} style={navBtn(false, C.TEXT_DIM, true)}>Cancel</button>
+      </div>
+    );
+  }
+
+  const named = stored.length > 0;
+  return (
+    <div
+      onClick={e => { stop(e); setDraft(stored); setEditing(true); }}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { stop(e); setDraft(stored); setEditing(true); } }}
+      title={named ? 'Click to rename' : 'Click to name'}
+      role="button"
+      tabIndex={0}
+      className="flex-row"
+      style={{ gap: 10, cursor: 'text', flex: quiet ? '0 0 auto' : undefined }}
+    >
+      <span style={{
+        fontSize: !named && quiet ? 12 : fontSize,
+        letterSpacing: !named && quiet ? 1 : letterSpacing,
+        color: named ? color : emptyColor,
+      }}>{named ? stored : emptyText}</span>
+      {!(!named && quiet) && (
+        <span style={{ fontSize: 10, color: C.TEXT_FAINT, letterSpacing: 1 }}>✎ rename</span>
+      )}
+    </div>
+  );
+}
+
+function worldConfirmLabel(world) {
+  return world.name ? `${world.name} (${world.worldType.toUpperCase()})` : world.worldType.toUpperCase();
 }
 function LockBtn({ locked, onToggle, color = C.PRIMARY }) {
   return (
@@ -149,7 +233,7 @@ function NeighborhoodCard({ neighborhood, ejected = [], onLock, onRedraw, onNavi
                   >
                     <MarkSlot kind="drift" glyph={n.icon} size={14} />
                     <span style={{ fontSize: 13, color: C.TEXT_DIM }}>{n.distance} ly</span>
-                    <span style={{ fontSize: 12, color: n.color }}>{n.label}</span>
+                    <span style={{ fontSize: 12, color: n.color }}>{entry.rogueSystem?.worlds?.[0]?.name || n.label}</span>
                     <span style={{ fontSize: 11, color: explored ? n.color + 'cc' : C.TEXT_FAINT }}>
                       {explored ? '↺ Return' : '→ Explore'}
                     </span>
@@ -268,6 +352,14 @@ function StarCard({ star, label, onLock, onRedraw }) {
 }
 
 // ─── WORLD CARD ───────────────────────────────────────────────────────────────
+function ejectedOriginSentence(system) {
+  const from = system.ejectedFrom;
+  const body = system.worlds?.[0] || {};
+  const who = body.name ? `${body.name} (${from.worldType})` : from.worldType;
+  const zone = String(from.zone || '').replaceAll('_', ' ');
+  return `Ejected ${who} from ${from.orbitalAU} AU (${zone}). No host star. The body is unbound. ${ejectedLifeBlurb(body)}`;
+}
+
 function ejectedLifeBlurb(world) {
   const species = world.species || [];
   if (species.length) return 'Chemosynthetic species are still living, and their civilization remains.';
@@ -328,7 +420,7 @@ function InsertSlot({ slot, armed, onArm, onConfirm, onCancel }) {
   );
 }
 
-function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
+function WorldCard({ world, index, onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
   const [expanded, setExpanded] = useState(false);
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
@@ -341,6 +433,19 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
     <div style={{ ...cardStyle(locked, zoneColor), marginBottom: 8 }}>
       <div onClick={() => onLock(world.id)} style={{ ...lockStripeStyle(locked, zoneColor), minHeight: 64 }}/>
       <div style={{ flex: 1, padding: '10px 14px' }}>
+        {world.name ? (
+          <div style={{ marginBottom: 6 }}>
+            <EditableName
+              value={world.name}
+              placeholder="WORLD NAME..."
+              emptyText="✎ name"
+              onCommit={name => onRename(world.id, name)}
+              color={C.TEXT}
+              fontSize={16}
+              letterSpacing={3}
+            />
+          </div>
+        ) : null}
         {/* Header */}
         <div className="flex-row flex-wrap gap-md" style={{ marginBottom: 8 }}>
           <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>[{index + 1}]</span>
@@ -373,6 +478,18 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
             </button>
           )}
         </div>
+        {!world.name && (
+          <div style={{ marginBottom: 6 }}>
+            <EditableName
+              value=""
+              placeholder="WORLD NAME..."
+              emptyText="✎ name"
+              onCommit={name => onRename(world.id, name)}
+              emptyColor={C.TEXT_DIM}
+              quiet
+            />
+          </div>
+        )}
         {/* Summary */}
         <div className="flex-wrap gap-lg">
           <span style={{ fontSize: 13, color: C.TEXT_DIM }}>ATM: <span style={{ color: C.TEXT }}>{world.atmosphere}</span></span>
@@ -387,7 +504,7 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
             background: C.HAZARD + '11', border: `1px solid ${C.HAZARD}55`, borderRadius: 4,
           }}>
             <div style={{ fontSize: 12, color: C.HAZARD, lineHeight: 1.6 }}>
-              ⚠ CRUSH [{index + 1}] {world.worldType.toUpperCase()} AT {world.orbitalAU} AU
+              ⚠ CRUSH [{index + 1}] {worldConfirmLabel(world)} AT {world.orbitalAU} AU
               {' '}— it becomes an asteroid belt of this world's debris, in the same orbit. This cannot be undone.
               {presencePhrase(world, 'are destroyed.') ? ` ${presencePhrase(world, 'are destroyed.')}` : ''}
             </div>
@@ -403,7 +520,7 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
             background: C.HAZARD + '11', border: `1px solid ${C.HAZARD}55`, borderRadius: 4,
           }}>
             <div style={{ fontSize: 12, color: C.HAZARD, lineHeight: 1.6 }}>
-              ⚠ EJECT [{index + 1}] {world.worldType.toUpperCase()} AT {world.orbitalAU} AU
+              ⚠ EJECT [{index + 1}] {worldConfirmLabel(world)} AT {world.orbitalAU} AU
               {' '}— it leaves this system and becomes a rogue planet in the neighborhood. This cannot be undone.
               {ejectionLifeSentence(world) ? ` ${ejectionLifeSentence(world)}` : ''}
             </div>
@@ -419,7 +536,7 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
             background: C.HAZARD + '11', border: `1px solid ${C.HAZARD}55`, borderRadius: 4,
           }}>
             <div style={{ fontSize: 12, color: C.HAZARD, lineHeight: 1.6 }}>
-              ⚠ DESTROY [{index + 1}] {world.worldType.toUpperCase()} AT {world.orbitalAU} AU
+              ⚠ DESTROY [{index + 1}] {worldConfirmLabel(world)} AT {world.orbitalAU} AU
               {' '}— the belt is removed from this system. This cannot be undone.
             </div>
             <div className="flex-row flex-wrap" style={{ gap: 12, marginTop: 10, justifyContent: 'flex-end' }}>
@@ -517,7 +634,9 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
                 {world.isHabitable && world.species.length === 0 && (
                   <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>No sapient life detected on this world.</span>
                 )}
-                {(world.species || []).map((sp, si) => <SpeciesCard key={sp.id} species={sp} index={si}/>)}
+                {(world.species || []).map((sp, si) => (
+                  <SpeciesCard key={sp.id} species={sp} index={si} onRename={name => onRenameSpecies(world.id, sp.id, name)}/>
+                ))}
 
                 {/* Lost civilization ruins */}
                 {world.ruins && world.species.length === 0 && (
@@ -550,12 +669,21 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
 }
 
 // ─── SPECIES CARD ─────────────────────────────────────────────────────────────
-function SpeciesCard({ species, index }) {
+function SpeciesCard({ species, index, onRename }) {
   const dispColor = species.disposition === 'Openly Hostile' ? C.DANGER : species.disposition === 'Welcoming' ? C.HABITABLE : C.PRIMARY;
   return (
     <div style={{ background: C.PANEL_ALT, border: `1px solid ${C.HABITABLE}33`, borderRadius: 3, padding: '12px 14px', marginBottom: 8 }}>
       <div className="flex-row flex-wrap gap-md" style={{ marginBottom: 12 }}>
-        <Label color={C.HABITABLE}>Species {index + 1}</Label>
+        <EditableName
+          value={species.name || ''}
+          placeholder="SPECIES NAME..."
+          emptyText={`Species ${index + 1}`}
+          onCommit={onRename}
+          color={C.TEXT}
+          emptyColor={C.HABITABLE}
+          fontSize={14}
+          letterSpacing={2}
+        />
         <Tag color={C.HABITABLE}>{species.tech}</Tag>
         <Tag color={dispColor}>{species.disposition}</Tag>
       </div>
@@ -584,9 +712,7 @@ function SpeciesCard({ species, index }) {
 
 // ─── SYSTEM OVERVIEW ─────────────────────────────────────────────────────────
 function SystemOverview({ system, isNeighbor, onBack, onRename }) {
-  const [editing,  setEditing]  = useState(false);
-  const [nameVal,  setNameVal]  = useState(system.name || '');
-  const [copied,   setCopied]   = useState(null);
+  const [copied, setCopied] = useState(null);
   const habitable    = system.worlds.filter(w => w.isHabitable).length;
   const totalSpecies = system.worlds.reduce((sum, w) => sum + w.species.length, 0);
 
@@ -595,12 +721,6 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
       setCopied(label);
       setTimeout(() => setCopied(null), 2000);
     });
-  };
-
-  const commitName = () => {
-    setEditing(false);
-    const trimmed = nameVal.trim();
-    onRename(trimmed || '');
   };
 
   return (
@@ -612,41 +732,16 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
         </div>
       )}
 
-      {/* Inline name editor */}
       <div style={{ marginBottom: 12 }}>
-        {editing ? (
-          <div className="flex-row gap-sm">
-            <input
-              autoFocus
-              value={nameVal}
-              onChange={e => setNameVal(e.target.value.toUpperCase())}
-              onBlur={commitName}
-              onKeyDown={e => { if (e.key === 'Enter') commitName(); if (e.key === 'Escape') { setNameVal(system.name || ''); setEditing(false); } }}
-              maxLength={48}
-              placeholder="SYSTEM NAME..."
-              style={{
-                background: C.PANEL_ALT, border: `1px solid ${C.PRIMARY}88`,
-                borderRadius: 3, color: C.TEXT,
-                fontSize: 15, letterSpacing: 3, padding: '4px 10px',
-                flex: 1, outline: 'none',
-              }}
-            />
-            <button onClick={commitName} style={navBtn(false, C.PRIMARY, true)}>SAVE</button>
-            <button onClick={() => { setNameVal(system.name || ''); setEditing(false); }} style={navBtn(false, C.TEXT_DIM, true)}>CANCEL</button>
-          </div>
-        ) : (
-          <div
-            onClick={() => { setNameVal(system.name || ''); setEditing(true); }}
-            title="Click to name this system"
-            className="flex-row"
-            style={{ gap: 10, cursor: 'text' }}
-          >
-            <span style={{ fontSize: 16, letterSpacing: 3, color: system.name ? C.TEXT : C.TEXT_FAINT }}>
-              {system.name || 'UNNAMED SYSTEM'}
-            </span>
-            <span style={{ fontSize: 10, color: C.TEXT_FAINT, letterSpacing: 1 }}>✎ rename</span>
-          </div>
-        )}
+        <EditableName
+          value={system.name || ''}
+          placeholder="SYSTEM NAME..."
+          emptyText="UNNAMED SYSTEM"
+          onCommit={onRename}
+          color={C.TEXT}
+          fontSize={16}
+          letterSpacing={3}
+        />
       </div>
 
       {system.seed && !system.isRoguePlanet && !isNeighbor && (
@@ -1047,6 +1142,23 @@ export default function App() {
     updateActive({ ...active, name });
   };
 
+  const handleRenameWorld = useCallback((id, name) => {
+    updateActive({
+      ...active,
+      worlds: active.worlds.map(world => world.id === id ? { ...world, name } : world),
+    });
+  }, [active, updateActive]);
+
+  const handleRenameSpecies = useCallback((worldId, speciesId, name) => {
+    updateActive({
+      ...active,
+      worlds: active.worlds.map(world => world.id !== worldId ? world : {
+        ...world,
+        species: (world.species || []).map(species => species.id === speciesId ? { ...species, name } : species),
+      }),
+    });
+  }, [active, updateActive]);
+
   const handleSaveToArchive = () => {
     const entry = {
       id:        crypto.randomUUID(),
@@ -1206,7 +1318,7 @@ export default function App() {
                 </div>
                 <div className="body-text" style={{ color: C.TEXT_DIM, lineHeight: 1.9 }}>
                   {active.ejectedFrom
-                    ? `Ejected ${active.ejectedFrom.worldType} from ${active.ejectedFrom.orbitalAU} AU (${String(active.ejectedFrom.zone || '').replaceAll('_', ' ')}). No host star. The body is unbound. ${ejectedLifeBlurb(active.worlds?.[0] || {})}`
+                    ? ejectedOriginSentence(active)
                     : `No host star. This body drifts through interstellar space unbound to any stellar system. Surface temperature approaches absolute zero. Any liquid water would require subsurface geothermal heating from residual radioactive decay — a Europa-like scenario in permanent darkness.`}
                 </div>
                 <div className="flex-wrap gap-md" style={{ marginTop: 10 }}>
@@ -1282,6 +1394,8 @@ export default function App() {
                         index={i}
                         onLock={handleLockWorld}
                         onRedraw={() => handleRedrawWorld(world.id)}
+                        onRename={handleRenameWorld}
+                        onRenameSpecies={handleRenameSpecies}
                         onGenerateSpecies={handleSpecies}
                         canRestructure={!active.isRoguePlanet}
                         unbound={!!active.isRoguePlanet}
