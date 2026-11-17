@@ -48,6 +48,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 - 13 world types: Terrestrial, Ocean Planet, Desert, Ice Planet, Hycean, Gas Giant, Ice Giant, Gas Dwarf, Chthonian, Double Planet, Asteroid Belt, Pulsar Planet, Coreless
 - Atmosphere, hydrosphere, gravity, temperature per world
 - Orbital zone classification (Inner / Habitable / Outer / Fringe)
+- Year length beside the AU, from the orbit and the star's mass. A circumbinary world uses the combined mass. An unbound body has none
 - Hazards, moon generation (Rocky, Icy, Subsurface Ocean, Cryovolcanic, Volcanic, Terrestrial, Thin Atmosphere)
 - Europa and Enceladus analog moons flagged with life potential notes
 
@@ -110,6 +111,7 @@ Species generation draws on **GURPS Aliens** biological origin and social struct
 
 Key physics:
 - Habitable zone: `inner = 0.95 × √L`, `outer = 1.37 × √L` (where L = solar luminosity)
+- Orbital period: `P = √(a³ / M)` in Earth years (`a` in AU, `M` in solar masses). A circumbinary world uses the combined mass. The period is calculated for display and is not part of the seed
 - Surface temperature: Stefan-Boltzmann–inspired scaling from orbital AU and luminosity
 - Stellar mass and luminosity: coupled within spectral-class bounds
 - Neutron-star primaries: ~65% chance of a pulsar planet on the innermost orbit
