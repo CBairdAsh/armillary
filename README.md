@@ -65,7 +65,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 - Cause of collapse (War / Environmental / Plague / Cosmic Event / Transcendence / Assimilation / Unknown)
 
 **Eject Planets**
-- This ejects a planet from a system, turning it into a rogue planet. Any life there will be destroyed and civilations will become ruins. The only exception is sentient life that is not dependent on the host star for survival. This would be the case of "water worlds" with a deep subsurface ocean with warmth from the planetary core.
+- This ejects a planet from a system, turning it into a rogue planet. Any life there will be destroyed and civilizations will become ruins. The only exception is chemosynthetic sapient life on an ice planet with an ice planet with a subsurface ocean warmed by the core, or on a Hycean world whose ocean stays liquid on internal heat. Note, asteroid belts cannot be ejected, only destroyed.
 
 **Crush Planets**
 - This will crush a planet so that it becomes an asteroid belt. The newly made belt is the same consistency as the parent planet. Any species on the planet will be lost, their civilization destroyed.
