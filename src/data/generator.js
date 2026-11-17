@@ -1424,6 +1424,39 @@ export function regenerateSpeciesForWorld(world) {
   return { ...world, species: finalSpecies, ruins };
 }
 
+// Kepler's third law. P is Earth years, a is AU, M is solar masses.
+// A circumbinary world orbits every star, so M is their combined mass.
+// Every other world uses the primary. The ladder does not record which
+// star a binary world circles, and the stars have no separation yet.
+// The year is computed when the card is drawn. It is not stored, so a
+// seed does not change.
+const EARTH_DAYS_PER_YEAR = 365.25;
+
+export function orbitalPeriodYears(au, solarMasses) {
+  if (!(au > 0) || !(solarMasses > 0)) return null;
+  return Math.sqrt((au ** 3) / solarMasses);
+}
+
+export function formatOrbitalPeriod(years) {
+  if (years == null || !Number.isFinite(years) || years <= 0) return null;
+  if (years >= 1) return `${(Math.round(years * 10) / 10).toFixed(1)} yr`;
+  const days = years * EARTH_DAYS_PER_YEAR;
+  if (days >= 1) {
+    const rounded = Math.round(days);
+    return `${rounded} day${rounded === 1 ? '' : 's'}`;
+  }
+  const hours = Math.max(1, Math.round(days * 24));
+  return `${hours} hr`;
+}
+
+export function worldYearLabel(world, stars) {
+  if (!world || !(world.orbitalAU > 0)) return null;
+  const mass = world.isCircumbinary
+    ? (stars || []).reduce((sum, star) => sum + (star.mass || 0), 0)
+    : (stars?.[0]?.mass || 0);
+  return formatOrbitalPeriod(orbitalPeriodYears(world.orbitalAU, mass));
+}
+
 // ─── TEXT EXPORT ──────────────────────────────────────────────────────────────
 export function generateTextSummary(system) {
   const lines = [];
@@ -1509,9 +1542,10 @@ export function generateTextSummary(system) {
   // Worlds
   lines.push('PLANETARY BODIES');
   worlds.forEach((world, i) => {
+    const year = worldYearLabel(world, stars);
     const place = system.isRoguePlanet
       ? 'unbound'
-      : `${world.orbitalAU} AU (${world.zone.replace('_', ' ')})`;
+      : `${world.orbitalAU} AU${year ? ` · ${year}` : ''} (${world.zone.replace('_', ' ')})`;
     const title = world.name ? `${world.name} — ${world.worldType}` : world.worldType;
     lines.push(`[${i + 1}] ${title} at ${place}${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 ? ' ★ PULSAR ORBIT' : ''}`);
     lines.push(`  Atmosphere: ${world.atmosphere}  |  Hydrosphere: ${world.hydrosphere}`);

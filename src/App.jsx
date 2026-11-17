@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem, worldYearLabel } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -420,11 +420,12 @@ function InsertSlot({ slot, armed, onArm, onConfirm, onCancel }) {
   );
 }
 
-function WorldCard({ world, index, onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
+function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
   const [expanded, setExpanded] = useState(false);
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
   const worldDef  = WORLD_TYPES[world.worldType];
+  const yearLabel = unbound ? null : worldYearLabel(world, stars);
   const hasDetails = world.hazards.length > 0 || world.moons.length > 0 || world.isHabitable
     || world.tidallyLocked || world.tidalResonance || world.biosignature
     || world.isCircumbinary || world.worldNotes;
@@ -452,7 +453,7 @@ function WorldCard({ world, index, onLock, onRedraw, onRename, onRenameSpecies, 
           <span style={{ fontSize: 15, color: zoneColor }}>{world.worldType}</span>
           <MarkSlot kind={worldMarkKind(world.worldType)} glyph={worldDef?.icon} size={15} />
           <Tag color={zoneColor}>{world.zone.replace('_', ' ')}</Tag>
-          <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{unbound ? 'UNBOUND' : `${world.orbitalAU} AU`}</span>
+          <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{unbound ? 'UNBOUND' : `${world.orbitalAU} AU${yearLabel ? ` · ${yearLabel}` : ''}`}</span>
           {world.isCircumbinary && <Tag color={C.STAR_G}>★ CIRCUMBINARY</Tag>}
           {world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 && <Tag color={C.STAR_NS}>★ PULSAR ORBIT</Tag>}
           {world.debris         && <Tag color={zoneColor}>DEBRIS · {world.debris.toUpperCase()}</Tag>}
@@ -1441,6 +1442,7 @@ export default function App() {
                     <div key={world.id}>
                       <WorldCard
                         world={world}
+                        stars={active.stars}
                         index={i}
                         onLock={handleLockWorld}
                         onRedraw={() => handleRedrawWorld(world.id)}
