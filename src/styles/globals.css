@@ -69,6 +69,17 @@ input, button, select, textarea {
 /* Page content container — max-width centering */
 .container { max-width: 1024px; margin: 0 auto; padding: 16px; }
 
+.app-banner-row { padding-top: 8px; }
+
+/* iPhone 12 and phones of that width. viewport-fit=cover lets the page
+   run under the status bar, so the banner needs room above the title.
+   25px is the floor. The status bar inset is used when it is taller. */
+@media (max-width: 480px) {
+  .app-banner-row {
+    padding-top: max(25px, env(safe-area-inset-top, 0px));
+  }
+}
+
 .label-lg {
   font-size: 13px;
   letter-spacing: 2px;

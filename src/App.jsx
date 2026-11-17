@@ -1099,7 +1099,7 @@ export default function App() {
 
       {/* HEADER */}
       <div style={{ background: '#060a0f', borderBottom: `2px solid ${C.BORDER_HI}`, position: 'sticky', top: 0, zIndex: 10 }}>
-        <div className="flex-row flex-wrap gap-sm" style={{ maxWidth: 1024, margin: '0 auto', padding: '8px 16px', minHeight: 54 }}>
+        <div className="app-banner-row flex-row flex-wrap gap-sm" style={{ maxWidth: 1024, margin: '0 auto', paddingLeft: 16, paddingRight: 16, paddingBottom: 8, minHeight: 54 }}>
           <div style={{ width: 4, background: C.PRIMARY, marginRight: 16, flexShrink: 0, alignSelf: 'stretch', minHeight: 38 }}/>
           <div className="flex-row flex-1" style={{ minWidth: 160 }}>
             <div>
