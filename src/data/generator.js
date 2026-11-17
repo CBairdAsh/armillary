@@ -1498,7 +1498,8 @@ function formatHours(hours) {
   return `${rounded} hr`;
 }
 
-// rolled is true when the number is a spin hash. Locked and resonant days follow the year.
+// A locked or resonant day follows the year. Any other label is just the
+// length. The card does not say the number was rolled.
 export function worldSpinLabel(world, stars) {
   if (!world || world.worldType === 'Asteroid Belt') return null;
   const unbound = !(world.orbitalAU > 0);
@@ -1506,13 +1507,13 @@ export function worldSpinLabel(world, stars) {
     ? null
     : orbitalPeriodYears(world.orbitalAU, stellarMassForWorld(world, stars));
   if (!unbound && yearYears && world.tidallyLocked) {
-    return { text: `day ${formatOrbitalPeriod(yearYears)}`, rolled: false };
+    return `day ${formatOrbitalPeriod(yearYears)}`;
   }
   if (!unbound && yearYears && world.tidalResonance) {
-    return { text: `day ${formatOrbitalPeriod(yearYears * 2)}`, rolled: false };
+    return `day ${formatOrbitalPeriod(yearYears * 2)}`;
   }
   const period = formatHours(rotationHours(world));
-  return { text: `${unbound ? 'spin' : 'day'} ${period} (roll)`, rolled: true };
+  return `${unbound ? 'spin' : 'day'} ${period}`;
 }
 
 // ─── TEXT EXPORT ──────────────────────────────────────────────────────────────
@@ -1603,8 +1604,8 @@ export function generateTextSummary(system) {
     const year = worldYearLabel(world, stars);
     const spin = worldSpinLabel(world, stars);
     const place = system.isRoguePlanet
-      ? `unbound${spin ? ` · ${spin.text}` : ''}`
-      : `${world.orbitalAU} AU${year ? ` · year ${year}` : ''}${spin ? ` · ${spin.text}` : ''} (${world.zone.replace('_', ' ')})`;
+      ? `unbound${spin ? ` · ${spin}` : ''}`
+      : `${world.orbitalAU} AU${year ? ` · year ${year}` : ''}${spin ? ` · ${spin}` : ''} (${world.zone.replace('_', ' ')})`;
     const title = world.name ? `${world.name} — ${world.worldType}` : world.worldType;
     lines.push(`[${i + 1}] ${title} at ${place}${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 ? ' ★ PULSAR ORBIT' : ''}`);
     lines.push(`  Atmosphere: ${world.atmosphere}  |  Hydrosphere: ${world.hydrosphere}`);

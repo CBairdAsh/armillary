@@ -429,7 +429,7 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
   const spin = worldSpinLabel(world, stars);
   const orbitBits = [unbound ? 'UNBOUND' : `${world.orbitalAU} AU`];
   if (yearLabel) orbitBits.push(`year ${yearLabel}`);
-  if (spin) orbitBits.push(spin.text);
+  if (spin) orbitBits.push(spin);
   const hasDetails = world.hazards.length > 0 || world.moons.length > 0 || world.isHabitable
     || world.tidallyLocked || world.tidalResonance || world.biosignature
     || world.isCircumbinary || world.worldNotes;
@@ -457,7 +457,7 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
           <span style={{ fontSize: 15, color: zoneColor }}>{world.worldType}</span>
           <MarkSlot kind={worldMarkKind(world.worldType)} glyph={worldDef?.icon} size={15} />
           <Tag color={zoneColor}>{world.zone.replace('_', ' ')}</Tag>
-          <span title={spin?.rolled ? 'A roll, not a measurement.' : undefined} style={{ fontSize: 12, color: C.TEXT_DIM }}>{orbitBits.join(' · ')}</span>
+          <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{orbitBits.join(' · ')}</span>
           {world.isCircumbinary && <Tag color={C.STAR_G}>★ CIRCUMBINARY</Tag>}
           {world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 && <Tag color={C.STAR_NS}>★ PULSAR ORBIT</Tag>}
           {world.debris         && <Tag color={zoneColor}>DEBRIS · {world.debris.toUpperCase()}</Tag>}
