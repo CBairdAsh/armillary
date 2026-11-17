@@ -327,7 +327,7 @@ function InsertSlot({ slot, armed, onArm, onConfirm, onCancel }) {
   );
 }
 
-function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestructure = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
+function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
   const [expanded, setExpanded] = useState(false);
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
@@ -346,7 +346,7 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
           <span style={{ fontSize: 15, color: zoneColor }}>{world.worldType}</span>
           <span style={{ fontSize: 15 }}>{worldDef?.icon || ''}</span>
           <Tag color={zoneColor}>{world.zone.replace('_', ' ')}</Tag>
-          <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{world.orbitalAU} AU</span>
+          <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{unbound ? 'UNBOUND' : `${world.orbitalAU} AU`}</span>
           {world.isCircumbinary && <Tag color={C.STAR_G}>★ CIRCUMBINARY</Tag>}
           {world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 && <Tag color={C.STAR_NS}>★ PULSAR ORBIT</Tag>}
           {world.debris         && <Tag color={zoneColor}>DEBRIS · {world.debris.toUpperCase()}</Tag>}
@@ -356,7 +356,7 @@ function WorldCard({ world, index, onLock, onRedraw, onGenerateSpecies, canRestr
           {world.biosignature   && <Tag color={world.biosignature.color}>🔬 {world.biosignature.shortLabel}</Tag>}
           <div style={{ flex: 1 }}/>
           <LockBtn locked={locked} onToggle={() => onLock(world.id)} color={zoneColor}/>
-          {!locked && <button onClick={onRedraw} style={navBtn(false, zoneColor, true)}>↻ Redraw</button>}
+          {!locked && !unbound && <button onClick={onRedraw} style={navBtn(false, zoneColor, true)}>↻ Redraw</button>}
           {canRestructure && !locked && world.worldType !== 'Asteroid Belt' && pendingKind !== 'crush' && (
             <button type="button" onClick={() => onArmEdit('crush')} style={navBtn(false, C.HAZARD, true)}>Crush</button>
           )}
@@ -696,7 +696,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
         </div>
         <div>
           <div className="stat-label">HABITABLE ZONE</div>
-          <div style={{ fontSize: 15, color: C.HABITABLE }}>{system.hz.inner}–{system.hz.outer} AU</div>
+          <div style={{ fontSize: 15, color: C.HABITABLE }}>{system.isRoguePlanet ? 'None' : `${system.hz.inner}–${system.hz.outer} AU`}</div>
           {system.stars.length > 1 && !system.isRoguePlanet && (
             <div className="hint" style={{ marginTop: 4, maxWidth: 220 }}>
               Combined luminosity. Per-star HZ on star cards below.
@@ -926,6 +926,10 @@ export default function App() {
     setPendingInsert(null);
   };
 
+  // `system` is the generated primary. Exploring a neighbor shows a separate
+  // view and leaves the primary in place. An ejected world is not rolled
+  // again: system.ejected already holds that body as a rogue, and edits made
+  // while it is on screen are written back onto that entry.
   const active     = activeNeighborId ? (neighborSystems[activeNeighborId] || system) : system;
   const isNeighbor = !!activeNeighborId;
 
@@ -978,6 +982,8 @@ export default function App() {
   const handleLockNbhd   = () => updateActive({ ...active, neighborhood: { ...active.neighborhood, locked: !active.neighborhood.locked } });
   const handleRedrawNbhd = () => { const f = generateSystem({ starCount }); updateActive({ ...active, neighborhood: f.neighborhood }); };
 
+  // An ejected neighbor opens the body that left. Any other rogue neighbor
+  // is a separate unbound ice world, rolled the first time it is opened.
   const handleNavigate = (neighbor) => {
     clearPendingEdits();
     if (!neighborSystems[neighbor.id]) {
@@ -1277,6 +1283,7 @@ export default function App() {
                         onRedraw={() => handleRedrawWorld(world.id)}
                         onGenerateSpecies={handleSpecies}
                         canRestructure={!active.isRoguePlanet}
+                        unbound={!!active.isRoguePlanet}
                         pendingKind={pendingWorldEdit?.id === world.id ? pendingWorldEdit.kind : null}
                         onArmEdit={kind => { setPendingInsert(null); setPendingWorldEdit({ id: world.id, kind }); }}
                         onConfirmCrush={() => handleConfirmCrush(world.id)}

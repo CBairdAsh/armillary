@@ -1,6 +1,15 @@
 // ─── GENERATION ENGINE ────────────────────────────────────────────────────────
-// Procedural generation logic based on GURPS Space 4e
-// All randomness flows through this module; seeded via runWithSeed (v1.3+)
+// Procedural generation based on GURPS Space 4e. Every random roll in a
+// system comes through this file, so a seed can replay the same system.
+//
+// A fresh system is built in one pass: neighborhood, stars, habitable zone,
+// orbits, worlds, species, comets. Redraw Free rerolls the unlocked cards
+// and keeps locked ones in the same slot.
+//
+// Eject removes a world from that ladder and keeps the same body on
+// system.ejected, as a rogue with no host star. The stored orbitalAU is 0
+// because the body has no orbit. It does not mean the body sits on a star.
+// The stored habitable zone is 0–0 for the same reason.
 
 import { getRandom, runWithSeed, generateRandomSeed } from './rng.js';
 import { APP_VERSION } from '../config.js';
@@ -178,7 +187,12 @@ function buildStarsArray(count, { locked = null, primarySpectralClass = null } =
 }
 
 // ─── ORBITAL ZONES ────────────────────────────────────────────────────────────
+// Inner is everything sunward of the habitable zone. Fringe is beyond
+// three times the outer edge. A zone with no width is not a zone: rogue
+// systems store 0–0 to mean "no star", and 0 <= 0 would otherwise count
+// the unbound body as habitable.
 function determineOrbitalZone(orbitalAU, hz) {
+  if (!hz || !(hz.outer > hz.inner)) return 'FRINGE';
   if (orbitalAU < hz.inner * 0.5) return 'INNER';
   if (orbitalAU < hz.inner) return 'INNER';
   if (orbitalAU <= hz.outer) return 'HABITABLE';
@@ -244,6 +258,9 @@ function getSpeciesWeightBoosts(worldType, zone, { tidallyLocked = false, tidalR
   return { origin, sense, social, body, disp };
 }
 
+// One orbit becomes one body. The zone comes from the star's habitable
+// zone, and habitability still requires air and a temperate surface on
+// top of sitting in that zone.
 function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClass = 'G', forcedWorldType = null) {
   const zone      = determineOrbitalZone(orbitalAU, hz);
   const worldType = resolveWorldType(zone, index, primarySpectralClass, forcedWorldType);
@@ -720,7 +737,9 @@ export function generateSystemFromSeed(seed, starCount = 1) {
 }
 
 // ─── PARTIAL REGENERATION ─────────────────────────────────────────────────────
-// Redraws only unlocked components, preserving locked ones
+// Redraw Free keeps locked stars and worlds in their current slots and
+// rerolls everything else. Ejected rogues are copied onto the new system
+// so a redraw of the star does not delete a world that already left.
 export function redrawSystem(existingSystem, { redrawnStarCount } = {}) {
   if (existingSystem.isRoguePlanet || !existingSystem.stars?.length) return existingSystem;
 
@@ -1002,16 +1021,21 @@ function ejectedLifeNote(kind, hadSpecies, survivors, lostCount) {
   return 'The biosphere died with the loss of the star. The civilization remains as ruins.';
 }
 
+// A bound moon was marked life-capable because its planet sat in the star's
+// habitable zone. That mark does not survive ejection. Only a moon with its
+// own dark ocean can still host life, and only a chemosynthetic species there
+// is still alive.
 function settleMoonLife(moon) {
   const species = moon.species || [];
-  if (!species.length) return moon;
   const keeps = moonKeepsDarkOcean(moon);
+  if (!species.length) return { ...moon, canSupportLife: keeps };
   const survivors = keeps ? species.filter(sp => sp.origin === CHEMOSYNTHETIC_ORIGIN) : [];
   const note = survivors.length
     ? 'Chemosynthetic life persists in the dark ocean on internal heat.'
     : 'Life here depended on sunlight and died when the world was ejected.';
   return {
     ...moon,
+    canSupportLife: keeps,
     species: survivors,
     lifeNote: [moon.lifeNote, note].filter(Boolean).join(' '),
   };
@@ -1060,7 +1084,9 @@ function settleEjectedLife(world) {
  * Hazards that needed the host star are removed. A double planet keeps tidal
  * stress and an unstable mutual orbit, because the companion is still there.
  * Habitability clears, the zone becomes Fringe, and the rogue world is locked
- * so a later redraw cannot replace it. A locked world is refused.
+ * so a later redraw cannot replace it. orbitalAU is stored as 0 to mean
+ * unbound, and the rogue habitable zone is stored as 0–0. Neither number is
+ * an orbit or a zone. A locked world is refused.
  * An asteroid belt is refused. A belt is not a body that can leave as a rogue.
  * @param {object} system
  * @param {string} worldId
@@ -1084,13 +1110,17 @@ export function ejectWorld(system, worldId) {
   const rogueWorld = {
     ...world,
     index:           0,
-    orbitalAU:       0,
+    orbitalAU:       0, // unbound. Not an orbit at the star.
     zone:            'FRINGE',
-    temperature:     estimateTemperature(world.worldType, 'FRINGE', 0, null, { inner: 0, outer: 0 }),
+    // The fringe bin is already a distant orbit. A cold world type subtracts
+    // again, and with no star that sum can fall through absolute zero.
+    temperature:     Math.max(-273, estimateTemperature(world.worldType, 'FRINGE', 0, null, { inner: 0, outer: 0 })),
     isHabitable:     false,
     tidallyLocked:   false,
     tidalResonance:  false,
     isCircumbinary:  false,
+    // A biosignature with no living species is a reading of a dead world.
+    biosignature:    life.species.length ? world.biosignature : null,
     locked:          true,
     hazards:         unbound.hazards,
     species:         life.species,
@@ -1276,6 +1306,10 @@ export function insertWorld(system, orbitalAU) {
 }
 
 export function redrawWorld(system, worldId) {
+  // An ejected body has no star to roll against. Replacing it would invent
+  // a habitable world at AU 0, which is not an orbit.
+  if (system.isRoguePlanet || !system.stars?.length) return system;
+
   const worldIndex = system.worlds.findIndex(w => w.id === worldId);
   if (worldIndex === -1) return system;
 
@@ -1306,7 +1340,7 @@ function generateRogueWorld(index = 0) {
   return {
     id:              crypto.randomUUID(),
     index,
-    orbitalAU:       0,
+    orbitalAU:       0, // unbound. Not an orbit at the star.
     zone:            'FRINGE',
     worldType,
     atmosphere,
@@ -1419,14 +1453,23 @@ export function generateTextSummary(system) {
     lines.push('');
   }
 
-  // Stars
-  lines.push('PRIMARY SYSTEM');
-  stars.forEach((star, i) => {
-    const label = stars.length > 1 ? `Star ${String.fromCharCode(65 + i)}` : 'Primary Star';
-    lines.push(`${label}: ${star.spectralClass}-type (${star.description})`);
-    lines.push(`  Luminosity: ${star.luminosity} L☉  |  Mass: ${star.mass} M☉  |  Age: ${star.age} Gyr`);
-  });
-  lines.push(`Habitable Zone: ${hz.inner}–${hz.outer} AU`);
+  // Stars. A rogue has none, and its 0–0 zone is a sentinel, not a range.
+  if (system.isRoguePlanet) {
+    lines.push('ROGUE PLANET');
+    lines.push('No host star. The body is unbound.');
+    if (system.ejectedFrom) {
+      const from = system.ejectedFrom;
+      lines.push(`Ejected ${from.worldType} from ${from.orbitalAU} AU (${String(from.zone || '').replaceAll('_', ' ')}).`);
+    }
+  } else {
+    lines.push('PRIMARY SYSTEM');
+    stars.forEach((star, i) => {
+      const label = stars.length > 1 ? `Star ${String.fromCharCode(65 + i)}` : 'Primary Star';
+      lines.push(`${label}: ${star.spectralClass}-type (${star.description})`);
+      lines.push(`  Luminosity: ${star.luminosity} L☉  |  Mass: ${star.mass} M☉  |  Age: ${star.age} Gyr`);
+    });
+    lines.push(`Habitable Zone: ${hz.inner}–${hz.outer} AU`);
+  }
   lines.push('');
 
   // Comets
@@ -1441,7 +1484,10 @@ export function generateTextSummary(system) {
   // Worlds
   lines.push('PLANETARY BODIES');
   worlds.forEach((world, i) => {
-    lines.push(`[${i + 1}] ${world.worldType} at ${world.orbitalAU} AU (${world.zone.replace('_', ' ')})${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 ? ' ★ PULSAR ORBIT' : ''}`);
+    const place = system.isRoguePlanet
+      ? 'unbound'
+      : `${world.orbitalAU} AU (${world.zone.replace('_', ' ')})`;
+    lines.push(`[${i + 1}] ${world.worldType} at ${place}${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 ? ' ★ PULSAR ORBIT' : ''}`);
     lines.push(`  Atmosphere: ${world.atmosphere}  |  Hydrosphere: ${world.hydrosphere}`);
     lines.push(`  Gravity: ${world.gravity}g  |  Temperature: ${world.temperature}°C`);
     if (world.tidallyLocked)  lines.push(`  ⟳ TIDALLY LOCKED — permanent day/night hemispheres`);
