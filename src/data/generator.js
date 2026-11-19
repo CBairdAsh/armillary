@@ -391,7 +391,7 @@ function speciesContextForWorld(world) {
   };
 }
 
-function assignWorldLife(world) {
+function assignWorldLife(world, stars) {
   if (!world.isHabitable) {
     world.species = world.species || [];
     return world;
@@ -405,7 +405,7 @@ function assignWorldLife(world) {
   );
 
   if (count === 0 && !world.ruins) {
-    world.ruins = getRandom() < RUINS_CHANCE ? generateRuins() : null;
+    world.ruins = getRandom() < RUINS_CHANCE ? generateRuins(ruinAgeLimit(world, stars)) : null;
   } else if (count > 0) {
     world.ruins = null;
   }
@@ -478,7 +478,7 @@ function regenerateWorldAtAU(world, system) {
     index: world.index ?? index,
     locked: false,
   };
-  return assignWorldLife(regenerated);
+  return assignWorldLife(regenerated, system.stars);
 }
 
 // ─── COMET GENERATION ────────────────────────────────────────────────────────
@@ -501,7 +501,60 @@ function generateComets() {
 }
 
 // ─── RUINS GENERATION ────────────────────────────────────────────────────────
-function generateRuins() {
+// A ruin is a civilization that lived under this star, so its age has to
+// fall inside the star's age. Star age is stored in billions of years.
+// A circumbinary world uses the younger star. A captured rogue does not.
+// That body came from somewhere else, and its ruins can predate this star.
+// The roll itself is unchanged. Only an age that would outlive this star
+// is brought back inside it, keeping its place in that age band.
+const YEARS_PER_GYR = 1_000_000_000;
+
+export function starAgeYears(stars, world) {
+  const ages = (stars || []).map(star => star?.age).filter(age => age > 0);
+  if (!ages.length) return null;
+  const gyr = world?.isCircumbinary ? Math.min(...ages) : ages[0];
+  return Math.round(gyr * YEARS_PER_GYR);
+}
+
+export function ruinsWithinStarAge(ruins, maxYears) {
+  if (!ruins || !(maxYears > 0) || ruins.ageYears < maxYears) return ruins;
+  const limit = maxYears - 1;
+  const youngest = RUINS_AGE_RANGES[0].range[0];
+  if (limit < youngest) return null;
+
+  const rolled = RUINS_AGE_RANGES.find(entry => entry.label === ruins.ageLabel)
+    || RUINS_AGE_RANGES.find(entry => ruins.ageYears >= entry.range[0] && ruins.ageYears <= entry.range[1])
+    || RUINS_AGE_RANGES[RUINS_AGE_RANGES.length - 1];
+  const fitting = [...RUINS_AGE_RANGES].reverse().find(entry => entry.range[0] <= limit) || RUINS_AGE_RANGES[0];
+  const range = rolled.range[0] <= limit ? rolled : fitting;
+  const low = range.range[0];
+  const high = Math.min(range.range[1], limit);
+  const span = rolled.range[1] - rolled.range[0];
+  const fraction = span > 0
+    ? Math.min(1, Math.max(0, (ruins.ageYears - rolled.range[0]) / span))
+    : 1;
+  const ageYears = Math.min(limit, Math.max(low, Math.round(low + fraction * (high - low))));
+  return {
+    ...ruins,
+    ageYears,
+    ageLabel: range.label,
+    ageDesc:  range.label === ruins.ageLabel ? ruins.ageDesc : range.description,
+  };
+}
+
+// A captured rogue arrived from another system. Its ruins keep the age
+// they came with, which can be older than the star that holds it now.
+function ruinAgeLimit(world, stars) {
+  if (world?.worldType === 'Rogue/Captured') return null;
+  return starAgeYears(stars, world);
+}
+
+export function worldRuins(world, stars) {
+  if (!world?.ruins) return null;
+  return ruinsWithinStarAge(world.ruins, ruinAgeLimit(world, stars));
+}
+
+function generateRuins(maxYears) {
   const ageRange = weightedPick(
     RUINS_AGE_RANGES.map((r, i) => [i, [35, 30, 20, 15][i]])
   );
@@ -509,7 +562,7 @@ function generateRuins() {
   const age      = rndInt(range.range[0], range.range[1]);
   const cause    = weightedPick(RUINS_COLLAPSE_CAUSES);
   const tech     = rndFrom(RUINS_TECH_LEVELS);
-  return {
+  return ruinsWithinStarAge({
     ageLabel:    range.label,
     ageYears:    age,
     ageDesc:     range.description,
@@ -517,7 +570,7 @@ function generateRuins() {
     causeDesc:   cause.description,
     tech:        tech.label,
     techDesc:    tech.description,
-  };
+  }, maxYears);
 }
 
 // ─── EXOTIC NEIGHBORHOOD OBJECT GENERATION ───────────────────────────────────
@@ -693,7 +746,7 @@ function generateSystemCore({ starCount = 1, locked = {}, primarySpectralClass =
   const allWorlds = circumbinaryWorld ? [...worlds, circumbinaryWorld] : worlds;
 
   // Generate species for habitable worlds + ruins for empty habitable worlds
-  allWorlds.forEach(world => assignWorldLife(world));
+  allWorlds.forEach(world => assignWorldLife(world, stars));
 
   // Generate comets
   const comets = generateComets();
@@ -1308,7 +1361,7 @@ export function insertWorld(system, orbitalAU) {
   const primaryClass = system.stars[0]?.spectralClass || 'G';
   const index = (system.worlds || []).filter(world => !world.isCircumbinary && world.orbitalAU < au).length;
   const fresh = generateWorld(au, hz, totalLuminosity, index, primaryClass);
-  assignWorldLife(fresh);
+  assignWorldLife(fresh, system.stars);
   fresh.locked = true;
   fresh.worldNotes = [fresh.worldNotes, 'Inserted into this orbit.'].filter(Boolean).join(' ');
 
@@ -1404,7 +1457,7 @@ export function generateRoguePlanetSystem() {
 }
 
 // ─── SPECIES REGENERATION ─────────────────────────────────────────────────────
-export function regenerateSpeciesForWorld(world) {
+export function regenerateSpeciesForWorld(world, stars) {
   if (!world.isHabitable) return world;
   const ctx     = speciesContextForWorld(world);
   const count   = generateSpeciesCount();
@@ -1419,7 +1472,7 @@ export function regenerateSpeciesForWorld(world) {
   const finalSpecies = species.slice(0, Math.max(count, species.filter(s => s.locked).length));
   // If no species left after regen, roll for ruins
   const ruins = finalSpecies.length === 0
-    ? (getRandom() < RUINS_CHANCE ? generateRuins() : null)
+    ? (getRandom() < RUINS_CHANCE ? generateRuins(ruinAgeLimit(world, stars)) : null)
     : null;
   return { ...world, species: finalSpecies, ruins };
 }
@@ -1618,9 +1671,10 @@ export function generateTextSummary(system) {
     if (world.moons.length)   lines.push(`  Moons: ${world.moons.length} (${world.moons.map(m => m.type).join(', ')})`);
     if (world.debris)         lines.push(`  Debris: ${world.debris}`);
     if (world.worldNotes)     lines.push(`  Note: ${world.worldNotes}`);
-    if (world.ruins) {
-      lines.push(`  ☠ RUINS: ${world.ruins.tech} civilization (${world.ruins.ageLabel}, ~${world.ruins.ageYears.toLocaleString()} yrs ago)`);
-      lines.push(`    Collapse: ${world.ruins.cause} — ${world.ruins.causeDesc}`);
+    const ruins = worldRuins(world, stars);
+    if (ruins) {
+      lines.push(`  ☠ RUINS: ${ruins.tech} civilization (${ruins.ageLabel}, ~${ruins.ageYears.toLocaleString()} yrs ago)`);
+      lines.push(`    Collapse: ${ruins.cause} — ${ruins.causeDesc}`);
     }
 
     if (world.species.length) {
