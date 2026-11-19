@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -427,6 +427,7 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
   const worldDef  = WORLD_TYPES[world.worldType];
   const yearLabel = unbound ? null : worldYearLabel(world, stars);
   const spin = worldSpinLabel(world, stars);
+  const ruins = worldRuins(world, unbound ? null : stars);
   const orbitBits = [unbound ? 'UNBOUND' : `${world.orbitalAU} AU`];
   if (yearLabel) orbitBits.push(`year ${yearLabel}`);
   if (spin) orbitBits.push(spin);
@@ -628,7 +629,7 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
                 </div>
               </div>
             )}
-            {(world.isHabitable || world.species?.length > 0 || world.ruins) && (
+            {(world.isHabitable || world.species?.length > 0 || ruins) && (
               <div style={{ marginTop: 8 }}>
                 <div className="flex-between" style={{ marginBottom: 8 }}>
                   <Label color={C.HABITABLE}>Sapient Species ({world.species?.length || 0})</Label>
@@ -644,23 +645,23 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
                 ))}
 
                 {/* Lost civilization ruins */}
-                {world.ruins && world.species.length === 0 && (
+                {ruins && world.species.length === 0 && (
                   <div style={{ marginTop: 10, background: C.PANEL_ALT, border: `1px solid ${C.DANGER}44`, borderRadius: 3, padding: '12px 14px' }}>
                     <div className="flex-row flex-wrap gap-md" style={{ marginBottom: 10 }}>
                       <span style={{ fontSize: 13, color: C.DANGER, letterSpacing: 2 }}>☠ RUINS DETECTED</span>
-                      <Tag color={C.DANGER}>{world.ruins.tech}</Tag>
-                      <Tag color={C.TEXT_DIM}>{world.ruins.ageLabel}</Tag>
+                      <Tag color={C.DANGER}>{ruins.tech}</Tag>
+                      <Tag color={C.TEXT_DIM}>{ruins.ageLabel}</Tag>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', marginBottom: 10 }}>
-                      <DataPair label="Civilization Tech" value={world.ruins.tech}  color={C.TEXT}/>
-                      <DataPair label="Estimated Age"     value={`~${world.ruins.ageYears.toLocaleString()} yrs`} color={C.TEXT}/>
-                      <DataPair label="Collapse Cause"    value={world.ruins.cause} color={C.DANGER}/>
+                      <DataPair label="Civilization Tech" value={ruins.tech}  color={C.TEXT}/>
+                      <DataPair label="Estimated Age"     value={`~${ruins.ageYears.toLocaleString()} yrs`} color={C.TEXT}/>
+                      <DataPair label="Collapse Cause"    value={ruins.cause} color={C.DANGER}/>
                     </div>
                     <div className="note-block" style={{ borderLeftColor: `${C.DANGER}44`, marginBottom: 6 }}>
-                      <span className="body-text" style={{ lineHeight: 1.8 }}>{world.ruins.causeDesc}</span>
+                      <span className="body-text" style={{ lineHeight: 1.8 }}>{ruins.causeDesc}</span>
                     </div>
                     <div className="note-block" style={{ borderLeftColor: `${C.TEXT_FAINT}44` }}>
-                      <span className="hint" style={{ lineHeight: 1.8 }}>{world.ruins.techDesc} · {world.ruins.ageDesc}</span>
+                      <span className="hint" style={{ lineHeight: 1.8 }}>{ruins.techDesc} · {ruins.ageDesc}</span>
                     </div>
                   </div>
                 )}
@@ -1190,7 +1191,7 @@ export default function App() {
     updateActive(insertWorld(active, au));
   }, [active, updateActive]);
 
-  const handleSpecies = useCallback(id => updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? regenerateSpeciesForWorld(w) : w) }), [active, updateActive]);
+  const handleSpecies = useCallback(id => updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? regenerateSpeciesForWorld(w, active.stars) : w) }), [active, updateActive]);
 
   const handleRename = (name) => {
     updateActive({ ...active, name });
