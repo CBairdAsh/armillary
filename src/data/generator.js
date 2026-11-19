@@ -405,7 +405,7 @@ function assignWorldLife(world, stars) {
   );
 
   if (count === 0 && !world.ruins) {
-    world.ruins = getRandom() < RUINS_CHANCE ? generateRuins(starAgeYears(stars, world)) : null;
+    world.ruins = getRandom() < RUINS_CHANCE ? generateRuins(ruinAgeLimit(world, stars)) : null;
   } else if (count > 0) {
     world.ruins = null;
   }
@@ -503,9 +503,10 @@ function generateComets() {
 // ─── RUINS GENERATION ────────────────────────────────────────────────────────
 // A ruin is a civilization that lived under this star, so its age has to
 // fall inside the star's age. Star age is stored in billions of years.
-// A circumbinary world uses the younger star. The roll itself is unchanged.
-// Only an age that would outlive the star is brought back inside it,
-// keeping its place in that age band.
+// A circumbinary world uses the younger star. A captured rogue does not.
+// That body came from somewhere else, and its ruins can predate this star.
+// The roll itself is unchanged. Only an age that would outlive this star
+// is brought back inside it, keeping its place in that age band.
 const YEARS_PER_GYR = 1_000_000_000;
 
 export function starAgeYears(stars, world) {
@@ -541,9 +542,16 @@ export function ruinsWithinStarAge(ruins, maxYears) {
   };
 }
 
+// A captured rogue arrived from another system. Its ruins keep the age
+// they came with, which can be older than the star that holds it now.
+function ruinAgeLimit(world, stars) {
+  if (world?.worldType === 'Rogue/Captured') return null;
+  return starAgeYears(stars, world);
+}
+
 export function worldRuins(world, stars) {
   if (!world?.ruins) return null;
-  return ruinsWithinStarAge(world.ruins, starAgeYears(stars, world));
+  return ruinsWithinStarAge(world.ruins, ruinAgeLimit(world, stars));
 }
 
 function generateRuins(maxYears) {
@@ -1464,7 +1472,7 @@ export function regenerateSpeciesForWorld(world, stars) {
   const finalSpecies = species.slice(0, Math.max(count, species.filter(s => s.locked).length));
   // If no species left after regen, roll for ruins
   const ruins = finalSpecies.length === 0
-    ? (getRandom() < RUINS_CHANCE ? generateRuins(starAgeYears(stars, world)) : null)
+    ? (getRandom() < RUINS_CHANCE ? generateRuins(ruinAgeLimit(world, stars)) : null)
     : null;
   return { ...world, species: finalSpecies, ruins };
 }

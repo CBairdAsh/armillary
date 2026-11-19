@@ -63,7 +63,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 **Lost Civilizations** *(habitable worlds with no current species)*
 - 28% chance of ruins on eligible worlds
 - Tech level at time of collapse
-- Estimated age (Recent / Ancient / Deep Past / Primordial), kept inside the star's age. A circumbinary world uses the younger star
+- Estimated age (Recent / Ancient / Deep Past / Primordial), kept inside the star's age. A circumbinary world uses the younger star. A captured rogue keeps the age it arrived with, which can be older than this star
 - Cause of collapse (War / Environmental / Plague / Cosmic Event / Transcendence / Assimilation / Unknown)
 
 **Eject Planets**
