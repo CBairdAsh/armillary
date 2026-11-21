@@ -320,7 +320,7 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
     const moonCount = rndInt(worldDef.moonRange[0], worldDef.moonRange[1]);
     moons = Array.from({ length: moonCount }, (_, i) => {
       const moonType   = weightedPick(MOON_TYPES);
-      const moonHabit  = moonType.canSupportLife && inHZ;
+      const moonHabit  = moonSupportsLife(moonType.type, zone);
       return {
         id:             crypto.randomUUID(),
         index:          i,
@@ -328,6 +328,8 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
         description:    moonType.description,
         canSupportLife: moonHabit,
         lifeNote:       moonHabit ? moonType.lifeNote || null : null,
+        biosphere:      null,
+        species:        [],
       };
     });
   }
@@ -478,9 +480,65 @@ function biosphereWithComplexity(world, biosphere, complexity) {
   return { complexity, metabolism, cover, label: biosphereLabel(complexity, metabolism, cover) };
 }
 
+const TIDAL_MOON_TYPES = new Set(['Subsurface Ocean', 'Cryovolcanic']);
+
+/**
+ * A terrestrial moon needs the star's habitable zone. An ocean under ice,
+ * and a cryovolcanic moon, live on tidal heat and can do so in any zone.
+ * A thin atmosphere stays without a water biosphere.
+ * @param {string} type
+ * @param {string} zone
+ * @returns {boolean}
+ */
+function moonSupportsLife(type, zone) {
+  const entry = MOON_TYPES.find(moon => moon.type === type);
+  if (!entry?.canSupportLife) return false;
+  if (type === 'Terrestrial') return zone === 'HABITABLE';
+  return true;
+}
+
+function tidalMoonBiosphere(complexity) {
+  const head = complexity === 'complex' ? 'Complex' : 'Microbial';
+  return {
+    complexity,
+    metabolism: 'chemotrophic',
+    cover: 'under ice',
+    label: `${head} · chemotrophic · under ice`,
+  };
+}
+
+/**
+ * One species roll, at 20%. A tidal moon's biosphere is chemotrophic and
+ * derived, so it adds no second roll. A terrestrial moon rolls a land
+ * biosphere. People make the biosphere complex.
+ * @param {object} moon
+ * @param {string} zone
+ * @returns {object}
+ */
+function assignMoonLife(moon, zone) {
+  if (!moon.canSupportLife) return { ...moon, species: moon.species || [], biosphere: null };
+  const count = getRandom() < 0.2 ? 1 : 0;
+  if (TIDAL_MOON_TYPES.has(moon.type)) {
+    const species = Array.from({ length: count }, () =>
+      generateSpecies('Ice Planet', zone, { metabolism: 'chemotrophic' })
+    );
+    return { ...moon, species, biosphere: tidalMoonBiosphere(count > 0 ? 'complex' : 'microbial') };
+  }
+  const standIn = { worldType: 'Terrestrial', hydrosphere: '' };
+  const biosphere = generateBiosphere(standIn, count);
+  if (biosphere.complexity === 'none') return { ...moon, species: [], biosphere };
+  const species = Array.from({ length: count }, () =>
+    generateSpecies('Terrestrial', zone, { metabolism: biosphere.metabolism })
+  );
+  return { ...moon, species, biosphere };
+}
+
 function assignWorldLife(world, stars) {
   if (!world.isHabitable) {
     world.species = world.species || [];
+    // Giants are not habitable, and their moons still get a life roll.
+    // A locked card keeps the moons already rolled.
+    if (!world.locked) world.moons = (world.moons || []).map(moon => assignMoonLife(moon, world.zone));
     return world;
   }
   // A locked card keeps the life already rolled, including a biosphere.
@@ -507,16 +565,7 @@ function assignWorldLife(world, stars) {
     }
   }
 
-  world.moons = (world.moons || []).map(moon => {
-    if (!moon.canSupportLife) return { ...moon, species: moon.species || [] };
-    const moonSpeciesCount = getRandom() < 0.2 ? 1 : 0;
-    return {
-      ...moon,
-      species: Array.from({ length: moonSpeciesCount }, () =>
-        generateSpecies('Ice Planet', 'OUTER')
-      ),
-    };
-  });
+  world.moons = (world.moons || []).map(moon => assignMoonLife(moon, world.zone));
 
   return world;
 }
@@ -1192,23 +1241,26 @@ function ejectedLifeNote(kind, hadSpecies, survivors, lostCount) {
   return 'The biosphere died with the loss of the star. The civilization remains as ruins.';
 }
 
-// A bound moon was marked life-capable because its planet sat in the star's
-// habitable zone. That mark does not survive ejection. Only a moon with its
-// own dark ocean can still host life, and only a chemosynthetic species there
-// is still alive.
+// A terrestrial moon's life needed the star. A subsurface ocean or a
+// cryovolcanic moon keeps its chemotrophic biosphere on tidal heat, and only
+// a chemosynthetic species there is still alive.
 function settleMoonLife(moon) {
   const species = moon.species || [];
   const keeps = moonKeepsDarkOcean(moon);
-  if (!species.length) return { ...moon, canSupportLife: keeps };
   const survivors = keeps ? species.filter(sp => sp.origin === CHEMOSYNTHETIC_ORIGIN) : [];
-  const note = survivors.length
-    ? 'Chemosynthetic life persists in the dark ocean on internal heat.'
-    : 'Life here depended on sunlight and died when the world was ejected.';
+  const note = !keeps
+    ? (species.length ? 'Life here depended on sunlight and died when the world was ejected.' : '')
+    : survivors.length
+      ? 'Chemosynthetic life persists in the dark ocean on internal heat.'
+      : (species.length ? 'Life here depended on sunlight and died when the world was ejected.' : '');
+  let biosphere = null;
+  if (keeps) biosphere = tidalMoonBiosphere(survivors.length ? 'complex' : 'microbial');
   return {
     ...moon,
     canSupportLife: keeps,
     species: survivors,
-    lifeNote: [moon.lifeNote, note].filter(Boolean).join(' '),
+    biosphere,
+    lifeNote: note ? [moon.lifeNote, note].filter(Boolean).join(' ') : moon.lifeNote,
   };
 }
 
@@ -1628,6 +1680,53 @@ export function regenerateSpeciesForWorld(world, stars) {
   return { ...next, species: finalSpecies, ruins };
 }
 
+/**
+ * Reroll one moon's people. A tidal moon keeps its chemotrophic biosphere.
+ * A terrestrial moon keeps its metabolism, and a new people makes it complex.
+ * A terrestrial moon rolled with no life stays sterile.
+ * @param {object} world
+ * @param {string} moonId
+ * @returns {object}
+ */
+export function regenerateMoonSpecies(world, moonId) {
+  const zone = world.zone;
+  const moons = (world.moons || []).map(moon => {
+    if (moon.id !== moonId || !moon.canSupportLife) return moon;
+    const lockedSpecies = (moon.species || []).filter(species => species.locked);
+    if (TIDAL_MOON_TYPES.has(moon.type)) {
+      if (lockedSpecies.length > 0) {
+        return { ...moon, species: lockedSpecies, biosphere: tidalMoonBiosphere('complex') };
+      }
+      const count = getRandom() < 0.2 ? 1 : 0;
+      const species = Array.from({ length: count }, () =>
+        generateSpecies('Ice Planet', zone, { metabolism: 'chemotrophic' })
+      );
+      return { ...moon, species, biosphere: tidalMoonBiosphere(count > 0 ? 'complex' : 'microbial') };
+    }
+
+    if (moon.biosphere?.complexity === 'none' && lockedSpecies.length === 0) {
+      return { ...moon, species: [], biosphere: moon.biosphere };
+    }
+    const count = getRandom() < 0.2 ? 1 : 0;
+    const people = Math.max(count, lockedSpecies.length);
+    const standIn = { worldType: 'Terrestrial', hydrosphere: '' };
+    let biosphere = moon.biosphere;
+    if (!biosphere) biosphere = generateBiosphere(standIn, people);
+    else if (people > 0 && biosphere.complexity !== 'complex') {
+      biosphere = biosphereWithComplexity(standIn, biosphere, 'complex');
+    }
+    if (biosphere.complexity === 'none') return { ...moon, biosphere, species: [] };
+    const ctx = { metabolism: biosphere.metabolism };
+    const species = (moon.species || []).map(entry =>
+      entry.locked ? entry : generateSpecies('Terrestrial', zone, ctx)
+    );
+    while (species.length < count) species.push(generateSpecies('Terrestrial', zone, ctx));
+    const finalSpecies = species.slice(0, Math.max(count, lockedSpecies.length));
+    return { ...moon, biosphere, species: finalSpecies };
+  });
+  return { ...world, moons };
+}
+
 // Kepler's third law. P is Earth years, a is AU, M is solar masses.
 // A circumbinary world orbits every star, so M is their combined mass.
 // Every other world uses the primary. The ladder does not record which
@@ -1765,9 +1864,13 @@ export function generateTextSummary(system) {
       const named = body?.name ? `${body.name} — ` : '';
       lines.push(`  ${neighbor.distance} ly — ${named}${neighbor.label || 'Ejected world'}${detail}`);
       if (body?.worldNotes) lines.push(`    Note: ${body.worldNotes}`);
-      if (body?.species?.length) {
-        const names = body.species.map(species => species.name).filter(Boolean);
-        lines.push(`    Species still living: ${body.species.length}${names.length ? ` (${names.join(', ')})` : ''}`);
+      const stillLiving = [
+        ...(body?.species || []),
+        ...(body?.moons || []).flatMap(moon => moon.species || []),
+      ];
+      if (stillLiving.length) {
+        const names = stillLiving.map(species => species.name).filter(Boolean);
+        lines.push(`    Species still living: ${stillLiving.length}${names.length ? ` (${names.join(', ')})` : ''}`);
       }
       if (body?.ruins) lines.push(`    Ruins: ${body.ruins.tech}${body.ruins.cause ? ` (${body.ruins.cause})` : ''}`);
     });
@@ -1821,6 +1924,18 @@ export function generateTextSummary(system) {
     if (world.biosphere?.label) lines.push(`  BIOSPHERE: ${world.biosphere.label}`);
     if (world.biosignature)   lines.push(`  🔬 BIOSIGNATURE: ${world.biosignature.label} (${world.biosignature.confidence})`);
     if (world.moons.length)   lines.push(`  Moons: ${world.moons.length} (${world.moons.map(m => m.type).join(', ')})`);
+    for (const moon of world.moons) {
+      if (!moon.biosphere?.label) continue;
+      lines.push(`  MOON ${moon.index + 1} · ${moon.type} · ${moon.biosphere.label}`);
+      (moon.species || []).forEach((sp, si) => {
+        lines.push(sp.name ? `    Species ${si + 1}: ${sp.name}` : `    Species ${si + 1}:`);
+        lines.push(`      Origin: ${sp.origin} — ${sp.originDesc}`);
+        lines.push(`      Body Plan: ${sp.bodyPlan}  |  Primary Sense: ${sp.primarySense}`);
+        lines.push(`      Society: ${sp.social}  |  Technology: ${sp.tech}`);
+        lines.push(`      Disposition: ${sp.disposition}`);
+        lines.push(`      Traits: ${sp.traits.join('; ')}`);
+      });
+    }
     if (world.debris)         lines.push(`  Debris: ${world.debris}`);
     if (world.worldNotes)     lines.push(`  Note: ${world.worldNotes}`);
     const ruins = worldRuins(world, stars);
