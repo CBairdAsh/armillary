@@ -53,6 +53,13 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 - Hazards, moon generation (Rocky, Icy, Subsurface Ocean, Cryovolcanic, Volcanic, Terrestrial, Thin Atmosphere)
 - Europa and Enceladus analog moons flagged with life potential notes
 
+**Biosphere** *(habitable worlds)*
+- One line on the world card: complexity, metabolism, and cover where the water already implies it
+- A world with sapient species is complex. Oxygenic life nudges a carbon-based origin. Chemotrophic life nudges a sulfur-based origin
+- An empty habitable world can be lifeless, microbial, or complex. Ruins roll only when that biosphere is alive
+- Hycean worlds and ice do not roll oxygenic life. A subsurface ocean reads as under ice. A sunlit ocean can read as a plankton skin
+- Ejection clears a biosphere that needed sunlight. A chemotrophic biosphere in a dark ocean stays. Crushing the world clears the line
+
 **Sapient Species** *(habitable worlds only)*
 - Biological origin (Carbon, Silicon, Sulfur, Exotic)
 - Body plan, primary sense, social structure
@@ -61,7 +68,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 - 0–4 species per habitable world (weighted toward 0–1)
 
 **Lost Civilizations** *(habitable worlds with no current species)*
-- 28% chance of ruins on eligible worlds
+- 28% chance of ruins on an empty habitable world whose biosphere is still alive
 - Tech level at time of collapse
 - Estimated age (Recent / Ancient / Deep Past / Primordial), kept inside the star's age. A circumbinary world uses the younger star. A captured rogue keeps the age it arrived with, which can be older than this star
 - Cause of collapse (War / Environmental / Plague / Cosmic Event / Transcendence / Assimilation / Unknown)
