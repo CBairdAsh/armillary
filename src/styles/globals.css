@@ -152,8 +152,10 @@ input, button, select, textarea {
    .sheet-orrery is in the DOM and empty until the orrery is drawn inside it.
    While it has no child the grid stays two columns, so there is no blank middle.
    A child opens the center. From 1100px to 1599px that child is a band across
-   the top. At 1600px and up it is the middle column and stays on screen
-   while the world cards scroll. Under 1100px the page is the phone stack. */
+   the top. At 1600px and up it is the middle column.
+   On that desktop the page itself does not scroll. The system type bar stays
+   put, and the left and right columns scroll on their own. Under 1100px the
+   page is the phone stack and scrolls as one. */
 
 .world-card { margin-bottom: 8px; }
 
@@ -190,34 +192,67 @@ input, button, select, textarea {
     max-width: 1440px;
   }
 
+  .app-root--sheet {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .app-root--sheet .container {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .system-view {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .system-chrome { flex-shrink: 0; }
+
   .system-sheet {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
     display: grid;
     grid-template-columns: 320px minmax(0, 1fr);
     grid-template-areas: "reference worlds";
+    grid-template-rows: minmax(0, 1fr);
     column-gap: 28px;
-    align-items: start;
+    align-items: stretch;
   }
 
   .system-sheet:has(.sheet-orrery:not(:empty)) {
     grid-template-areas:
       "orrery orrery"
       "reference worlds";
+    grid-template-rows: auto minmax(0, 1fr);
     row-gap: 20px;
   }
 
-  .sheet-reference {
-    grid-area: reference;
-    position: sticky;
-    top: 72px;
-    max-height: calc(100vh - 88px);
-    overflow: auto;
+  .sheet-reference { grid-area: reference; }
+
+  .sheet-orrery {
+    grid-area: orrery;
+    max-height: 42vh;
   }
 
-  .sheet-orrery { grid-area: orrery; }
+  .sheet-worlds { grid-area: worlds; }
 
-  .sheet-worlds {
-    grid-area: worlds;
+  .sheet-reference,
+  .sheet-worlds,
+  .sheet-orrery {
     min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
   }
 
   .sheet-reference .sheet-stars {
@@ -283,12 +318,10 @@ input, button, select, textarea {
   .system-sheet:has(.sheet-orrery:not(:empty)) {
     grid-template-columns: 300px minmax(420px, 1fr) minmax(640px, 760px);
     grid-template-areas: "reference orrery worlds";
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .system-sheet:has(.sheet-orrery:not(:empty)) .sheet-orrery {
-    position: sticky;
-    top: 72px;
-    max-height: calc(100vh - 88px);
-    overflow: auto;
+    max-height: none;
   }
 }

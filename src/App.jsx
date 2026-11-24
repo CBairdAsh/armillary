@@ -1344,7 +1344,7 @@ export default function App() {
   const starLabels = active.stars.length === 1 ? ['Primary Star'] : active.stars.map((_, i) => `Star ${String.fromCharCode(65 + i)}`);
 
   return (
-    <div style={{ minHeight: '100vh' }}>
+    <div className={booted && view === 'system' ? 'app-root app-root--sheet' : 'app-root'} style={{ minHeight: '100vh' }}>
       <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 
       {/* BOOT SEQUENCE */}
@@ -1373,9 +1373,11 @@ export default function App() {
 
       <div className="container">
 
-        {view === 'system' && (<>
+        {view === 'system' && (
+          <div className="system-view">
+          <div className="system-chrome">
           {/* Controls */}
-          <div className="flex-row flex-wrap" style={{ gap: 10, marginBottom: 16, padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.BORDER}`, borderRadius: 4 }}>
+          <div className="system-controls flex-row flex-wrap" style={{ gap: 10, marginBottom: 16, padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.BORDER}`, borderRadius: 4 }}>
             {!active.isRoguePlanet && <StarCountControl count={starCount} onChange={setStarCount}/>}
             {isNeighbor && (
               <span style={{ fontSize: 11, color: C.TEXT_FAINT, letterSpacing: 1 }}>
@@ -1437,6 +1439,7 @@ export default function App() {
               <button onClick={() => setStarCount(active.stars.length)} style={{ ...navBtn(false, C.TEXT_DIM, true), fontSize: 11 }}>✕ Revert</button>
             </div>
           )}
+          </div>
 
           <div className="system-sheet">
           <div className="sheet-reference">
@@ -1593,7 +1596,8 @@ export default function App() {
           </div>
           </div>
           </div>
-        </>)}
+          </div>
+        )}
 
         {view === 'archive' && (
           <div>
