@@ -71,6 +71,15 @@ input, button, select, textarea {
 
 .app-banner-row { padding-top: 8px; }
 
+.app-banner-inner {
+  max-width: 1024px;
+  margin: 0 auto;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-bottom: 8px;
+  min-height: 54px;
+}
+
 /* iPhone 12 and phones of that width. viewport-fit=cover lets the page
    run under the status bar, so the banner needs room above the title.
    25px is the floor. The status bar inset is used when it is taller. */
@@ -136,4 +145,150 @@ input, button, select, textarea {
   background: var(--color-panel-alt);
   border-radius: 3px;
   padding: 8px 12px;
+}
+
+/* ─── DESKTOP SHEET ──────────────────────────────────────────────────────── */
+/* Three named columns: reference | orrery | worlds.
+   .sheet-orrery is in the DOM and empty until the orrery is drawn inside it.
+   While it has no child the grid stays two columns, so there is no blank middle.
+   A child opens the center. From 1100px to 1599px that child is a band across
+   the top. At 1600px and up it is the middle column and stays on screen
+   while the world cards scroll. Under 1100px the page is the phone stack. */
+
+.world-card { margin-bottom: 8px; }
+
+.world-card-body {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+}
+
+.world-head { margin-bottom: 8px; }
+
+.world-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.world-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.world-moon-lines > div { margin-top: 6px; }
+
+.sheet-orrery:empty { display: none; }
+
+@media (min-width: 1100px) {
+  .container,
+  .app-banner-inner {
+    max-width: 1440px;
+  }
+
+  .system-sheet {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-areas: "reference worlds";
+    column-gap: 28px;
+    align-items: start;
+  }
+
+  .system-sheet:has(.sheet-orrery:not(:empty)) {
+    grid-template-areas:
+      "orrery orrery"
+      "reference worlds";
+    row-gap: 20px;
+  }
+
+  .sheet-reference {
+    grid-area: reference;
+    position: sticky;
+    top: 72px;
+    max-height: calc(100vh - 88px);
+    overflow: auto;
+  }
+
+  .sheet-orrery { grid-area: orrery; }
+
+  .sheet-worlds {
+    grid-area: worlds;
+    min-width: 0;
+  }
+
+  .sheet-reference .sheet-stars {
+    flex-direction: column;
+  }
+
+  .world-card { margin-bottom: 16px; }
+
+  .world-card-body { padding: 16px 18px; }
+
+  .world-head {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .world-identity { flex: 1; }
+
+  .world-actions {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  .world-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px 20px;
+  }
+
+  .world-moon-lines {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 28px;
+    margin-top: 10px;
+  }
+
+  .world-moon-lines > div { margin-top: 0; }
+
+  .world-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+  }
+
+  .world-detail-grid > :only-child { grid-column: 1 / -1; }
+
+  .world-life-moons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+    margin-top: 8px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .container,
+  .app-banner-inner {
+    max-width: 1760px;
+  }
+
+  .system-sheet:has(.sheet-orrery:not(:empty)) {
+    grid-template-columns: 300px minmax(420px, 1fr) minmax(640px, 760px);
+    grid-template-areas: "reference orrery worlds";
+  }
+
+  .system-sheet:has(.sheet-orrery:not(:empty)) .sheet-orrery {
+    position: sticky;
+    top: 72px;
+    max-height: calc(100vh - 88px);
+    overflow: auto;
+  }
 }
