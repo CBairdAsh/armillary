@@ -64,6 +64,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 - Biological origin (Carbon, Silicon, Sulfur, Exotic)
 - Body plan, primary sense, social structure
 - Technology level, disposition toward outsiders
+- A space-capable people (Advanced, Stellar, or Post-Scarcity) may keep a surface port or an orbital port. Nothing is shown when they have none. A lower technology, and a transcendent people, do not roll one. A life-bearing moon uses the same rule
 - 1–2 distinctive traits per species
 - 0–4 species per habitable world (weighted toward 0–1)
 
