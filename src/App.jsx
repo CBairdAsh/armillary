@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -420,7 +420,43 @@ function InsertSlot({ slot, armed, onArm, onConfirm, onCancel }) {
   );
 }
 
-function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
+function MoonLifeBlock({ moon, unbound, onRenameSpecies, onGenerateSpecies }) {
+  const species = moon.species || [];
+  return (
+    <div style={{ marginTop: 10, background: C.PANEL_ALT, border: `1px solid ${C.HABITABLE}33`, borderRadius: 3, padding: '12px 14px' }}>
+      <div className="flex-between" style={{ marginBottom: 8 }}>
+        <Label color={C.HABITABLE}>Moon {moon.index + 1} · {moon.type}</Label>
+        {moon.canSupportLife && !unbound && (
+          <button type="button" onClick={onGenerateSpecies} style={navBtn(false, C.HABITABLE, true)}>↻ Regen Species</button>
+        )}
+      </div>
+      <div style={{ fontSize: 12, color: C.TEXT_DIM, marginBottom: 6 }}>{moon.description}</div>
+      {moon.biosphere?.label && (
+        <div style={{ marginBottom: 6, fontSize: 13, color: C.TEXT_DIM }}>
+          BIOSPHERE: <span style={{ color: C.HABITABLE }}>{moon.biosphere.label}</span>
+        </div>
+      )}
+      {moon.lifeNote && (
+        <div className="note-block" style={{ marginTop: 4, marginBottom: 8, borderLeftColor: `${C.HABITABLE}66` }}>
+          <span style={{ fontSize: 12, color: C.HABITABLE }}>{moon.lifeNote}</span>
+        </div>
+      )}
+      <Label color={C.HABITABLE}>Sapient Species ({species.length})</Label>
+      {species.length === 0 && (
+        <div style={{ marginTop: 6 }}>
+          <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>No sapient life detected on this moon.</span>
+        </div>
+      )}
+      <div style={{ marginTop: 8 }}>
+        {species.map((sp, si) => (
+          <SpeciesCard key={sp.id} species={sp} index={si} onRename={name => onRenameSpecies(sp.id, name)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, onGenerateMoonSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
   const [expanded, setExpanded] = useState(false);
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
@@ -509,6 +545,11 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
             BIOSPHERE: <span style={{ color: C.HABITABLE }}>{world.biosphere.label}</span>
           </div>
         )}
+        {(world.moons || []).filter(moon => moon.biosphere?.label).map(moon => (
+          <div key={moon.id} style={{ marginTop: 6, fontSize: 13, color: C.TEXT_DIM }}>
+            MOON {moon.index + 1} · {moon.type} · <span style={{ color: C.HABITABLE }}>{moon.biosphere.label}</span>
+          </div>
+        ))}
         {pendingKind === 'crush' && (
           <div style={{
             marginTop: 10, padding: '10px 14px',
@@ -615,23 +656,25 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
             {world.moons.length > 0 && (
               <div style={{ marginBottom: 12 }}>
                 <Label>Moons ({world.moons.length})</Label>
-                <div className="flex-col gap-sm" style={{ marginTop: 6 }}>
-                  {world.moons.map((m, i) => (
-                    <div key={i}>
-                      <div className="flex-row flex-wrap gap-sm">
-                        <Tag color={m.canSupportLife ? C.HABITABLE : C.TEXT_DIM}>
-                          {m.type}{m.canSupportLife ? ' ★' : ''}
-                        </Tag>
-                        <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{m.description}</span>
+                {world.moons.some(moon => !moon.canSupportLife && !moon.biosphere) && (
+                  <div className="flex-col gap-sm" style={{ marginTop: 6 }}>
+                    {world.moons.filter(moon => !moon.canSupportLife && !moon.biosphere).map(moon => (
+                      <div key={moon.id} className="flex-row flex-wrap gap-sm">
+                        <Tag color={C.TEXT_DIM}>{moon.type}</Tag>
+                        <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{moon.description}</span>
                       </div>
-                      {m.lifeNote && (
-                        <div className="note-block" style={{ marginTop: 4, marginLeft: 4, borderLeftColor: `${C.HABITABLE}66` }}>
-                          <span style={{ fontSize: 12, color: C.HABITABLE }}>★ {m.lifeNote}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
+                {world.moons.filter(moon => moon.canSupportLife || moon.biosphere).map(moon => (
+                  <MoonLifeBlock
+                    key={moon.id}
+                    moon={moon}
+                    unbound={unbound}
+                    onRenameSpecies={(speciesId, name) => onRenameSpecies(world.id, speciesId, name)}
+                    onGenerateSpecies={() => onGenerateMoonSpecies(world.id, moon.id)}
+                  />
+                ))}
               </div>
             )}
             {(world.isHabitable || world.species?.length > 0 || ruins) && (
@@ -725,7 +768,7 @@ function SpeciesCard({ species, index, onRename }) {
 function SystemOverview({ system, isNeighbor, onBack, onRename }) {
   const [copied, setCopied] = useState(null);
   const habitable    = system.worlds.filter(w => w.isHabitable).length;
-  const totalSpecies = system.worlds.reduce((sum, w) => sum + w.species.length, 0);
+  const totalSpecies = sapientCount(system);
 
   const copyText = (text, label) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -974,12 +1017,19 @@ const loadSystem = () => { try { const s = localStorage.getItem('armillary_curre
 const loadArchive  = () => { try { const s = localStorage.getItem('armillary_archive'); return s ? JSON.parse(s) : []; } catch { return []; } };
 const saveArchive  = a => { try { localStorage.setItem('armillary_archive', JSON.stringify(a)); } catch {} };
 
+function sapientCount(system) {
+  return (system.worlds || []).reduce((sum, world) => {
+    const onMoons = (world.moons || []).reduce((n, moon) => n + (moon.species?.length || 0), 0);
+    return sum + (world.species?.length || 0) + onMoons;
+  }, 0);
+}
+
 function buildSummary(system) {
   return {
     stars:         system.stars.map(s => ({ spectralClass: s.spectralClass, color: s.color })),
     worldCount:    system.worlds.length,
     habitableCount: system.worlds.filter(w => w.isHabitable).length,
-    speciesCount:  system.worlds.reduce((n, w) => n + w.species.length, 0),
+    speciesCount:  sapientCount(system),
     seed:          system.seed || null,
   };
 }
@@ -1197,6 +1247,10 @@ export default function App() {
   }, [active, updateActive]);
 
   const handleSpecies = useCallback(id => updateActive({ ...active, worlds: active.worlds.map(w => w.id === id ? regenerateSpeciesForWorld(w, active.stars) : w) }), [active, updateActive]);
+  const handleMoonSpecies = useCallback((worldId, moonId) => updateActive({
+    ...active,
+    worlds: active.worlds.map(world => world.id === worldId ? regenerateMoonSpecies(world, moonId) : world),
+  }), [active, updateActive]);
 
   const handleRename = (name) => {
     updateActive({ ...active, name });
@@ -1212,9 +1266,22 @@ export default function App() {
   const handleRenameSpecies = useCallback((worldId, speciesId, name) => {
     updateActive({
       ...active,
-      worlds: active.worlds.map(world => world.id !== worldId ? world : {
-        ...world,
-        species: (world.species || []).map(species => species.id === speciesId ? { ...species, name } : species),
+      worlds: active.worlds.map(world => {
+        if (world.id !== worldId) return world;
+        const onWorld = (world.species || []).some(species => species.id === speciesId);
+        if (onWorld) {
+          return {
+            ...world,
+            species: world.species.map(species => species.id === speciesId ? { ...species, name } : species),
+          };
+        }
+        return {
+          ...world,
+          moons: (world.moons || []).map(moon => ({
+            ...moon,
+            species: (moon.species || []).map(species => species.id === speciesId ? { ...species, name } : species),
+          })),
+        };
       }),
     });
   }, [active, updateActive]);
@@ -1459,6 +1526,7 @@ export default function App() {
                         onRename={handleRenameWorld}
                         onRenameSpecies={handleRenameSpecies}
                         onGenerateSpecies={handleSpecies}
+                        onGenerateMoonSpecies={handleMoonSpecies}
                         canRestructure={!active.isRoguePlanet}
                         unbound={!!active.isRoguePlanet}
                         pendingKind={pendingWorldEdit?.id === world.id ? pendingWorldEdit.kind : null}

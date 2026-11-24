@@ -51,14 +51,14 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 - Year length beside the AU, from the orbit and the star's mass. A circumbinary world uses the combined mass. An unbound body has none
 - Day length beside the year. A tidally locked world has a day equal to its year. A resonant world has a day of twice its year. Other worlds show a day length. A belt has no day. An unbound body shows a spin, not a day
 - Hazards, moon generation (Rocky, Icy, Subsurface Ocean, Cryovolcanic, Volcanic, Terrestrial, Thin Atmosphere)
-- Europa and Enceladus analog moons flagged with life potential notes
+- A subsurface ocean or cryovolcanic moon can hold a chemotrophic biosphere on tidal heat, in any zone. A terrestrial moon can hold a surface biosphere only in the habitable zone. Each life-bearing moon has its own block on the card. A thin atmosphere stays without a water biosphere
 
 **Biosphere** *(habitable worlds)*
 - One line on the world card: complexity, metabolism, and cover where the water already implies it
 - A world with sapient species is complex. Oxygenic life nudges a carbon-based origin. Chemotrophic life nudges a sulfur-based origin
 - An empty habitable world can be lifeless, microbial, or complex. Ruins roll only when that biosphere is alive
 - Hycean worlds and ice do not roll oxygenic life. A subsurface ocean reads as under ice. A sunlit ocean can read as a plankton skin
-- Ejection clears a biosphere that needed sunlight. A chemotrophic biosphere in a dark ocean stays. Crushing the world clears the line
+- Ejection clears a biosphere that needed sunlight. A chemotrophic biosphere in a dark ocean stays, including on a subsurface or cryovolcanic moon. Crushing the world clears the line
 
 **Sapient Species** *(habitable worlds only)*
 - Biological origin (Carbon, Silicon, Sulfur, Exotic)
