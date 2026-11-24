@@ -237,14 +237,21 @@ input, button, select, textarea {
     row-gap: 20px;
   }
 
-  .sheet-reference { grid-area: reference; }
+  .sheet-reference {
+    grid-area: reference;
+    padding-right: 12px;
+  }
 
   .sheet-orrery {
     grid-area: orrery;
     max-height: 42vh;
+    padding-right: 16px;
   }
 
-  .sheet-worlds { grid-area: worlds; }
+  .sheet-worlds {
+    grid-area: worlds;
+    padding-right: 28px;
+  }
 
   .sheet-reference,
   .sheet-worlds,
@@ -253,6 +260,35 @@ input, button, select, textarea {
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-hi) transparent;
+  }
+
+  .sheet-reference::-webkit-scrollbar,
+  .sheet-worlds::-webkit-scrollbar,
+  .sheet-orrery::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .sheet-reference::-webkit-scrollbar-track,
+  .sheet-worlds::-webkit-scrollbar-track,
+  .sheet-orrery::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sheet-reference::-webkit-scrollbar-thumb,
+  .sheet-worlds::-webkit-scrollbar-thumb,
+  .sheet-orrery::-webkit-scrollbar-thumb {
+    background: var(--color-border-hi);
+    border-radius: 6px;
+  }
+
+  .sheet-reference::-webkit-scrollbar-thumb:hover,
+  .sheet-worlds::-webkit-scrollbar-thumb:hover,
+  .sheet-orrery::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary-d);
   }
 
   .sheet-reference .sheet-stars {
