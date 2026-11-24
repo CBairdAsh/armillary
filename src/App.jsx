@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins, formatSeparation } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -1483,15 +1483,20 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className={active.stars.length === 1 ? 'sheet-star-heading sheet-star-heading--single flex-row flex-wrap' : 'sheet-star-heading flex-row flex-wrap'} style={{ gap: 10 }}>
-                  <Label color={C.PRIMARY}>
-                    {active.stars.length === 1 ? 'Primary Star' : active.stars.length === 2 ? 'Binary System' : 'Triple System'}
-                  </Label>
-                  {active.stars.length > 1 && (
-                    <span className="hint">
-                      — habitable zone calculated from combined luminosity of all stars
-                    </span>
-                  )}
+                <div className={active.stars.length === 1 ? 'sheet-star-heading sheet-star-heading--single' : 'sheet-star-heading'}>
+                  <div className="flex-row flex-wrap" style={{ gap: 10 }}>
+                    <Label color={C.PRIMARY}>
+                      {active.stars.length === 1 ? 'Primary Star' : active.stars.length === 2 ? 'Binary System' : 'Triple System'}
+                    </Label>
+                    {active.stars.length > 1 && (
+                      <span className="hint">
+                        — habitable zone calculated from combined luminosity of all stars
+                      </span>
+                    )}
+                  </div>
+                  {active.stars.length > 1 && formatSeparation(active.separation).map(line => (
+                    <div key={line} style={{ marginTop: 6, fontSize: 13, color: C.TEXT_DIM }}>{line}</div>
+                  ))}
                 </div>
                 <div className="sheet-stars flex-wrap" style={{ gap: 10, marginTop: 10 }}>
                   {active.stars.map((star, i) => (
