@@ -71,6 +71,15 @@ input, button, select, textarea {
 
 .app-banner-row { padding-top: 8px; }
 
+.app-banner-inner {
+  max-width: 1024px;
+  margin: 0 auto;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-bottom: 8px;
+  min-height: 54px;
+}
+
 /* iPhone 12 and phones of that width. viewport-fit=cover lets the page
    run under the status bar, so the banner needs room above the title.
    25px is the floor. The status bar inset is used when it is taller. */
@@ -136,4 +145,288 @@ input, button, select, textarea {
   background: var(--color-panel-alt);
   border-radius: 3px;
   padding: 8px 12px;
+}
+
+/* ─── DESKTOP SHEET ──────────────────────────────────────────────────────── */
+/* Three named columns: reference | orrery | worlds.
+   .sheet-orrery is in the DOM and empty until the orrery is drawn inside it.
+   While it has no child the grid stays two columns, so there is no blank middle.
+   A child opens the center. From 1100px to 1599px that child is a band across
+   the top. At 1600px and up it is the middle column.
+   On that desktop the page itself does not scroll. The system type bar stays
+   put, and the left and right columns scroll on their own. Under 1100px the
+   page is the phone stack and scrolls as one. */
+
+.world-card { margin-bottom: 8px; }
+
+.world-card-body {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+}
+
+.world-head { margin-bottom: 8px; }
+
+.world-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.world-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.world-moon-lines > div { margin-top: 6px; }
+
+.sheet-orrery:empty { display: none; }
+
+.sheet-overview { margin-bottom: 16px; }
+
+.sheet-star-block { margin-bottom: 14px; }
+
+.sheet-hz { margin-bottom: 14px; }
+
+@media (min-width: 1100px) {
+  .container,
+  .app-banner-inner {
+    max-width: 1440px;
+  }
+
+  .app-root--sheet {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .app-root--sheet .container {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .system-view {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .system-chrome { flex-shrink: 0; }
+
+  .system-sheet {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-areas: "reference worlds";
+    grid-template-rows: minmax(0, 1fr);
+    column-gap: 28px;
+    align-items: stretch;
+  }
+
+  .system-sheet:has(.sheet-orrery:not(:empty)) {
+    grid-template-areas:
+      "orrery orrery"
+      "reference worlds";
+    grid-template-rows: auto minmax(0, 1fr);
+    row-gap: 20px;
+  }
+
+  .sheet-reference {
+    grid-area: reference;
+    padding-right: 12px;
+  }
+
+  /* The system name and the star are one card. The star line and the
+     habitable-zone line on the name card are the shallow copy of the star
+     block, so they drop out. A single star's zone is already on that star,
+     so the extra zone strip drops too. Binary and triple keep one combined
+     zone line as the foot of the card. The neighborhood follows the card. */
+  .sheet-reference:not(:has(.sheet-star-block--rogue)) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sheet-reference:not(:has(.sheet-star-block--rogue)) .sheet-overview { order: 1; }
+  .sheet-reference:not(:has(.sheet-star-block--rogue)) .sheet-star-block { order: 2; }
+  .sheet-reference:not(:has(.sheet-star-block--rogue)) .sheet-hz { order: 3; }
+  .sheet-reference:not(:has(.sheet-star-block--rogue)) .sheet-neighborhood { order: 4; }
+
+  .sheet-reference:not(:has(.sheet-star-block--rogue)) .sheet-overview {
+    margin-bottom: 0;
+    border-bottom-width: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+
+  .sheet-reference:not(:has(.sheet-star-block--rogue)) .sheet-star-summary,
+  .sheet-reference:not(:has(.sheet-star-block--rogue)) .sheet-hz-summary,
+  .sheet-star-heading--single,
+  .sheet-hz--single {
+    display: none;
+  }
+
+  .sheet-star-block:not(.sheet-star-block--rogue) {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: 0 0 4px 4px;
+    padding: 4px 0 8px;
+    margin-bottom: 16px;
+  }
+
+  .sheet-star-block:not(.sheet-star-block--rogue):has(+ .sheet-hz:not(.sheet-hz--single)) {
+    border-bottom: none;
+    border-radius: 0;
+    margin-bottom: 0;
+  }
+
+  .sheet-star-block:not(.sheet-star-block--rogue) .star-card {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    min-width: 0;
+  }
+
+  .sheet-star-block:not(.sheet-star-block--rogue) .star-card + .star-card {
+    border-top: 1px solid var(--color-border) !important;
+  }
+
+  .sheet-hz:not(.sheet-hz--single) {
+    margin-top: 0;
+    margin-bottom: 16px;
+    border-radius: 0 0 4px 4px !important;
+    border-color: var(--color-border) !important;
+    border-top-color: var(--color-border) !important;
+  }
+
+  .sheet-orrery {
+    grid-area: orrery;
+    max-height: 42vh;
+    padding-right: 16px;
+  }
+
+  .sheet-worlds {
+    grid-area: worlds;
+    padding-right: 28px;
+  }
+
+  .sheet-reference,
+  .sheet-worlds,
+  .sheet-orrery {
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-hi) transparent;
+  }
+
+  .sheet-reference::-webkit-scrollbar,
+  .sheet-worlds::-webkit-scrollbar,
+  .sheet-orrery::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .sheet-reference::-webkit-scrollbar-track,
+  .sheet-worlds::-webkit-scrollbar-track,
+  .sheet-orrery::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sheet-reference::-webkit-scrollbar-thumb,
+  .sheet-worlds::-webkit-scrollbar-thumb,
+  .sheet-orrery::-webkit-scrollbar-thumb {
+    background: var(--color-border-hi);
+    border-radius: 6px;
+  }
+
+  .sheet-reference::-webkit-scrollbar-thumb:hover,
+  .sheet-worlds::-webkit-scrollbar-thumb:hover,
+  .sheet-orrery::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary-d);
+  }
+
+  .sheet-reference .sheet-stars {
+    flex-direction: column;
+  }
+
+  .world-card { margin-bottom: 16px; }
+
+  .world-card-body { padding: 16px 18px; }
+
+  .world-head {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .world-identity { flex: 1; }
+
+  .world-actions {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  .world-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px 20px;
+  }
+
+  .world-moon-lines {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 28px;
+    margin-top: 10px;
+  }
+
+  .world-moon-lines > div { margin-top: 0; }
+
+  .world-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+  }
+
+  .world-detail-grid > :only-child { grid-column: 1 / -1; }
+
+  .world-life-moons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+    margin-top: 8px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .container,
+  .app-banner-inner {
+    max-width: 1760px;
+  }
+
+  .system-sheet:has(.sheet-orrery:not(:empty)) {
+    grid-template-columns: 300px minmax(420px, 1fr) minmax(640px, 760px);
+    grid-template-areas: "reference orrery worlds";
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .system-sheet:has(.sheet-orrery:not(:empty)) .sheet-orrery {
+    max-height: none;
+  }
 }

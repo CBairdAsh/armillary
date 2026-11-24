@@ -318,7 +318,7 @@ function NeighborhoodCard({ neighborhood, ejected = [], onLock, onRedraw, onNavi
 function StarCard({ star, label, onLock, onRedraw }) {
   const locked = star.locked;
   return (
-    <div style={{ ...cardStyle(locked, star.color), flex: 1, minWidth: 220 }}>
+    <div className="star-card" style={{ ...cardStyle(locked, star.color), flex: 1, minWidth: 220 }}>
       <div onClick={() => onLock(star.id)} style={{ ...lockStripeStyle(locked, star.color), minHeight: 120 }}/>
       <div className="card-body">
         <div className="flex-between" style={{ marginBottom: 10 }}>
@@ -470,11 +470,13 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
   const hasDetails = world.hazards.length > 0 || world.moons.length > 0 || world.isHabitable
     || world.tidallyLocked || world.tidalResonance || world.biosignature
     || world.isCircumbinary || world.worldNotes;
+  const barrenMoons = (world.moons || []).filter(moon => !moon.canSupportLife && !moon.biosphere);
+  const livingMoons = (world.moons || []).filter(moon => moon.canSupportLife || moon.biosphere);
 
   return (
-    <div style={{ ...cardStyle(locked, zoneColor), marginBottom: 8 }}>
+    <div className="world-card" style={cardStyle(locked, zoneColor)}>
       <div onClick={() => onLock(world.id)} style={{ ...lockStripeStyle(locked, zoneColor), minHeight: 64 }}/>
-      <div style={{ flex: 1, padding: '10px 14px' }}>
+      <div className="world-card-body">
         {world.name ? (
           <div style={{ marginBottom: 6 }}>
             <EditableName
@@ -489,36 +491,39 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
           </div>
         ) : null}
         {/* Header */}
-        <div className="flex-row flex-wrap gap-md" style={{ marginBottom: 8 }}>
-          <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>[{index + 1}]</span>
-          <span style={{ fontSize: 15, color: zoneColor }}>{world.worldType}</span>
-          <MarkSlot kind={worldMarkKind(world.worldType)} glyph={worldDef?.icon} size={15} />
-          <Tag color={zoneColor}>{world.zone.replace('_', ' ')}</Tag>
-          <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{orbitBits.join(' · ')}</span>
-          {world.isCircumbinary && <Tag color={C.STAR_G}>★ CIRCUMBINARY</Tag>}
-          {world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 && <Tag color={C.STAR_NS}>★ PULSAR ORBIT</Tag>}
-          {world.debris         && <Tag color={zoneColor}>DEBRIS · {world.debris.toUpperCase()}</Tag>}
-          {world.isHabitable    && <Tag color={C.HABITABLE}>★ HABITABLE</Tag>}
-          {world.tidallyLocked  && <Tag color={C.COLD}>⟳ TIDALLY LOCKED</Tag>}
-          {world.tidalResonance && <Tag color={C.COLD}>⟳ RESONANCE</Tag>}
-          {world.biosignature   && <Tag color={world.biosignature.color}>🔬 {world.biosignature.shortLabel}</Tag>}
-          <div style={{ flex: 1 }}/>
-          <LockBtn locked={locked} onToggle={() => onLock(world.id)} color={zoneColor}/>
-          {!locked && !unbound && <button onClick={onRedraw} style={navBtn(false, zoneColor, true)}>↻ Redraw</button>}
-          {canRestructure && !locked && world.worldType !== 'Asteroid Belt' && pendingKind !== 'crush' && (
-            <button type="button" onClick={() => onArmEdit('crush')} style={navBtn(false, C.HAZARD, true)}>Crush</button>
-          )}
-          {canRestructure && !locked && world.worldType !== 'Asteroid Belt' && pendingKind !== 'eject' && (
-            <button type="button" onClick={() => onArmEdit('eject')} style={navBtn(false, C.HAZARD, true)}>Eject</button>
-          )}
-          {canRestructure && !locked && world.worldType === 'Asteroid Belt' && pendingKind !== 'destroy' && (
-            <button type="button" onClick={() => onArmEdit('destroy')} style={navBtn(false, C.HAZARD, true)}>Destroy</button>
-          )}
-          {hasDetails && (
-            <button onClick={() => setExpanded(e => !e)} style={navBtn(expanded, C.PRIMARY, true)}>
-              {expanded ? 'CLOSE ▲' : 'DETAILS ▾'}
-            </button>
-          )}
+        <div className="world-head flex-row flex-wrap gap-md">
+          <div className="world-identity">
+            <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>[{index + 1}]</span>
+            <span style={{ fontSize: 15, color: zoneColor }}>{world.worldType}</span>
+            <MarkSlot kind={worldMarkKind(world.worldType)} glyph={worldDef?.icon} size={15} />
+            <Tag color={zoneColor}>{world.zone.replace('_', ' ')}</Tag>
+            <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{orbitBits.join(' · ')}</span>
+            {world.isCircumbinary && <Tag color={C.STAR_G}>★ CIRCUMBINARY</Tag>}
+            {world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 && <Tag color={C.STAR_NS}>★ PULSAR ORBIT</Tag>}
+            {world.debris         && <Tag color={zoneColor}>DEBRIS · {world.debris.toUpperCase()}</Tag>}
+            {world.isHabitable    && <Tag color={C.HABITABLE}>★ HABITABLE</Tag>}
+            {world.tidallyLocked  && <Tag color={C.COLD}>⟳ TIDALLY LOCKED</Tag>}
+            {world.tidalResonance && <Tag color={C.COLD}>⟳ RESONANCE</Tag>}
+            {world.biosignature   && <Tag color={world.biosignature.color}>🔬 {world.biosignature.shortLabel}</Tag>}
+          </div>
+          <div className="world-actions">
+            <LockBtn locked={locked} onToggle={() => onLock(world.id)} color={zoneColor}/>
+            {!locked && !unbound && <button onClick={onRedraw} style={navBtn(false, zoneColor, true)}>↻ Redraw</button>}
+            {canRestructure && !locked && world.worldType !== 'Asteroid Belt' && pendingKind !== 'crush' && (
+              <button type="button" onClick={() => onArmEdit('crush')} style={navBtn(false, C.HAZARD, true)}>Crush</button>
+            )}
+            {canRestructure && !locked && world.worldType !== 'Asteroid Belt' && pendingKind !== 'eject' && (
+              <button type="button" onClick={() => onArmEdit('eject')} style={navBtn(false, C.HAZARD, true)}>Eject</button>
+            )}
+            {canRestructure && !locked && world.worldType === 'Asteroid Belt' && pendingKind !== 'destroy' && (
+              <button type="button" onClick={() => onArmEdit('destroy')} style={navBtn(false, C.HAZARD, true)}>Destroy</button>
+            )}
+            {hasDetails && (
+              <button onClick={() => setExpanded(e => !e)} style={navBtn(expanded, C.PRIMARY, true)}>
+                {expanded ? 'CLOSE ▲' : 'DETAILS ▾'}
+              </button>
+            )}
+          </div>
         </div>
         {!world.name && (
           <div style={{ marginBottom: 6 }}>
@@ -533,7 +538,7 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
           </div>
         )}
         {/* Summary */}
-        <div className="flex-wrap gap-lg">
+        <div className="world-stats flex-wrap gap-lg">
           <span style={{ fontSize: 13, color: C.TEXT_DIM }}>ATM: <span style={{ color: C.TEXT }}>{world.atmosphere}</span></span>
           <span style={{ fontSize: 13, color: C.TEXT_DIM }}>H₂O: <span style={{ color: C.TEXT }}>{world.hydrosphere}</span></span>
           <span style={{ fontSize: 13, color: C.TEXT_DIM }}>G: <span style={{ color: C.TEXT }}>{world.gravity}g</span></span>
@@ -545,11 +550,15 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
             BIOSPHERE: <span style={{ color: C.HABITABLE }}>{world.biosphere.label}</span>
           </div>
         )}
-        {(world.moons || []).filter(moon => moon.biosphere?.label).map(moon => (
-          <div key={moon.id} style={{ marginTop: 6, fontSize: 13, color: C.TEXT_DIM }}>
-            MOON {moon.index + 1} · {moon.type} · <span style={{ color: C.HABITABLE }}>{moon.biosphere.label}</span>
+        {livingMoons.some(moon => moon.biosphere?.label) && (
+          <div className="world-moon-lines">
+            {livingMoons.filter(moon => moon.biosphere?.label).map(moon => (
+              <div key={moon.id} style={{ fontSize: 13, color: C.TEXT_DIM }}>
+                MOON {moon.index + 1} · {moon.type} · <span style={{ color: C.HABITABLE }}>{moon.biosphere.label}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
         {pendingKind === 'crush' && (
           <div style={{
             marginTop: 10, padding: '10px 14px',
@@ -597,124 +606,129 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
             </div>
           </div>
         )}
-        {/* Expanded */}
+        {/* Expanded. On desktop the physical notes sit left of the life. */}
         {expanded && (
           <div style={{ marginTop: 12 }}>
             <Divider label="DETAIL"/>
-
-            {/* Circumbinary note */}
-            {world.isCircumbinary && (
-              <div className="info-panel" style={{ border: `1px solid ${C.STAR_G}44`, marginBottom: 12 }}>
-                <span style={{ fontSize: 11, color: C.STAR_G }}>★ CIRCUMBINARY ORBIT — </span>
-                <span style={{ fontSize: 11, color: C.TEXT_DIM }}>This world orbits all stars in the system around their combined center of mass. Two suns cross the sky.</span>
-              </div>
-            )}
-
-            {/* Tidal lock */}
-            {(world.tidallyLocked || world.tidalResonance) && (
-              <div className="info-panel" style={{ border: `1px solid ${C.COLD}44`, marginBottom: 12 }}>
-                {world.tidallyLocked && (<>
-                  <span style={{ fontSize: 11, color: C.COLD }}>⟳ TIDALLY LOCKED — </span>
-                  <span style={{ fontSize: 11, color: C.TEXT_DIM }}>Permanent dayside and nightside. Terminator zone may be the most habitable region.</span>
-                </>)}
-                {world.tidalResonance && (<>
-                  <span style={{ fontSize: 11, color: C.COLD }}>⟳ SPIN-ORBIT RESONANCE — </span>
-                  <span style={{ fontSize: 11, color: C.TEXT_DIM }}>Slow rotation in gravitational resonance. Extreme temperature swings between long days and nights.</span>
-                </>)}
-              </div>
-            )}
-
-            {/* Biosignature */}
-            {world.biosignature && (
-              <div className="info-panel" style={{ border: `1px solid ${world.biosignature.color}55`, marginBottom: 12 }}>
-                <div className="flex-row gap-md" style={{ marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, color: world.biosignature.color }}>🔬 BIOSIGNATURE CANDIDATE</span>
-                  <Tag color={world.biosignature.color}>{world.biosignature.label}</Tag>
-                  <Tag color={C.TEXT_DIM}>{world.biosignature.confidence}</Tag>
-                </div>
-                <span className="label" style={{ lineHeight: 1.8 }}>
-                  {world.biosignature.description}
-                </span>
-              </div>
-            )}
-
-            {/* World notes (disintegrating etc) */}
-            {world.worldNotes && (
-              <div className="info-panel" style={{ border: `1px solid ${C.HAZARD}33`, marginBottom: 12 }}>
-                <span style={{ fontSize: 11, color: C.HAZARD }}>⚠ </span>
-                <span style={{ fontSize: 11, color: C.TEXT_DIM }}>{world.worldNotes}</span>
-              </div>
-            )}
-            {world.hazards.length > 0 && (
-              <div style={{ marginBottom: 12 }}>
-                <Label color={C.HAZARD}>Hazards</Label>
-                <div className="flex-wrap gap-sm" style={{ marginTop: 6 }}>
-                  {world.hazards.map((h, i) => <Tag key={i} color={C.HAZARD}>{h}</Tag>)}
-                </div>
-              </div>
-            )}
-            {world.moons.length > 0 && (
-              <div style={{ marginBottom: 12 }}>
-                <Label>Moons ({world.moons.length})</Label>
-                {world.moons.some(moon => !moon.canSupportLife && !moon.biosphere) && (
-                  <div className="flex-col gap-sm" style={{ marginTop: 6 }}>
-                    {world.moons.filter(moon => !moon.canSupportLife && !moon.biosphere).map(moon => (
-                      <div key={moon.id} className="flex-row flex-wrap gap-sm">
-                        <Tag color={C.TEXT_DIM}>{moon.type}</Tag>
-                        <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{moon.description}</span>
+            <div className="world-detail-grid">
+              {(world.isCircumbinary || world.tidallyLocked || world.tidalResonance || world.biosignature || world.worldNotes || world.hazards.length > 0 || barrenMoons.length > 0) && (
+                <div className="world-detail-physical">
+                  {world.isCircumbinary && (
+                    <div className="info-panel" style={{ border: `1px solid ${C.STAR_G}44`, marginBottom: 12 }}>
+                      <span style={{ fontSize: 11, color: C.STAR_G }}>★ CIRCUMBINARY ORBIT — </span>
+                      <span style={{ fontSize: 11, color: C.TEXT_DIM }}>This world orbits all stars in the system around their combined center of mass. Two suns cross the sky.</span>
+                    </div>
+                  )}
+                  {(world.tidallyLocked || world.tidalResonance) && (
+                    <div className="info-panel" style={{ border: `1px solid ${C.COLD}44`, marginBottom: 12 }}>
+                      {world.tidallyLocked && (<>
+                        <span style={{ fontSize: 11, color: C.COLD }}>⟳ TIDALLY LOCKED — </span>
+                        <span style={{ fontSize: 11, color: C.TEXT_DIM }}>Permanent dayside and nightside. Terminator zone may be the most habitable region.</span>
+                      </>)}
+                      {world.tidalResonance && (<>
+                        <span style={{ fontSize: 11, color: C.COLD }}>⟳ SPIN-ORBIT RESONANCE — </span>
+                        <span style={{ fontSize: 11, color: C.TEXT_DIM }}>Slow rotation in gravitational resonance. Extreme temperature swings between long days and nights.</span>
+                      </>)}
+                    </div>
+                  )}
+                  {world.biosignature && (
+                    <div className="info-panel" style={{ border: `1px solid ${world.biosignature.color}55`, marginBottom: 12 }}>
+                      <div className="flex-row gap-md" style={{ marginBottom: 6 }}>
+                        <span style={{ fontSize: 12, color: world.biosignature.color }}>🔬 BIOSIGNATURE CANDIDATE</span>
+                        <Tag color={world.biosignature.color}>{world.biosignature.label}</Tag>
+                        <Tag color={C.TEXT_DIM}>{world.biosignature.confidence}</Tag>
                       </div>
-                    ))}
-                  </div>
-                )}
-                {world.moons.filter(moon => moon.canSupportLife || moon.biosphere).map(moon => (
-                  <MoonLifeBlock
-                    key={moon.id}
-                    moon={moon}
-                    unbound={unbound}
-                    onRenameSpecies={(speciesId, name) => onRenameSpecies(world.id, speciesId, name)}
-                    onGenerateSpecies={() => onGenerateMoonSpecies(world.id, moon.id)}
-                  />
-                ))}
-              </div>
-            )}
-            {(world.isHabitable || world.species?.length > 0 || ruins) && (
-              <div style={{ marginTop: 8 }}>
-                <div className="flex-between" style={{ marginBottom: 8 }}>
-                  <Label color={C.HABITABLE}>Sapient Species ({world.species?.length || 0})</Label>
-                  {world.isHabitable && (
-                    <button onClick={() => onGenerateSpecies(world.id)} style={navBtn(false, C.HABITABLE, true)}>↻ Regen Species</button>
+                      <span className="label" style={{ lineHeight: 1.8 }}>
+                        {world.biosignature.description}
+                      </span>
+                    </div>
+                  )}
+                  {world.worldNotes && (
+                    <div className="info-panel" style={{ border: `1px solid ${C.HAZARD}33`, marginBottom: 12 }}>
+                      <span style={{ fontSize: 11, color: C.HAZARD }}>⚠ </span>
+                      <span style={{ fontSize: 11, color: C.TEXT_DIM }}>{world.worldNotes}</span>
+                    </div>
+                  )}
+                  {world.hazards.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <Label color={C.HAZARD}>Hazards</Label>
+                      <div className="flex-wrap gap-sm" style={{ marginTop: 6 }}>
+                        {world.hazards.map((h, i) => <Tag key={i} color={C.HAZARD}>{h}</Tag>)}
+                      </div>
+                    </div>
+                  )}
+                  {barrenMoons.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <Label>{livingMoons.length > 0 ? 'Barren moons' : `Moons (${world.moons.length})`}</Label>
+                      <div className="flex-col gap-sm" style={{ marginTop: 6 }}>
+                        {barrenMoons.map(moon => (
+                          <div key={moon.id} className="flex-row flex-wrap gap-sm">
+                            <Tag color={C.TEXT_DIM}>{moon.type}</Tag>
+                            <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{moon.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
-                {world.isHabitable && world.species.length === 0 && (
-                  <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>No sapient life detected on this world.</span>
-                )}
-                {(world.species || []).map((sp, si) => (
-                  <SpeciesCard key={sp.id} species={sp} index={si} onRename={name => onRenameSpecies(world.id, sp.id, name)}/>
-                ))}
-
-                {/* Lost civilization ruins */}
-                {ruins && world.species.length === 0 && (
-                  <div style={{ marginTop: 10, background: C.PANEL_ALT, border: `1px solid ${C.DANGER}44`, borderRadius: 3, padding: '12px 14px' }}>
-                    <div className="flex-row flex-wrap gap-md" style={{ marginBottom: 10 }}>
-                      <span style={{ fontSize: 13, color: C.DANGER, letterSpacing: 2 }}>☠ RUINS DETECTED</span>
-                      <Tag color={C.DANGER}>{ruins.tech}</Tag>
-                      <Tag color={C.TEXT_DIM}>{ruins.ageLabel}</Tag>
+              )}
+              {(livingMoons.length > 0 || world.isHabitable || world.species?.length > 0 || ruins) && (
+                <div className="world-detail-life">
+                  {livingMoons.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <Label>Moons ({world.moons.length})</Label>
+                      <div className="world-life-moons">
+                        {livingMoons.map(moon => (
+                          <MoonLifeBlock
+                            key={moon.id}
+                            moon={moon}
+                            unbound={unbound}
+                            onRenameSpecies={(speciesId, name) => onRenameSpecies(world.id, speciesId, name)}
+                            onGenerateSpecies={() => onGenerateMoonSpecies(world.id, moon.id)}
+                          />
+                        ))}
+                      </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', marginBottom: 10 }}>
-                      <DataPair label="Civilization Tech" value={ruins.tech}  color={C.TEXT}/>
-                      <DataPair label="Estimated Age"     value={`~${ruins.ageYears.toLocaleString()} yrs`} color={C.TEXT}/>
-                      <DataPair label="Collapse Cause"    value={ruins.cause} color={C.DANGER}/>
+                  )}
+                  {(world.isHabitable || world.species?.length > 0 || ruins) && (
+                    <div style={{ marginTop: 8 }}>
+                      <div className="flex-between" style={{ marginBottom: 8 }}>
+                        <Label color={C.HABITABLE}>Sapient Species ({world.species?.length || 0})</Label>
+                        {world.isHabitable && (
+                          <button onClick={() => onGenerateSpecies(world.id)} style={navBtn(false, C.HABITABLE, true)}>↻ Regen Species</button>
+                        )}
+                      </div>
+                      {world.isHabitable && world.species.length === 0 && (
+                        <span style={{ fontSize: 13, color: C.TEXT_FAINT }}>No sapient life detected on this world.</span>
+                      )}
+                      {(world.species || []).map((sp, si) => (
+                        <SpeciesCard key={sp.id} species={sp} index={si} onRename={name => onRenameSpecies(world.id, sp.id, name)}/>
+                      ))}
+                      {ruins && world.species.length === 0 && (
+                        <div style={{ marginTop: 10, background: C.PANEL_ALT, border: `1px solid ${C.DANGER}44`, borderRadius: 3, padding: '12px 14px' }}>
+                          <div className="flex-row flex-wrap gap-md" style={{ marginBottom: 10 }}>
+                            <span style={{ fontSize: 13, color: C.DANGER, letterSpacing: 2 }}>☠ RUINS DETECTED</span>
+                            <Tag color={C.DANGER}>{ruins.tech}</Tag>
+                            <Tag color={C.TEXT_DIM}>{ruins.ageLabel}</Tag>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', marginBottom: 10 }}>
+                            <DataPair label="Civilization Tech" value={ruins.tech}  color={C.TEXT}/>
+                            <DataPair label="Estimated Age"     value={`~${ruins.ageYears.toLocaleString()} yrs`} color={C.TEXT}/>
+                            <DataPair label="Collapse Cause"    value={ruins.cause} color={C.DANGER}/>
+                          </div>
+                          <div className="note-block" style={{ borderLeftColor: `${C.DANGER}44`, marginBottom: 6 }}>
+                            <span className="body-text" style={{ lineHeight: 1.8 }}>{ruins.causeDesc}</span>
+                          </div>
+                          <div className="note-block" style={{ borderLeftColor: `${C.TEXT_FAINT}44` }}>
+                            <span className="hint" style={{ lineHeight: 1.8 }}>{ruins.techDesc} · {ruins.ageDesc}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="note-block" style={{ borderLeftColor: `${C.DANGER}44`, marginBottom: 6 }}>
-                      <span className="body-text" style={{ lineHeight: 1.8 }}>{ruins.causeDesc}</span>
-                    </div>
-                    <div className="note-block" style={{ borderLeftColor: `${C.TEXT_FAINT}44` }}>
-                      <span className="hint" style={{ lineHeight: 1.8 }}>{ruins.techDesc} · {ruins.ageDesc}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -778,7 +792,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
   };
 
   return (
-    <div style={{ ...panelStyle(), marginBottom: 16 }}>
+    <div className="sheet-overview" style={panelStyle()}>
       {isNeighbor && (
         <div className="flex-row gap-sm" style={{ marginBottom: 12, paddingBottom: 10, borderBottom: `1px solid ${C.BORDER}` }}>
           <button onClick={onBack} style={navBtn(false, C.PRIMARY, true)}>← Back to Primary System</button>
@@ -818,7 +832,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
       )}
 
       <div className="flex-wrap gap-xl align-start">
-        <div>
+        <div className="sheet-star-summary">
           <div className="stat-label">
             {system.isRoguePlanet ? 'ROGUE PLANET' : system.stars.length === 1 ? 'STAR' : system.stars.length === 2 ? 'BINARY' : 'TRIPLE'}
           </div>
@@ -844,7 +858,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
           <div className="stat-label">SAPIENT SPECIES</div>
           <div className="stat-value" style={{ color: C.EXOTIC }}>{totalSpecies}</div>
         </div>
-        <div>
+        <div className="sheet-hz-summary">
           <div className="stat-label">HABITABLE ZONE</div>
           <div style={{ fontSize: 15, color: C.HABITABLE }}>{system.isRoguePlanet ? 'None' : `${system.hz.inner}–${system.hz.outer} AU`}</div>
           {system.stars.length > 1 && !system.isRoguePlanet && (
@@ -1330,7 +1344,7 @@ export default function App() {
   const starLabels = active.stars.length === 1 ? ['Primary Star'] : active.stars.map((_, i) => `Star ${String.fromCharCode(65 + i)}`);
 
   return (
-    <div style={{ minHeight: '100vh' }}>
+    <div className={booted && view === 'system' ? 'app-root app-root--sheet' : 'app-root'} style={{ minHeight: '100vh' }}>
       <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 
       {/* BOOT SEQUENCE */}
@@ -1339,7 +1353,7 @@ export default function App() {
 
       {/* HEADER */}
       <div style={{ background: '#060a0f', borderBottom: `2px solid ${C.BORDER_HI}`, position: 'sticky', top: 0, zIndex: 10 }}>
-        <div className="app-banner-row flex-row flex-wrap gap-sm" style={{ maxWidth: 1024, margin: '0 auto', paddingLeft: 16, paddingRight: 16, paddingBottom: 8, minHeight: 54 }}>
+        <div className="app-banner-row app-banner-inner flex-row flex-wrap gap-sm">
           <div style={{ width: 4, background: C.PRIMARY, marginRight: 16, flexShrink: 0, alignSelf: 'stretch', minHeight: 38 }}/>
           <div className="flex-row flex-1" style={{ minWidth: 160 }}>
             <div>
@@ -1359,9 +1373,11 @@ export default function App() {
 
       <div className="container">
 
-        {view === 'system' && (<>
+        {view === 'system' && (
+          <div className="system-view">
+          <div className="system-chrome">
           {/* Controls */}
-          <div className="flex-row flex-wrap" style={{ gap: 10, marginBottom: 16, padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.BORDER}`, borderRadius: 4 }}>
+          <div className="system-controls flex-row flex-wrap" style={{ gap: 10, marginBottom: 16, padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.BORDER}`, borderRadius: 4 }}>
             {!active.isRoguePlanet && <StarCountControl count={starCount} onChange={setStarCount}/>}
             {isNeighbor && (
               <span style={{ fontSize: 11, color: C.TEXT_FAINT, letterSpacing: 1 }}>
@@ -1423,10 +1439,14 @@ export default function App() {
               <button onClick={() => setStarCount(active.stars.length)} style={{ ...navBtn(false, C.TEXT_DIM, true), fontSize: 11 }}>✕ Revert</button>
             </div>
           )}
+          </div>
 
+          <div className="system-sheet">
+          <div className="sheet-reference">
           <SystemOverview system={active} isNeighbor={isNeighbor} onBack={handleBack} onRename={handleRename}/>
 
           {!isNeighbor && (
+            <div className="sheet-neighborhood">
             <NeighborhoodCard
               neighborhood={active.neighborhood}
               ejected={active.ejected || []}
@@ -1435,9 +1455,10 @@ export default function App() {
               onNavigate={handleNavigate}
               exploredSystems={neighborSystems}
             />
+            </div>
           )}
 
-          <div style={{ marginBottom: 14 }}>
+          <div className={active.isRoguePlanet ? 'sheet-star-block sheet-star-block--rogue' : 'sheet-star-block'}>
             {active.isRoguePlanet ? (
               <div style={{ padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.PRIMARY}33`, borderRadius: 4 }}>
                 <div className="flex-row gap-sm" style={{ marginBottom: 10 }}>
@@ -1457,7 +1478,7 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="flex-row flex-wrap" style={{ gap: 10 }}>
+                <div className={active.stars.length === 1 ? 'sheet-star-heading sheet-star-heading--single flex-row flex-wrap' : 'sheet-star-heading flex-row flex-wrap'} style={{ gap: 10 }}>
                   <Label color={C.PRIMARY}>
                     {active.stars.length === 1 ? 'Primary Star' : active.stars.length === 2 ? 'Binary System' : 'Triple System'}
                   </Label>
@@ -1467,7 +1488,7 @@ export default function App() {
                     </span>
                   )}
                 </div>
-                <div className="flex-wrap" style={{ gap: 10, marginTop: 10 }}>
+                <div className="sheet-stars flex-wrap" style={{ gap: 10, marginTop: 10 }}>
                   {active.stars.map((star, i) => (
                     <StarCard key={star.id} star={star} label={starLabels[i]} onLock={handleLockStar} onRedraw={() => handleRedrawStar(star.id)}/>
                   ))}
@@ -1478,17 +1499,22 @@ export default function App() {
 
           {/* HZ bar */}
           {!active.isRoguePlanet && (
-            <div className="flex-row flex-wrap" style={{ gap: 16, marginBottom: 14, padding: '10px 14px', background: C.PANEL, border: `1px solid ${C.HABITABLE}44`, borderRadius: 4 }}>
+            <div className={active.stars.length === 1 ? 'sheet-hz sheet-hz--single flex-row flex-wrap' : 'sheet-hz flex-row flex-wrap'} style={{ gap: 16, padding: '10px 14px', background: C.PANEL, border: `1px solid ${C.HABITABLE}44`, borderRadius: 4 }}>
               <Label color={C.HABITABLE}>Habitable Zone</Label>
               <span style={{ fontSize: 15, color: C.HABITABLE }}>{active.hz.inner} – {active.hz.outer} AU</span>
               <span className="hint">
                 {active.stars.length > 1
-                  ? 'Combined luminosity of all stars. Per-star HZ shown on star cards.'
+                  ? 'Combined luminosity of all stars. Per-star range is on each star above.'
                   : 'Liquid water range (combined luminosity)'}
               </span>
             </div>
           )}
+          </div>
 
+          {/* Center column. Empty until the orrery is placed here. */}
+          <div className="sheet-orrery" data-sheet-slot="orrery" />
+
+          <div className="sheet-worlds">
           <div style={{ marginBottom: 16 }}>
             <div className="flex-between flex-wrap gap-md" style={{ marginBottom: 10 }}>
               <Label color={C.PRIMARY}>Planetary Bodies ({active.worlds.length})</Label>
@@ -1570,7 +1596,10 @@ export default function App() {
             <Label color={C.PRIMARY}>Export System</Label>
             <div style={{ marginTop: 12 }}><ExportPanel system={active} onImport={handleImportSystem}/></div>
           </div>
-        </>)}
+          </div>
+          </div>
+          </div>
+        )}
 
         {view === 'archive' && (
           <div>
