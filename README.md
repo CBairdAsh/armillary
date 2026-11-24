@@ -90,7 +90,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 | Redraw unlocked cards | ↻ Redraw Free |
 | Change star count | Single / Binary / Triple selector — amber notice appears, confirm with Apply & Redraw |
 | See world detail | DETAILS ▾ on any world card. On a wide screen the physical notes sit beside the life |
-| Desktop sheet | From 1100px the reference stays on the left and the world cards are on the right. Those two columns scroll on their own, and the system type bar stays put. The center column is reserved for the orrery |
+| Desktop sheet | From 1100px the reference stays on the left and the world cards are on the right. The system name and the star are one card. Those two columns scroll on their own, and the system type bar stays put. The center column is reserved for the orrery |
 | Crush a world into a belt | CRUSH on an unlocked world → confirm. Debris stays in that orbit. Atmosphere is lost. This cannot be undone |
 | Eject a world | EJECT on an unlocked world → confirm. That body leaves the ladder and appears under Ejected in the neighborhood. Other orbits stay put. Species that needed sunlight die, and their civilization becomes ruins. A chemosynthetic species on an Ice Planet with a subsurface ocean, or on a Hycean world, stays alive. Hazards that needed the host star are removed. A double planet keeps tidal stress from its companion. This cannot be undone. Belts have no Eject |
 | Destroy a belt | DESTROY on an unlocked asteroid belt → confirm. The belt is removed. Nothing is added to the neighborhood. This cannot be undone |

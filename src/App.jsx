@@ -318,7 +318,7 @@ function NeighborhoodCard({ neighborhood, ejected = [], onLock, onRedraw, onNavi
 function StarCard({ star, label, onLock, onRedraw }) {
   const locked = star.locked;
   return (
-    <div style={{ ...cardStyle(locked, star.color), flex: 1, minWidth: 220 }}>
+    <div className="star-card" style={{ ...cardStyle(locked, star.color), flex: 1, minWidth: 220 }}>
       <div onClick={() => onLock(star.id)} style={{ ...lockStripeStyle(locked, star.color), minHeight: 120 }}/>
       <div className="card-body">
         <div className="flex-between" style={{ marginBottom: 10 }}>
@@ -792,7 +792,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
   };
 
   return (
-    <div style={{ ...panelStyle(), marginBottom: 16 }}>
+    <div className="sheet-overview" style={panelStyle()}>
       {isNeighbor && (
         <div className="flex-row gap-sm" style={{ marginBottom: 12, paddingBottom: 10, borderBottom: `1px solid ${C.BORDER}` }}>
           <button onClick={onBack} style={navBtn(false, C.PRIMARY, true)}>← Back to Primary System</button>
@@ -832,7 +832,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
       )}
 
       <div className="flex-wrap gap-xl align-start">
-        <div>
+        <div className="sheet-star-summary">
           <div className="stat-label">
             {system.isRoguePlanet ? 'ROGUE PLANET' : system.stars.length === 1 ? 'STAR' : system.stars.length === 2 ? 'BINARY' : 'TRIPLE'}
           </div>
@@ -858,7 +858,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
           <div className="stat-label">SAPIENT SPECIES</div>
           <div className="stat-value" style={{ color: C.EXOTIC }}>{totalSpecies}</div>
         </div>
-        <div>
+        <div className="sheet-hz-summary">
           <div className="stat-label">HABITABLE ZONE</div>
           <div style={{ fontSize: 15, color: C.HABITABLE }}>{system.isRoguePlanet ? 'None' : `${system.hz.inner}–${system.hz.outer} AU`}</div>
           {system.stars.length > 1 && !system.isRoguePlanet && (
@@ -1446,6 +1446,7 @@ export default function App() {
           <SystemOverview system={active} isNeighbor={isNeighbor} onBack={handleBack} onRename={handleRename}/>
 
           {!isNeighbor && (
+            <div className="sheet-neighborhood">
             <NeighborhoodCard
               neighborhood={active.neighborhood}
               ejected={active.ejected || []}
@@ -1454,9 +1455,10 @@ export default function App() {
               onNavigate={handleNavigate}
               exploredSystems={neighborSystems}
             />
+            </div>
           )}
 
-          <div style={{ marginBottom: 14 }}>
+          <div className={active.isRoguePlanet ? 'sheet-star-block sheet-star-block--rogue' : 'sheet-star-block'}>
             {active.isRoguePlanet ? (
               <div style={{ padding: '12px 16px', background: C.PANEL, border: `1px solid ${C.PRIMARY}33`, borderRadius: 4 }}>
                 <div className="flex-row gap-sm" style={{ marginBottom: 10 }}>
@@ -1476,7 +1478,7 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="flex-row flex-wrap" style={{ gap: 10 }}>
+                <div className={active.stars.length === 1 ? 'sheet-star-heading sheet-star-heading--single flex-row flex-wrap' : 'sheet-star-heading flex-row flex-wrap'} style={{ gap: 10 }}>
                   <Label color={C.PRIMARY}>
                     {active.stars.length === 1 ? 'Primary Star' : active.stars.length === 2 ? 'Binary System' : 'Triple System'}
                   </Label>
@@ -1497,12 +1499,12 @@ export default function App() {
 
           {/* HZ bar */}
           {!active.isRoguePlanet && (
-            <div className="flex-row flex-wrap" style={{ gap: 16, marginBottom: 14, padding: '10px 14px', background: C.PANEL, border: `1px solid ${C.HABITABLE}44`, borderRadius: 4 }}>
+            <div className={active.stars.length === 1 ? 'sheet-hz sheet-hz--single flex-row flex-wrap' : 'sheet-hz flex-row flex-wrap'} style={{ gap: 16, padding: '10px 14px', background: C.PANEL, border: `1px solid ${C.HABITABLE}44`, borderRadius: 4 }}>
               <Label color={C.HABITABLE}>Habitable Zone</Label>
               <span style={{ fontSize: 15, color: C.HABITABLE }}>{active.hz.inner} – {active.hz.outer} AU</span>
               <span className="hint">
                 {active.stars.length > 1
-                  ? 'Combined luminosity of all stars. Per-star HZ shown on star cards.'
+                  ? 'Combined luminosity of all stars. Per-star range is on each star above.'
                   : 'Liquid water range (combined luminosity)'}
               </span>
             </div>
