@@ -504,6 +504,11 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
           <span style={{ fontSize: 13, color: C.TEXT_DIM }}>T: <span style={{ color: world.temperature > 50 ? C.HAZARD : world.temperature < -50 ? C.COLD : C.TEXT }}>{world.temperature}°C</span></span>
           {world.moons.length > 0 && <span style={{ fontSize: 13, color: C.TEXT_DIM }}>MOONS: <span style={{ color: C.TEXT }}>{world.moons.length}</span></span>}
         </div>
+        {world.biosphere?.label && (
+          <div style={{ marginTop: 6, fontSize: 13, color: C.TEXT_DIM }}>
+            BIOSPHERE: <span style={{ color: C.HABITABLE }}>{world.biosphere.label}</span>
+          </div>
+        )}
         {pendingKind === 'crush' && (
           <div style={{
             marginTop: 10, padding: '10px 14px',

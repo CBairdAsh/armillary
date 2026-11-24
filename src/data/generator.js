@@ -3,8 +3,8 @@
 // system comes through this file, so a seed can replay the same system.
 //
 // A fresh system is built in one pass: neighborhood, stars, habitable zone,
-// orbits, worlds, species, comets. Redraw Free rerolls the unlocked cards
-// and keeps locked ones in the same slot.
+// orbits, worlds, biospheres, species, comets. Redraw Free rerolls the
+// unlocked cards and keeps locked ones in the same slot.
 //
 // Eject removes a world from that ladder and keeps the same body on
 // system.ejected, as a rogue with no host star. The stored orbitalAU is 0
@@ -221,7 +221,7 @@ function resolveWorldType(zone, index, primarySpectralClass, forcedWorldType = n
   return weightedPick(typePool);
 }
 
-function getSpeciesWeightBoosts(worldType, zone, { tidallyLocked = false, tidalResonance = false } = {}) {
+function getSpeciesWeightBoosts(worldType, zone, { tidallyLocked = false, tidalResonance = false, metabolism = null } = {}) {
   const origin = {};
   const sense  = {};
   const social = {};
@@ -253,6 +253,14 @@ function getSpeciesWeightBoosts(worldType, zone, { tidallyLocked = false, tidalR
     social['Networked'] = 1.4;
     disp['Absorbed/Isolated'] = 1.7;
     sense['Thermoreception'] = (sense['Thermoreception'] ?? 1) * 1.8;
+  }
+  // Same scale as the other origin nudges. Oxygenic life is carbon-and-water.
+  // Chemotrophic life favors the sulfur origin that can live without a star.
+  if (metabolism === 'oxygenic') {
+    origin['Carbon-based'] = (origin['Carbon-based'] ?? 1) * 1.5;
+  }
+  if (metabolism === 'chemotrophic') {
+    origin['Sulfur-based'] = (origin['Sulfur-based'] ?? 1) * 2.5;
   }
 
   return { origin, sense, social, body, disp };
@@ -294,9 +302,11 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
 
   // ── Biosignature ────────────────────────────────────────────────────────────
   // Only Hycean worlds in the HZ get a biosignature roll. DMS stays a disputed candidate.
+  // Methane beside oxygen is not drawn: a hydrogen envelope cannot hold free oxygen.
+  // The chance and the pick are still one call each, so later rolls stay put.
   let biosignature = null;
   if (worldType === 'Hycean' && inHZ && getRandom() < BIOSIGNATURE_CHANCE) {
-    biosignature = rndFrom(BIOSIGNATURE_TYPES);
+    biosignature = rndFrom(BIOSIGNATURE_TYPES.filter(type => type.forHycean));
   }
 
   // Hazards
@@ -336,6 +346,7 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
     tidallyLocked,
     tidalResonance,
     biosignature,
+    biosphere:     null, // assigned with species, after the body is fixed
     hazards,
     moons,
     worldNotes:    worldDef.notes || null,
@@ -388,7 +399,83 @@ function speciesContextForWorld(world) {
   return {
     tidallyLocked:  world.tidallyLocked,
     tidalResonance: world.tidalResonance,
+    metabolism:     world.biosphere?.metabolism || null,
   };
+}
+
+/**
+ * Where the biosphere is allowed to live. Oxygenic life needs land or a
+ * sunlit ocean. A hydrogen envelope, and ice, do not sustain free oxygen.
+ * @param {object} world
+ * @returns {'hycean'|'under-ice'|'ice'|'ocean'|'land'}
+ */
+function biosphereSetting(world) {
+  if (world.worldType === 'Hycean') return 'hycean';
+  if (world.hydrosphere === 'Subsurface Ocean') return 'under-ice';
+  if (world.hydrosphere === 'Ice Cap' || world.hydrosphere === 'Ice Sheet') return 'ice';
+  if (world.worldType === 'Ocean Planet' || world.hydrosphere?.startsWith('Global Ocean')) return 'ocean';
+  return 'land';
+}
+
+function metabolismTable(world, complexity) {
+  const setting = biosphereSetting(world);
+  if (setting === 'hycean' || setting === 'under-ice' || setting === 'ice') {
+    return complexity === 'complex'
+      ? [['chemotrophic', 100]]
+      : [['chemotrophic', 60], ['anoxygenic', 40]];
+  }
+  if (complexity === 'complex') {
+    return setting === 'ocean'
+      ? [['oxygenic', 80], ['chemotrophic', 20]]
+      : [['oxygenic', 100]];
+  }
+  return setting === 'ocean'
+    ? [['chemotrophic', 45], ['anoxygenic', 40], ['oxygenic', 15]]
+    : [['chemotrophic', 35], ['anoxygenic', 45], ['oxygenic', 20]];
+}
+
+function biosphereCover(world, complexity, metabolism) {
+  if (complexity === 'none' || !metabolism) return null;
+  if (world.hydrosphere === 'Subsurface Ocean') return 'under ice';
+  if (metabolism === 'oxygenic' && biosphereSetting(world) === 'ocean') return 'plankton skin';
+  if (complexity !== 'complex' || metabolism !== 'oxygenic') return null;
+  const water = world.hydrosphere || '';
+  if (water.startsWith('Arid') || water.startsWith('Dry')) return 'open cover';
+  if (water.startsWith('Moderate')) return 'mixed cover';
+  if (water.startsWith('Wet') || water.startsWith('Oceanic')) return 'closed cover';
+  return null;
+}
+
+function biosphereLabel(complexity, metabolism, cover) {
+  if (complexity === 'none') return 'No life';
+  const head = complexity === 'microbial' ? 'Microbial' : 'Complex';
+  return cover ? `${head} · ${metabolism} · ${cover}` : `${head} · ${metabolism}`;
+}
+
+/**
+ * Complexity, then metabolism. A world that already has people is complex.
+ * Cover is read from the water already on the world.
+ * Rolls happen here, after the body is fixed, so orbits and hazards do not move.
+ * @param {object} world
+ * @param {number} speciesCount
+ * @returns {{ complexity: string, metabolism: string|null, cover: string|null, label: string }}
+ */
+function generateBiosphere(world, speciesCount) {
+  const complexity = speciesCount > 0
+    ? 'complex'
+    : weightedPick([['none', 10], ['microbial', 70], ['complex', 20]]);
+  if (complexity === 'none') {
+    return { complexity, metabolism: null, cover: null, label: 'No life' };
+  }
+  const metabolism = weightedPick(metabolismTable(world, complexity));
+  const cover = biosphereCover(world, complexity, metabolism);
+  return { complexity, metabolism, cover, label: biosphereLabel(complexity, metabolism, cover) };
+}
+
+function biosphereWithComplexity(world, biosphere, complexity) {
+  const metabolism = biosphere?.metabolism || weightedPick(metabolismTable(world, complexity));
+  const cover = biosphereCover(world, complexity, metabolism);
+  return { complexity, metabolism, cover, label: biosphereLabel(complexity, metabolism, cover) };
 }
 
 function assignWorldLife(world, stars) {
@@ -396,18 +483,28 @@ function assignWorldLife(world, stars) {
     world.species = world.species || [];
     return world;
   }
-  if (world.locked && world.species?.length > 0) return world;
+  // A locked card keeps the life already rolled, including a biosphere.
+  if (world.locked && (world.species?.length > 0 || world.biosphere)) return world;
 
-  const ctx   = speciesContextForWorld(world);
   const count = generateSpeciesCount();
-  world.species = Array.from({ length: count }, () =>
-    generateSpecies(world.worldType, world.zone, ctx)
-  );
+  world.biosphere = generateBiosphere(world, count);
 
-  if (count === 0 && !world.ruins) {
-    world.ruins = getRandom() < RUINS_CHANCE ? generateRuins(ruinAgeLimit(world, stars)) : null;
-  } else if (count > 0) {
+  if (world.biosphere.complexity === 'none') {
+    world.species = [];
     world.ruins = null;
+    // The gas roll already happened. A sterile world has no biological source.
+    world.biosignature = null;
+  } else {
+    const ctx = speciesContextForWorld(world);
+    world.species = Array.from({ length: count }, () =>
+      generateSpecies(world.worldType, world.zone, ctx)
+    );
+
+    if (count === 0 && !world.ruins) {
+      world.ruins = getRandom() < RUINS_CHANCE ? generateRuins(ruinAgeLimit(world, stars)) : null;
+    } else if (count > 0) {
+      world.ruins = null;
+    }
   }
 
   world.moons = (world.moons || []).map(moon => {
@@ -449,6 +546,7 @@ function generateCircumbinaryWorld(orbitalAU, combinedHZ, totalLuminosity, index
     tidallyLocked:   false,
     tidalResonance:  false,
     biosignature:    null,
+    biosphere:       null,
     hazards:         ['Stellar perturbation', 'Radiation from multiple sources'],
     moons:           [],
     worldNotes:      'Orbits the combined center of mass of all stars in the system. Tatooine-class world.',
@@ -924,6 +1022,7 @@ export function crushWorld(system, worldId) {
     tidallyLocked:   false,
     tidalResonance:  false,
     biosignature:    null,
+    biosphere:       null,
     hazards:         [...WORLD_HAZARDS['Asteroid Belt']],
     moons:           [],
     species:         [],
@@ -1147,12 +1246,41 @@ function settleEjectedLife(world) {
 }
 
 /**
+ * Sunlight-dependent life dies with the star. A chemotrophic biosphere in a
+ * dark ocean stays. Survivors there are that biosphere, so the line becomes
+ * chemotrophic and complex even if the old line was anoxygenic.
+ * @param {object} world
+ * @param {object[]} survivors
+ * @returns {object|null}
+ */
+function biosphereAfterEjection(world, survivors) {
+  const dark = darkOceanKind(world);
+  if (survivors.length && dark) {
+    const metabolism = 'chemotrophic';
+    const cover = biosphereCover(world, 'complex', metabolism);
+    return {
+      complexity: 'complex',
+      metabolism,
+      cover,
+      label: biosphereLabel('complex', metabolism, cover),
+    };
+  }
+  const bio = world.biosphere;
+  if (!bio) return null;
+  if (bio.complexity === 'none') return bio;
+  if (bio.metabolism === 'chemotrophic' && dark) return bio;
+  return null;
+}
+
+/**
  * Eject an unlocked world from the ladder. Other orbits stay put.
  * The body is appended to system.ejected as a neighborhood rogue that is
  * that world: type, gravity, hydrosphere, and moons stay.
  * Sunlight-dependent species die and their civilization becomes ruins.
  * A chemosynthetic species on an Ice Planet with a subsurface ocean, or on a
  * Hycean world, keeps living and keeps its civilization.
+ * A biosphere that needed sunlight clears. A chemotrophic biosphere in a dark
+ * ocean stays. Survivors there keep a chemotrophic biosphere.
  * Hazards that needed the host star are removed. A double planet keeps tidal
  * stress and an unstable mutual orbit, because the companion is still there.
  * Habitability clears, the zone becomes Fringe, and the rogue world is locked
@@ -1193,6 +1321,7 @@ export function ejectWorld(system, worldId) {
     isCircumbinary:  false,
     // A biosignature with no living species is a reading of a dead world.
     biosignature:    life.species.length ? world.biosignature : null,
+    biosphere:       biosphereAfterEjection(world, life.species),
     locked:          true,
     hazards:         unbound.hazards,
     species:         life.species,
@@ -1423,6 +1552,7 @@ function generateRogueWorld(index = 0) {
     tidallyLocked:   false,
     tidalResonance:  false,
     biosignature:    null,
+    biosphere:       null,
     hazards:         ['Extreme cold', 'No solar energy', 'Radiation from cosmic sources'],
     moons:           [],
     worldNotes:      'Unbound planetary body. Geothermal heat from radioactive decay may sustain subsurface liquid water.',
@@ -1457,24 +1587,45 @@ export function generateRoguePlanetSystem() {
 }
 
 // ─── SPECIES REGENERATION ─────────────────────────────────────────────────────
+// Keeps the metabolism. A new people upgrades the biosphere to complex.
+// A world rolled with no life stays sterile.
 export function regenerateSpeciesForWorld(world, stars) {
   if (!world.isHabitable) return world;
-  const ctx     = speciesContextForWorld(world);
-  const count   = generateSpeciesCount();
-  const species = world.species.map(s =>
-    s.locked ? s : generateSpecies(world.worldType, world.zone, ctx)
+
+  const lockedSpecies = (world.species || []).filter(species => species.locked);
+  if (world.biosphere?.complexity === 'none' && lockedSpecies.length === 0) {
+    return { ...world, species: [], ruins: null };
+  }
+
+  const count = generateSpeciesCount();
+  const people = Math.max(count, lockedSpecies.length);
+  let biosphere = world.biosphere;
+  if (!biosphere) {
+    biosphere = generateBiosphere(world, people);
+  } else if (people > 0 && biosphere.complexity !== 'complex') {
+    biosphere = biosphereWithComplexity(world, biosphere, 'complex');
+  }
+
+  if (biosphere.complexity === 'none') {
+    return { ...world, biosphere, species: [], ruins: null };
+  }
+
+  const next = { ...world, biosphere };
+  const ctx = speciesContextForWorld(next);
+  const species = (world.species || []).map(entry =>
+    entry.locked ? entry : generateSpecies(world.worldType, world.zone, ctx)
   );
   while (species.length < count) {
     species.push(generateSpecies(world.worldType, world.zone, ctx));
   }
   // An unlocked species is a new people, so a typed name is not kept.
   // A locked species is the same people and keeps its name.
-  const finalSpecies = species.slice(0, Math.max(count, species.filter(s => s.locked).length));
-  // If no species left after regen, roll for ruins
+  const finalSpecies = species.slice(0, Math.max(count, lockedSpecies.length));
+  // Ruins roll only while the biosphere is alive and no one is living there.
   const ruins = finalSpecies.length === 0
     ? (getRandom() < RUINS_CHANCE ? generateRuins(ruinAgeLimit(world, stars)) : null)
     : null;
-  return { ...world, species: finalSpecies, ruins };
+  return { ...next, species: finalSpecies, ruins };
 }
 
 // Kepler's third law. P is Earth years, a is AU, M is solar masses.
@@ -1667,6 +1818,7 @@ export function generateTextSummary(system) {
     if (world.tidalResonance) lines.push(`  ⟳ SPIN-ORBIT RESONANCE — slow rotation, extreme day/night temperature swings`);
     if (world.hazards.length) lines.push(`  Hazards: ${world.hazards.join(', ')}`);
     if (world.isHabitable)    lines.push(`  ★ HABITABLE`);
+    if (world.biosphere?.label) lines.push(`  BIOSPHERE: ${world.biosphere.label}`);
     if (world.biosignature)   lines.push(`  🔬 BIOSIGNATURE: ${world.biosignature.label} (${world.biosignature.confidence})`);
     if (world.moons.length)   lines.push(`  Moons: ${world.moons.length} (${world.moons.map(m => m.type).join(', ')})`);
     if (world.debris)         lines.push(`  Debris: ${world.debris}`);

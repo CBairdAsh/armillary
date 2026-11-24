@@ -398,7 +398,9 @@ export function atmosphereWeightPairs(worldDef, spectralClass, zone, worldType) 
 }
 
 // ─── BIOSIGNATURE ─────────────────────────────────────────────────────────────
-// Only rolls on Hycean worlds in HZ
+// Only rolls on Hycean worlds in the habitable zone.
+// A hydrogen envelope cannot hold free oxygen, so methane beside oxygen is
+// kept for an oxygenated world and is not drawn for a Hycean world.
 export const BIOSIGNATURE_CHANCE = 0.08; // 8% — rare but not impossible
 
 export const BIOSIGNATURE_TYPES = [
@@ -408,6 +410,7 @@ export const BIOSIGNATURE_TYPES = [
     description: 'Dimethyl sulfide in the hydrogen atmosphere. On Earth, marine life produces it. A disputed candidate: the signal is easy to mistake for noise, and abiotic sources remain open.',
     confidence:  'Disputed',
     color:       '#88FFCC',
+    forHycean:   true,
   },
   {
     label:       'Methane/Oxygen Co-presence',
@@ -415,6 +418,7 @@ export const BIOSIGNATURE_TYPES = [
     description: 'Simultaneous methane and oxygen in atmosphere. These gases react and destroy each other abiotically — sustained co-presence requires an active biological source.',
     confidence:  'Candidate',
     color:       '#AAFFAA',
+    forHycean:   false,
   },
   {
     label:       'Phosphine',
@@ -422,6 +426,7 @@ export const BIOSIGNATURE_TYPES = [
     description: 'Phosphine detected in temperate atmospheric layer. No known abiotic process produces it at detected concentrations in these conditions.',
     confidence:  'Unconfirmed',
     color:       '#FFFFAA',
+    forHycean:   true,
   },
 ];
 
