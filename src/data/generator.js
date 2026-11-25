@@ -358,6 +358,20 @@ function generateWorld(orbitalAU, hz, starLuminosity, index, primarySpectralClas
 }
 
 // ─── SPECIES GENERATION ───────────────────────────────────────────────────────
+// A port is a place, not a welcome. Only a people already able to leave
+// the world can have one. Transcendent technology does not look like a dock.
+const PORT_TABLES = {
+  Advanced:        [[null, 55], ['Surface', 30], ['Orbital', 15]],
+  Stellar:         [[null, 30], ['Surface', 30], ['Orbital', 40]],
+  'Post-Scarcity': [[null, 25], ['Surface', 25], ['Orbital', 50]],
+};
+
+function rollPort(techLabel) {
+  const table = PORT_TABLES[techLabel];
+  if (!table) return null;
+  return weightedPick(table);
+}
+
 function generateSpecies(worldType, zone, context = {}) {
   const boosts = getSpeciesWeightBoosts(worldType, zone, context);
 
@@ -382,6 +396,7 @@ function generateSpecies(worldType, zone, context = {}) {
     socialDesc:   social.description,
     tech:         tech.label,
     techDesc:     tech.description,
+    port:         rollPort(tech.label),
     disposition:  disposition.label,
     dispositionDesc: disposition.description,
     traits,
@@ -1932,6 +1947,7 @@ export function generateTextSummary(system) {
         lines.push(`      Origin: ${sp.origin} — ${sp.originDesc}`);
         lines.push(`      Body Plan: ${sp.bodyPlan}  |  Primary Sense: ${sp.primarySense}`);
         lines.push(`      Society: ${sp.social}  |  Technology: ${sp.tech}`);
+        if (sp.port) lines.push(`      Port: ${sp.port}`);
         lines.push(`      Disposition: ${sp.disposition}`);
         lines.push(`      Traits: ${sp.traits.join('; ')}`);
       });
@@ -1951,6 +1967,7 @@ export function generateTextSummary(system) {
         lines.push(`    Origin: ${sp.origin} — ${sp.originDesc}`);
         lines.push(`    Body Plan: ${sp.bodyPlan}  |  Primary Sense: ${sp.primarySense}`);
         lines.push(`    Society: ${sp.social}  |  Technology: ${sp.tech}`);
+        if (sp.port) lines.push(`    Port: ${sp.port}`);
         lines.push(`    Disposition: ${sp.disposition}`);
         lines.push(`    Traits: ${sp.traits.join('; ')}`);
       });

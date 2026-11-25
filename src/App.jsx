@@ -755,6 +755,11 @@ function SpeciesCard({ species, index, onRename }) {
         <Tag color={C.HABITABLE}>{species.tech}</Tag>
         <Tag color={dispColor}>{species.disposition}</Tag>
       </div>
+      {species.port && (
+        <div style={{ marginTop: -4, marginBottom: 12, fontSize: 13, color: C.TEXT_DIM }}>
+          PORT: <span style={{ color: C.PRIMARY }}>{species.port}</span>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', marginBottom: 12 }}>
         <DataPair label="Biological Origin" value={species.origin}        color={C.TEXT}/>
         <DataPair label="Body Plan"         value={species.bodyPlan}      color={C.TEXT}/>
