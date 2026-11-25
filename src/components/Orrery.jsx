@@ -31,7 +31,7 @@ const FIT = { z: 1, x: 0, y: 0, pitch: 0 };
 const ZOOM_MIN = 0.65;
 const ZOOM_MAX = 5.5;
 const ZOOM_STEP = 1.4;
-const PITCH_MAX = 64;
+const PITCH_MAX = 80;
 const PITCH_STEP = 8;
 
 function zoneColor(zone) {
