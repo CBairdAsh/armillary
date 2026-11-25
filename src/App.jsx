@@ -425,8 +425,8 @@ function InsertSlot({ slot, armed, onArm, onConfirm, onCancel }) {
 function MoonLifeBlock({ moon, unbound, onRenameSpecies, onGenerateSpecies }) {
   const species = moon.species || [];
   return (
-    <div style={{ marginTop: 10, background: C.PANEL_ALT, border: `1px solid ${C.HABITABLE}33`, borderRadius: 3, padding: '12px 14px' }}>
-      <div className="flex-between" style={{ marginBottom: 8 }}>
+    <div className="moon-life-card" style={{ background: C.PANEL_ALT, border: `1px solid ${C.HABITABLE}33`, borderRadius: 3, padding: '12px 14px' }}>
+      <div className="moon-life-head">
         <Label color={C.HABITABLE}>Moon {moon.index + 1} · {moon.type}</Label>
         {moon.canSupportLife && !unbound && (
           <button type="button" onClick={onGenerateSpecies} style={navBtn(false, C.HABITABLE, true)}>↻ Regen Species</button>
@@ -629,7 +629,7 @@ function WorldCard({ world, index, stars = [], separation = null, selected = fal
             </div>
           </div>
         )}
-        {/* Expanded. On desktop the physical notes sit left of the life. */}
+        {/* Expanded. Notes, barren moons, then each life-bearing moon, then this world's people. */}
         {expanded && (
           <div style={{ marginTop: 12 }}>
             <Divider label="DETAIL"/>
@@ -699,7 +699,7 @@ function WorldCard({ world, index, stars = [], separation = null, selected = fal
                 <div className="world-detail-life">
                   {livingMoons.length > 0 && (
                     <div style={{ marginBottom: 12 }}>
-                      <Label>Moons ({world.moons.length})</Label>
+                      <Label>{barrenMoons.length > 0 ? 'Life-bearing moons' : `Moons (${world.moons.length})`}</Label>
                       <div className="world-life-moons">
                         {livingMoons.map(moon => (
                           <MoonLifeBlock
