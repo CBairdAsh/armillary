@@ -13,6 +13,7 @@
 
 import { getRandom, runWithSeed, generateRandomSeed } from './rng.js';
 import { APP_VERSION } from '../config.js';
+import { apparentSuns, sunMeasure } from './orrery.js';
 import {
   SPECTRAL_CLASSES,
   WORLD_TYPE_BY_ZONE,
@@ -1988,6 +1989,9 @@ export function generateTextSummary(system) {
     });
     for (const line of formatSeparation(system.separation)) lines.push(line);
     lines.push(`Habitable Zone: ${hz.inner}–${hz.outer} AU`);
+    if (stars.length > 1) {
+      lines.push('Apparent solar size is given for an orbit that encloses the stars.');
+    }
   }
   lines.push('');
 
@@ -2012,6 +2016,8 @@ export function generateTextSummary(system) {
     lines.push(`[${i + 1}] ${title} at ${place}${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 ? ' ★ PULSAR ORBIT' : ''}`);
     lines.push(`  Atmosphere: ${world.atmosphere}  |  Hydrosphere: ${world.hydrosphere}`);
     lines.push(`  Gravity: ${world.gravity}g  |  Temperature: ${world.temperature}°C`);
+    const sun = sunMeasure(apparentSuns(world, stars, system.separation));
+    if (sun) lines.push(`  Sun: ${sun}`);
     if (world.tidallyLocked)  lines.push(`  ⟳ TIDALLY LOCKED — permanent day/night hemispheres`);
     if (world.tidalResonance) lines.push(`  ⟳ SPIN-ORBIT RESONANCE — slow rotation, extreme day/night temperature swings`);
     if (world.hazards.length) lines.push(`  Hazards: ${world.hazards.join(', ')}`);
