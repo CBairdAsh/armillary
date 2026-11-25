@@ -27,10 +27,12 @@ const ZONE_FALLBACK = {
   FRINGE: '#6a8aa0',
 };
 
-const FIT = { z: 1, x: 0, y: 0 };
+const FIT = { z: 1, x: 0, y: 0, pitch: 0 };
 const ZOOM_MIN = 0.65;
 const ZOOM_MAX = 5.5;
 const ZOOM_STEP = 1.4;
+const PITCH_MAX = 64;
+const PITCH_STEP = 8;
 
 function zoneColor(zone) {
   return ZONE_COLORS[zone] || ZONE_FALLBACK[zone] || '#7B9BAF';
@@ -106,6 +108,11 @@ function viewDelta(svg, fromX, fromY, toX, toY) {
 
 function isFit(view) {
   return Math.abs(view.z - 1) < 0.02 && Math.abs(view.x) < 0.6 && Math.abs(view.y) < 0.6;
+}
+
+function formatPitch(pitch) {
+  const degrees = Math.round(pitch || 0);
+  return degrees < 1 ? 'TOP' : `${degrees}°`;
 }
 
 function formatZoom(zoom) {
@@ -448,23 +455,10 @@ function starLabelSingle(system) {
   return system.stars?.[0]?.spectralClass || '';
 }
 
-function annulus(cx, cy, r0, r1) {
-  const inner = Math.min(r0, r1);
-  const outer = Math.max(r1, inner + 0.8);
-  return [
-    `M ${cx + outer} ${cy}`,
-    `A ${outer} ${outer} 0 1 0 ${cx - outer} ${cy}`,
-    `A ${outer} ${outer} 0 1 0 ${cx + outer} ${cy}`,
-    `M ${cx + inner} ${cy}`,
-    `A ${inner} ${inner} 0 1 1 ${cx - inner} ${cy}`,
-    `A ${inner} ${inner} 0 1 1 ${cx + inner} ${cy}`,
-    'Z',
-  ].join(' ');
-}
-
 /**
- * Face-on instrument for one system. A rogue renders nothing, so the
- * center column stays shut. The plate zooms and pans. The geometry does not.
+ * Instrument for one system. A rogue renders nothing, so the center
+ * column stays shut. The plate zooms, pans, and pitches. The distances
+ * do not change. Pitch is the camera, not an orbit's inclination.
  */
 export default function Orrery({ system, selectedId, onSelect, onClear }) {
   const [hoverId, setHoverId] = useState(null);
@@ -493,11 +487,12 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
       z: zoom,
       x: clamp(next.x, -roomX, roomX),
       y: clamp(next.y, -roomY, roomY),
+      pitch: clamp(next.pitch || 0, 0, PITCH_MAX),
     };
   }
 
   const alive = !!(system && !system.isRoguePlanet && system.stars?.length);
-  const frame = alive ? buildOrrery(system, selectedId) : null;
+  const frame = alive ? buildOrrery(system, selectedId, view.pitch) : null;
   frameRef.current = frame;
 
   useEffect(() => {
@@ -573,7 +568,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
     const held = worldAt(screen, current, place);
     const zoom = clamp(current.z * factor, ZOOM_MIN, ZOOM_MAX);
     const pan = panToHold(held, screen, zoom, place);
-    setView(clampView({ z: zoom, x: pan.x, y: pan.y }));
+    setView(clampView({ z: zoom, x: pan.x, y: pan.y, pitch: current.pitch }));
   }
 
   function zoomBy(factor) {
@@ -583,6 +578,17 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
   function nudge(dx, dy) {
     const current = viewRef.current;
     setView(clampView({ ...current, x: current.x + dx, y: current.y + dy }));
+  }
+
+  function fitFrame() {
+    setView({ ...FIT, pitch: viewRef.current.pitch || 0 });
+  }
+
+  function pitchBy(delta) {
+    const current = viewRef.current;
+    const next = clampView({ ...current, pitch: (current.pitch || 0) + delta });
+    viewRef.current = next;
+    setView(next);
   }
 
   function onKey(event) {
@@ -597,7 +603,13 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
       zoomBy(1 / ZOOM_STEP);
     } else if (event.key === '0' || event.key === 'Home') {
       event.preventDefault();
-      setView(FIT);
+      fitFrame();
+    } else if (event.key === '[') {
+      event.preventDefault();
+      pitchBy(-PITCH_STEP);
+    } else if (event.key === ']') {
+      event.preventDefault();
+      pitchBy(PITCH_STEP);
     } else if (event.key === 'ArrowLeft') {
       event.preventDefault();
       nudge(step, 0);
@@ -660,7 +672,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
       const mid = clientToViewBox(svg, (pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
       const zoom = clamp(pinchRef.current.z * (dist / pinchRef.current.dist), ZOOM_MIN, ZOOM_MAX);
       const pan = panToHold(pinchRef.current.world, mid, zoom, origin);
-      setView(clampView({ z: zoom, x: pan.x, y: pan.y }));
+      setView(clampView({ z: zoom, x: pan.x, y: pan.y, pitch: viewRef.current.pitch }));
       return;
     }
     const drag = dragRef.current;
@@ -672,7 +684,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
     }
     drag.moved = true;
     setDragging(true);
-    setView(clampView({ z: viewRef.current.z, x: drag.px + delta.x, y: drag.py + delta.y }));
+    setView(clampView({ z: viewRef.current.z, x: drag.px + delta.x, y: drag.py + delta.y, pitch: viewRef.current.pitch }));
   }
 
   function endPointer(event) {
@@ -687,7 +699,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
 
   function onDoubleClick(event) {
     if (event.target.closest?.('[data-orrery-world]')) return;
-    setView(FIT);
+    fitFrame();
   }
 
   const box = skyViewBox(frame, metrics);
@@ -704,7 +716,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
           preserveAspectRatio="xMidYMid meet"
           overflow="hidden"
           role="group"
-          aria-label="System orrery. Drag to pan. Scroll or use the zoom controls. Double-click empty sky to fit."
+          aria-label="System orrery. Drag to pan. Scroll or use the zoom controls. Raise the view to see a tilted orbit. Double-click empty sky to fit."
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={endPointer}
@@ -716,18 +728,16 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
           <g transform={plate}>
             {frame.hz && (
               <path
-                d={annulus(frame.cx, frame.cy, frame.hz.rInner, frame.hz.rOuter)}
+                d={frame.hz.bandPath}
                 fill={C.HABITABLE || '#4CAF7D'}
                 fillOpacity="0.10"
                 fillRule="evenodd"
               />
             )}
-            {frame.hz && [frame.hz.rInner, frame.hz.rOuter].map(radius => (
-              <circle
-                key={radius}
-                cx={frame.cx}
-                cy={frame.cy}
-                r={radius}
+            {frame.hz && [frame.hz.innerPath, frame.hz.outerPath].map(path => (
+              <path
+                key={path}
+                d={path}
                 fill="none"
                 stroke={C.HABITABLE || '#4CAF7D'}
                 strokeOpacity="0.4"
@@ -739,12 +749,10 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
               <line x1={frame.cx - 4} y1={frame.cy} x2={frame.cx + 4} y2={frame.cy} vectorEffect="non-scaling-stroke" />
               <line x1={frame.cx} y1={frame.cy - 4} x2={frame.cx} y2={frame.cy + 4} vectorEffect="non-scaling-stroke" />
             </g>
-            {frame.stars.map(star => star.ringR > 0 && (
-              <circle
+            {frame.stars.map(star => star.ringPath && (
+              <path
                 key={`orbit-${star.label}`}
-                cx={frame.cx}
-                cy={frame.cy}
-                r={star.ringR}
+                d={star.ringPath}
                 fill="none"
                 stroke={star.color}
                 strokeOpacity="0.35"
@@ -754,19 +762,9 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
             ))}
             {frame.bodies.map(body => (
               <g key={`ring-${body.id}`} pointerEvents="none">
-                <circle
-                  className={ringClass(body, hoverId)}
-                  cx={frame.cx}
-                  cy={frame.cy}
-                  r={body.ringR}
-                />
-                {body.circumbinary && (
-                  <circle
-                    className={ringClass(body, hoverId)}
-                    cx={frame.cx}
-                    cy={frame.cy}
-                    r={body.ringR + 3}
-                  />
+                <path className={ringClass(body, hoverId)} d={body.path} />
+                {body.outerPath && (
+                  <path className={ringClass(body, hoverId)} d={body.outerPath} />
                 )}
               </g>
             ))}
@@ -811,8 +809,8 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
               <g key={`label-${body.id}`} pointerEvents="none">
                 {body.selected && (
                   <line
-                    x1={frame.cx + Math.cos(frame.labelAngle) * body.ringR}
-                    y1={frame.cy + Math.sin(frame.labelAngle) * body.ringR}
+                    x1={body.ringX}
+                    y1={body.ringY}
                     x2={body.label.anchor === 'start' ? body.label.x - 4 : body.label.x + 4}
                     y2={body.label.y}
                     stroke={C.BORDER_HI}
@@ -843,7 +841,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
                   transform={`translate(${body.markX} ${body.markY})`}
                   role="button"
                   tabIndex={0}
-                  aria-label={`[${body.index + 1}] ${name}, ${body.au} AU`}
+                  aria-label={`[${body.index + 1}] ${name}, ${body.au} AU${body.inclination ? `, inclined ${body.inclination}°` : ''}`}
                   aria-pressed={body.selected}
                   onMouseEnter={() => setHoverId(body.id)}
                   onMouseLeave={() => setHoverId(current => (current === body.id ? null : current))}
@@ -887,12 +885,33 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
           </button>
           <button
             type="button"
-            onClick={() => setView(FIT)}
+            onClick={fitFrame}
             disabled={fitted}
             aria-label="Fit the system"
             title="Fit the system"
           >
             FIT
+          </button>
+        </div>
+        <div className="orrery-nav orrery-pitch">
+          <button
+            type="button"
+            onClick={() => pitchBy(-PITCH_STEP)}
+            disabled={(view.pitch || 0) <= 0.5}
+            aria-label="Flatten the view"
+            title="Flatten the view"
+          >
+            −
+          </button>
+          <span className="orrery-zoom" aria-hidden="true">{formatPitch(view.pitch)}</span>
+          <button
+            type="button"
+            onClick={() => pitchBy(PITCH_STEP)}
+            disabled={(view.pitch || 0) >= PITCH_MAX - 0.5}
+            aria-label="Raise the view"
+            title="Raise the view"
+          >
+            +
           </button>
         </div>
       </div>

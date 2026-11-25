@@ -13,7 +13,8 @@
 
 import { getRandom, runWithSeed, generateRandomSeed } from './rng.js';
 import { APP_VERSION } from '../config.js';
-import { apparentSuns, sunMeasure } from './orrery.js';
+import { apparentSuns, formatAU, sunMeasure } from './orrery.js';
+import { diskTilt, orbitCrossing, worldOrbit, INCLINATION_PRINT_DEGREES } from './orbit.js';
 import {
   SPECTRAL_CLASSES,
   WORLD_TYPE_BY_ZONE,
@@ -1964,6 +1965,48 @@ export function worldSpinLabel(world, stars) {
   return `${unbound ? 'spin' : 'day'} ${period}`;
 }
 
+/**
+ * Inclination, and perihelion and aphelion when the orbit is eccentric.
+ * Null when the tilt is under 5°, which is the flat disk.
+ * @param {object} world
+ * @param {Array} stars
+ * @returns {string|null}
+ */
+export function worldOrbitLabel(world, stars) {
+  const orbit = worldOrbit(world, stars);
+  if (!orbit) return null;
+  const degrees = Math.round(orbit.inclination);
+  if (degrees < INCLINATION_PRINT_DEGREES) return null;
+  if (!(orbit.eccentricity > 0)) return `i ${degrees}°`;
+  return `i ${degrees}° · peri ${formatAU(orbit.perihelion)} AU · aph ${formatAU(orbit.aphelion)} AU`;
+}
+
+/**
+ * One line when this orbit crosses the next body inward.
+ * @param {object} world
+ * @param {Array} worlds
+ * @param {Array} stars
+ * @returns {string|null}
+ */
+export function orbitCrossingNote(world, worlds, stars) {
+  const inner = orbitCrossing(world, worlds, stars);
+  if (!inner) return null;
+  const name = inner.world.name || `[${inner.index + 1}] ${inner.world.worldType}`;
+  return `Crosses ${name}. A resonance keeps them apart.`;
+}
+
+/**
+ * The disk against the star's equator. Null when they still agree.
+ * @param {object} system
+ * @returns {string|null}
+ */
+export function diskTiltLabel(system) {
+  const tilt = diskTilt(system);
+  if (!tilt) return null;
+  if (tilt.retrograde) return `The planets orbit retrograde, ${tilt.degrees}° from the star's equator.`;
+  return `The planetary plane is tilted ${tilt.degrees}° to the star's equator.`;
+}
+
 // ─── TEXT EXPORT ──────────────────────────────────────────────────────────────
 export function generateTextSummary(system) {
   const lines = [];
@@ -2045,6 +2088,8 @@ export function generateTextSummary(system) {
   }
   const relation = livingWorldsRelation(system);
   if (relation) lines.push(relation.text);
+  const tilt = diskTiltLabel(system);
+  if (tilt) lines.push(tilt);
   lines.push('');
 
   // Comets
@@ -2066,6 +2111,10 @@ export function generateTextSummary(system) {
       : `${world.orbitalAU} AU${year ? ` · year ${year}` : ''}${spin ? ` · ${spin}` : ''} (${world.zone.replace('_', ' ')})`;
     const title = world.name ? `${world.name} — ${world.worldType}` : world.worldType;
     lines.push(`[${i + 1}] ${title} at ${place}${world.isCircumbinary ? ' ★ CIRCUMBINARY' : ''}${world.worldType === 'Pulsar Planet' && world.orbitalAU > 0 ? ' ★ PULSAR ORBIT' : ''}`);
+    const orbitLabel = worldOrbitLabel(world, stars);
+    if (orbitLabel) lines.push(`  Orbit: ${orbitLabel}`);
+    const crossing = orbitCrossingNote(world, worlds, stars);
+    if (crossing) lines.push(`  ${crossing}`);
     lines.push(`  Atmosphere: ${world.atmosphere}  |  Hydrosphere: ${world.hydrosphere}`);
     lines.push(`  Gravity: ${world.gravity}g  |  Temperature: ${world.temperature}°C`);
     const sun = sunMeasure(apparentSuns(world, stars, system.separation));

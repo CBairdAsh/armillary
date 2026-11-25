@@ -1,7 +1,9 @@
-// The orrery is a face-on schematic of one system. Positions are the
-// distances already stored: world AU, habitable zone, stellar separation.
-// Nothing here assigns a world to one star, and nothing picks a place
-// along an orbit. A mark sits on its ring so the ring can be selected.
+// The orrery is a schematic of one system. Distances are the AU already
+// stored: world orbit, habitable zone, stellar separation. Nothing here
+// assigns a world to one star. A mark sits on its ring so the ring can
+// be selected. The view starts face-on and can pitch toward the edge, so
+// a tilted orbit separates from the disk. The pitch is a camera angle.
+// It is not the orbit's inclination.
 //
 // Ring radius is logarithmic. A linear drawing hides the inner worlds
 // behind a companion at hundreds of AU. The labels stay in AU.
@@ -15,6 +17,7 @@
 // the ladder does not record that.
 
 import { SPECTRAL_CLASSES } from './stellarData.js';
+import { worldOrbit } from './orbit.js';
 
 const SOL_TEMPERATURE_K = 5772;
 const SOLAR_RADIUS_AU = 0.00465047;
@@ -221,6 +224,103 @@ function radiusFor(au, scale) {
   return scale.rMin + clamped * (scale.rMax - scale.rMin);
 }
 
+const ORBIT_SAMPLES = 72;
+
+function orbitElements(world, stars) {
+  const orbit = world && stars ? worldOrbit(world, stars) : null;
+  return {
+    a: world?.orbitalAU || 0,
+    e: orbit?.eccentricity || 0,
+    i: (orbit?.inclination || 0) * Math.PI / 180,
+    node: orbit?.node || 0,
+    peri: orbit?.periapsis || 0,
+    inclination: orbit?.inclination || 0,
+  };
+}
+
+function orbitVector(elements, anomaly) {
+  const e = elements.e;
+  const radius = e > 0
+    ? (elements.a * (1 - e * e)) / (1 + e * Math.cos(anomaly))
+    : elements.a;
+  const cPeri = Math.cos(elements.peri);
+  const sPeri = Math.sin(elements.peri);
+  const x0 = radius * Math.cos(anomaly);
+  const y0 = radius * Math.sin(anomaly);
+  const x1 = x0 * cPeri - y0 * sPeri;
+  const y1 = x0 * sPeri + y0 * cPeri;
+  const cInc = Math.cos(elements.i);
+  const sInc = Math.sin(elements.i);
+  const y2 = y1 * cInc;
+  const z2 = y1 * sInc;
+  const cNode = Math.cos(elements.node);
+  const sNode = Math.sin(elements.node);
+  return {
+    x: x1 * cNode - y2 * sNode,
+    y: x1 * sNode + y2 * cNode,
+    z: z2,
+  };
+}
+
+function projectVector(vector, scale, pitch) {
+  const rho = Math.hypot(vector.x, vector.y, vector.z);
+  if (!(rho > 0)) return { x: scale.cx, y: scale.cy };
+  const radial = radiusFor(rho, scale);
+  const x = vector.x / rho * radial;
+  const y = vector.y / rho * radial;
+  const z = vector.z / rho * radial;
+  const beta = (pitch || 0) * Math.PI / 180;
+  return {
+    x: scale.cx + x,
+    y: scale.cy + y * Math.cos(beta) - z * Math.sin(beta),
+  };
+}
+
+function ringPoints(elements, scale, pitch) {
+  const points = [];
+  for (let step = 0; step < ORBIT_SAMPLES; step += 1) {
+    const anomaly = (step / ORBIT_SAMPLES) * Math.PI * 2;
+    points.push(projectVector(orbitVector(elements, anomaly), scale, pitch));
+  }
+  return points;
+}
+
+function diskElements(au) {
+  return { a: au, e: 0, i: 0, node: 0, peri: 0, inclination: 0 };
+}
+
+function ringPath(points) {
+  if (!points.length) return '';
+  const body = points.map((point, index) => (
+    `${index ? 'L' : 'M'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+  )).join(' ');
+  return `${body} Z`;
+}
+
+function growPoints(points, scale, pixels) {
+  return points.map(point => {
+    const dx = point.x - scale.cx;
+    const dy = point.y - scale.cy;
+    const distance = Math.hypot(dx, dy) || 1;
+    return {
+      x: point.x + (dx / distance) * pixels,
+      y: point.y + (dy / distance) * pixels,
+    };
+  });
+}
+
+function labelFrom(point, scale) {
+  const dx = point.x - scale.cx;
+  const dy = point.y - scale.cy;
+  const distance = Math.hypot(dx, dy) || 1;
+  const pad = 12;
+  return {
+    x: Math.min(scale.width - pad, Math.max(pad, point.x + (dx / distance) * 14)),
+    y: Math.min(scale.height - pad, Math.max(pad, point.y + (dy / distance) * 14)),
+    anchor: dx >= 0 ? 'start' : 'end',
+  };
+}
+
 function pointOn(au, angle, scale) {
   const r = au > 0 ? radiusFor(au, scale) : 0;
   return {
@@ -241,25 +341,12 @@ function nudgeAngle(angle, blocked) {
   return next;
 }
 
-function placeLabels(items, scale, angle) {
-  const sorted = [...items].sort((a, b) => a.r - b.r);
-  let lastY = Infinity;
+function settleLabels(items) {
+  const sorted = [...items].sort((a, b) => a.y - b.y);
+  let lastY = -Infinity;
   for (const item of sorted) {
-    let r = item.r + 9;
-    let x = scale.cx + Math.cos(angle) * r;
-    let y = scale.cy + Math.sin(angle) * r;
-    let guard = 0;
-    while (Math.abs(y - lastY) < 13 && guard < 8) {
-      r += 7;
-      x = scale.cx + Math.cos(angle) * r;
-      y = scale.cy + Math.sin(angle) * r;
-      guard += 1;
-    }
-    const pad = 12;
-    item.x = Math.min(scale.width - pad, Math.max(pad, x));
-    item.y = Math.min(scale.height - pad, Math.max(pad, y));
-    item.anchor = Math.cos(angle) >= 0 ? 'start' : 'end';
-    lastY = y;
+    if (item.y - lastY < 13) item.y = lastY + 13;
+    lastY = item.y;
   }
   return items;
 }
@@ -308,8 +395,9 @@ function shortName(world) {
  * Layout for the instrument. Distances are in AU. x and y are in the viewBox.
  * @param {{ stars?: Array, worlds?: Array, separation?: Array|null, hz?: { inner: number, outer: number } }} system
  * @param {string|null} selectedId
+ * @param {number} [pitch]
  */
-export function buildOrrery(system, selectedId = null) {
+export function buildOrrery(system, selectedId = null, pitch = 0) {
   const stars = system?.stars || [];
   const worlds = (system?.worlds || [])
     .map((world, index) => ({ world, index }))
@@ -345,13 +433,16 @@ export function buildOrrery(system, selectedId = null) {
 
   const bodyLabels = [];
   const bodies = worlds.map((entry, index) => {
-    const ring = pointOn(entry.world.orbitalAU, 0, scale);
+    const elements = orbitElements(entry.world, stars);
+    const points = ringPoints(elements, scale, pitch);
     const angle = bodyAngles[index];
-    const mark = pointOn(entry.world.orbitalAU, angle, scale);
+    const mark = projectVector(orbitVector(elements, angle), scale, pitch);
+    const onRing = projectVector(orbitVector(elements, WORLD_LABEL_ANGLE), scale, pitch);
     const selected = entry.world.id === selectedId;
     const showLabel = labeled.has(entry.world.id);
+    const degrees = Math.round(elements.inclination);
     const label = showLabel ? {
-      r: ring.r,
+      ...labelFrom(onRing, scale),
       text: selected
         ? `${shortName(entry.world)}  ${formatAU(entry.world.orbitalAU)}`
         : formatAU(entry.world.orbitalAU),
@@ -367,27 +458,32 @@ export function buildOrrery(system, selectedId = null) {
       circumbinary: !!entry.world.isCircumbinary,
       belt: entry.world.worldType === 'Asteroid Belt',
       au: entry.world.orbitalAU,
-      ringR: ring.r,
+      inclination: degrees >= 5 ? degrees : 0,
+      path: ringPath(points),
+      outerPath: entry.world.isCircumbinary ? ringPath(growPoints(points, scale, 3)) : null,
       markX: mark.x,
       markY: mark.y,
+      ringX: onRing.x,
+      ringY: onRing.y,
       selected,
       label,
     };
   });
-  placeLabels(bodyLabels, scale, WORLD_LABEL_ANGLE);
+  settleLabels(bodyLabels);
 
   let hzLayout = null;
   if (hz?.inner > 0 && hz?.outer > 0) {
-    const innerR = radiusFor(hz.inner, scale);
-    const outerR = radiusFor(hz.outer, scale);
-    const labels = [
-      { r: innerR, text: formatAU(hz.inner) },
-      { r: Math.max(outerR, innerR + 1), text: formatAU(hz.outer) },
-    ];
-    placeLabels(labels, scale, HZ_LABEL_ANGLE);
+    const innerPoints = ringPoints(diskElements(hz.inner), scale, pitch);
+    const outerPoints = ringPoints(diskElements(hz.outer), scale, pitch);
+    const labels = [hz.inner, hz.outer].map(au => {
+      const at = projectVector(orbitVector(diskElements(au), HZ_LABEL_ANGLE), scale, pitch);
+      return { ...labelFrom(at, scale), text: formatAU(au) };
+    });
+    settleLabels(labels);
     hzLayout = {
-      rInner: Math.min(innerR, outerR),
-      rOuter: Math.max(outerR, innerR + 1.2),
+      innerPath: ringPath(innerPoints),
+      outerPath: ringPath(outerPoints),
+      bandPath: `${ringPath(outerPoints)} ${ringPath([...innerPoints].reverse())}`,
       labels,
     };
   }
@@ -405,6 +501,7 @@ export function buildOrrery(system, selectedId = null) {
       x: at.x,
       y: at.y,
       ringR: at.r,
+      ringPath: at.r > 0 ? ringPath(ringPoints(diskElements(Math.abs(entry.xAU)), scale, pitch)) : '',
       r: starDiscRadius(entry.star, index),
       unknown: entry.unknown,
     };
@@ -438,6 +535,5 @@ export function buildOrrery(system, selectedId = null) {
     hz: hzLayout,
     stars: fittedStars,
     bodies,
-    labelAngle: WORLD_LABEL_ANGLE,
   };
 }

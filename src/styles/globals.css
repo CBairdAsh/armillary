@@ -507,6 +507,7 @@ input, button, select, textarea {
   position: absolute;
   top: 6px;
   right: 6px;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -539,6 +540,11 @@ input, button, select, textarea {
 .orrery-nav button:disabled {
   opacity: 0.38;
   cursor: default;
+}
+
+.orrery-pitch {
+  left: 6px;
+  right: auto;
 }
 
 .orrery-zoom {
