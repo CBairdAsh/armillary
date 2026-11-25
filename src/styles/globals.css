@@ -432,6 +432,7 @@ input, button, select, textarea {
     max-height: none;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 }
 
@@ -670,26 +671,49 @@ input, button, select, textarea {
 }
 
 @media (min-width: 1600px) {
+  /* The sky is the cell. The readout and the sun plate float on it, so a
+     zoom clips at the column edge instead of at a smaller frame. */
   .sheet-orrery .orrery {
+    position: relative;
     flex: 1;
     width: 100%;
     max-width: none;
     height: 100%;
     min-height: 0;
-    margin-bottom: 0;
-    justify-content: center;
+    margin: 0;
+    padding: 0;
+    gap: 0;
   }
 
   .sheet-orrery .orrery-stage {
-    width: min(100%, 520px);
-    align-self: center;
-    max-height: calc(100% - 168px);
+    position: absolute;
+    inset: 0;
+    width: auto;
+    max-height: none;
   }
 
   .sheet-orrery .orrery-sky {
+    position: absolute;
+    inset: 0;
     width: 100%;
-    height: auto;
-    max-height: calc(100% - 168px);
+    height: 100%;
+    max-height: none;
+  }
+
+  .sheet-orrery .orrery-nav {
+    z-index: 1;
+  }
+
+  .sheet-orrery .orrery-side {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    z-index: 1;
+    padding: 8px 10px 6px;
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
   }
 }
 

@@ -112,6 +112,28 @@ function formatZoom(zoom) {
   return `${zoom.toFixed(1)}×`;
 }
 
+// The fitted system keeps its own coordinates. The viewBox grows to the
+// sky element, so the clip is the cell, and the lower register can float
+// over that sky without cutting the rings.
+function skyViewBox(frame, metrics) {
+  const native = { x: 0, y: 0, width: frame.width, height: frame.height };
+  if (!metrics || metrics.width < 40 || metrics.height < 40) return native;
+  const pad = 16;
+  const chrome = Math.min(Math.max(0, metrics.chrome), metrics.height * 0.62);
+  const availW = Math.max(80, metrics.width - pad * 2);
+  const availH = Math.max(80, metrics.height - chrome - pad);
+  const scale = Math.min(availW / frame.width, availH / frame.height);
+  if (!(scale > 0)) return native;
+  const width = metrics.width / scale;
+  const height = metrics.height / scale;
+  return {
+    x: frame.cx - (metrics.width / 2) / scale,
+    y: frame.cy - (pad + availH / 2) / scale,
+    width,
+    height,
+  };
+}
+
 function starFace(color, spectralClass) {
   if (spectralClass === 'WD' || spectralClass === 'NS') return mixHex(color, '#ffffff', 0.78);
   if (spectralClass === 'BD') return mixHex(color, '#ffffff', 0.12);
@@ -449,8 +471,11 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
   const [view, setView] = useState(FIT);
   const [dragging, setDragging] = useState(false);
   const skyRef = useRef(null);
+  const sideRef = useRef(null);
   const frameRef = useRef(null);
+  const boxRef = useRef(null);
   const viewRef = useRef(view);
+  const [metrics, setMetrics] = useState(null);
   const dragRef = useRef(null);
   const pointers = useRef(new Map());
   const pinchRef = useRef(null);
@@ -458,13 +483,16 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
 
   function clampView(next) {
     const plate = frameRef.current;
-    if (!plate) return next;
+    const box = boxRef.current;
+    if (!plate || !box) return next;
     const zoom = clamp(next.z, ZOOM_MIN, ZOOM_MAX);
-    const reach = Math.max(plate.width, plate.height) * 0.46 * zoom;
+    const span = 210 * Math.max(0, zoom - 1);
+    const roomX = Math.max(12, box.width / 2 - 28) + span;
+    const roomY = Math.max(12, box.height / 2 - 28) + span;
     return {
       z: zoom,
-      x: clamp(next.x, -reach, reach),
-      y: clamp(next.y, -reach, reach),
+      x: clamp(next.x, -roomX, roomX),
+      y: clamp(next.y, -roomY, roomY),
     };
   }
 
@@ -496,6 +524,30 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
     node.addEventListener('wheel', onWheel, { passive: false });
     return () => node.removeEventListener('wheel', onWheel);
   }, [system?.id, alive]);
+
+  useEffect(() => {
+    const sky = skyRef.current;
+    const side = sideRef.current;
+    if (!sky) return undefined;
+    const measure = () => {
+      const rect = sky.getBoundingClientRect();
+      const sideRect = side?.getBoundingClientRect();
+      const overlap = sideRect ? Math.max(0, Math.min(rect.height, rect.bottom - sideRect.top)) : 0;
+      const next = { width: rect.width, height: rect.height, chrome: overlap };
+      setMetrics(prev => {
+        if (!prev) return next;
+        const same = Math.abs(prev.width - next.width) < 0.5
+          && Math.abs(prev.height - next.height) < 0.5
+          && Math.abs(prev.chrome - next.chrome) < 0.5;
+        return same ? prev : next;
+      });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(sky);
+    if (side) observer.observe(side);
+    measure();
+    return () => observer.disconnect();
+  }, [alive, system?.id]);
 
   if (!frame) return null;
 
@@ -638,6 +690,8 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
     setView(FIT);
   }
 
+  const box = skyViewBox(frame, metrics);
+  boxRef.current = box;
   const plate = `translate(${origin.x} ${origin.y}) scale(${view.z}) translate(${view.x / view.z} ${view.y / view.z}) translate(${-origin.x} ${-origin.y})`;
 
   return (
@@ -646,7 +700,8 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
         <svg
           ref={skyRef}
           className={skyClass}
-          viewBox={`0 0 ${frame.width} ${frame.height}`}
+          viewBox={`${box.x} ${box.y} ${box.width} ${box.height}`}
+          preserveAspectRatio="xMidYMid meet"
           overflow="hidden"
           role="group"
           aria-label="System orrery. Drag to pan. Scroll or use the zoom controls. Double-click empty sky to fit."
@@ -657,7 +712,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
           onDoubleClick={onDoubleClick}
           onMouseLeave={() => setHoverId(null)}
         >
-          <rect data-sky="1" width={frame.width} height={frame.height} fill="transparent" pointerEvents="all" />
+          <rect data-sky="1" x={box.x} y={box.y} width={box.width} height={box.height} fill="transparent" pointerEvents="all" />
           <g transform={plate}>
             {frame.hz && (
               <path
@@ -841,7 +896,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
           </button>
         </div>
       </div>
-      <div className="orrery-side">
+      <div className="orrery-side" ref={sideRef}>
         <div className="orrery-readout">
           <span>{[frame.span, frame.pair].filter(Boolean).join(' · ')}</span>
           <span className="orrery-readout-focus">{readout}</span>
