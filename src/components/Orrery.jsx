@@ -8,6 +8,7 @@ import {
   formatAngular,
   sunMeasure,
 } from '../data/orrery.js';
+import { planetDiscUrl } from '../data/planetDisc.js';
 import { starDiscUrl } from '../data/starDisc.js';
 
 const INK = 'var(--font-mono)';
@@ -228,22 +229,46 @@ function ShadedDisc({ uid, r, color, kind }) {
   const fill = `fill-${uid}`;
   const clip = `clip-${uid}`;
   const limb = darken(color, kind === 'Chthonian' ? 0.28 : 0.7);
-  const bands = kind === 'Gas Giant' || kind === 'Ice Giant' || kind === 'Gas Dwarf';
+  const disc = planetDiscUrl(color, kind);
+  const bands = !disc && (kind === 'Gas Giant' || kind === 'Ice Giant' || kind === 'Gas Dwarf');
   const bandOpacity = kind === 'Gas Dwarf' ? 0.1 : 0.18;
   return (
     <g>
       <defs>
-        <radialGradient id={fill} cx="30%" cy="26%" r="78%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity={kind === 'Chthonian' ? 0.9 : 0.82} />
-          <stop offset="16%" stopColor={mixHex(color, '#ffffff', 0.35)} />
-          <stop offset="48%" stopColor={color} />
-          <stop offset="100%" stopColor={limb} />
-        </radialGradient>
+        {disc ? (
+          <radialGradient id={fill} cx="30%" cy="26%" r="75%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.75" />
+            <stop offset="20%" stopColor="#ffffff" stopOpacity="0.2" />
+            <stop offset="48%" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="80%" stopColor="#041018" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#041018" stopOpacity="0.62" />
+          </radialGradient>
+        ) : (
+          <radialGradient id={fill} cx="30%" cy="26%" r="78%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity={kind === 'Chthonian' ? 0.9 : 0.82} />
+            <stop offset="16%" stopColor={mixHex(color, '#ffffff', 0.35)} />
+            <stop offset="48%" stopColor={color} />
+            <stop offset="100%" stopColor={limb} />
+          </radialGradient>
+        )}
         <clipPath id={clip}>
           <circle r={r} />
         </clipPath>
       </defs>
-      <circle r={r} fill={`url(#${fill})`} />
+      {disc ? (
+        <image
+          href={disc}
+          x={-r}
+          y={-r}
+          width={r * 2}
+          height={r * 2}
+          clipPath={`url(#${clip})`}
+          pointerEvents="none"
+        />
+      ) : (
+        <circle r={r} fill={`url(#${fill})`} />
+      )}
+      {disc && <circle r={r} fill={`url(#${fill})`} pointerEvents="none" />}
       <g clipPath={`url(#${clip})`}>
         {bands && (
           <>
