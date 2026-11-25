@@ -8,6 +8,7 @@ import {
   formatAngular,
   sunMeasure,
 } from '../data/orrery.js';
+import { starDiscUrl } from '../data/starDisc.js';
 
 const INK = 'var(--font-mono)';
 
@@ -157,21 +158,24 @@ function coronaRadius(r, spectralClass, primary) {
 }
 
 /**
- * Self-luminous disc. The bright face is the star's own color, the limb
- * darkens, and a bloom sits outside the photosphere. A planet uses a
- * white specular instead, so the two do not read as the same object.
+ * Self-luminous disc. The body is a painted photosphere. The corona and
+ * the bloom stay vector, so the glow stays soft when the view zooms. A
+ * neutron star has no disc. A planet uses a white specular instead, so
+ * the two do not read as the same object.
  */
 function StarGlyph({ color, r, spectralClass, primary }) {
   const uid = svgId(useId());
   const coronaId = `corona-${uid}`;
   const bodyId = `body-${uid}`;
   const blurId = `blur-${uid}`;
+  const clipId = `star-clip-${uid}`;
   const dim = spectralClass === 'BD';
   const point = spectralClass === 'NS';
   const coronaR = coronaRadius(r, spectralClass, primary);
   const face = starFace(color, spectralClass);
   const limb = darken(color, dim ? 0.66 : 0.5);
   const bloom = Math.min(4.2, Math.max(1.8, r * 0.34));
+  const disc = starDiscUrl(color, spectralClass);
 
   return (
     <g className="orrery-star" pointerEvents="none">
@@ -189,6 +193,9 @@ function StarGlyph({ color, r, spectralClass, primary }) {
         <filter id={blurId} x="-80%" y="-80%" width="260%" height="260%">
           <feGaussianBlur stdDeviation={point ? 1.8 : bloom} />
         </filter>
+        <clipPath id={clipId}>
+          <circle r={r} />
+        </clipPath>
       </defs>
       <circle r={coronaR} fill={`url(#${coronaId})`} />
       <circle
@@ -197,7 +204,18 @@ function StarGlyph({ color, r, spectralClass, primary }) {
         opacity={dim ? 0.18 : Math.min(0.5, 5.5 / r)}
         filter={`url(#${blurId})`}
       />
-      <circle r={r} fill={`url(#${bodyId})`} />
+      {disc ? (
+        <image
+          href={disc}
+          x={-r}
+          y={-r}
+          width={r * 2}
+          height={r * 2}
+          clipPath={`url(#${clipId})`}
+        />
+      ) : (
+        <circle r={r} fill={`url(#${bodyId})`} />
+      )}
     </g>
   );
 }
