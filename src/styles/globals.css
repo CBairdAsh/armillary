@@ -454,6 +454,21 @@ input, button, select, textarea {
   user-select: none;
 }
 
+.orrery-stage {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.orrery-stage:focus {
+  outline: none;
+}
+
+.orrery-stage:focus-visible {
+  outline: 1px solid var(--color-border-hi);
+  outline-offset: 2px;
+}
+
 .orrery-sky {
   width: 100%;
   min-width: 0;
@@ -461,6 +476,63 @@ input, button, select, textarea {
   max-height: 70vh;
   display: block;
   overflow: hidden;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.orrery-sky--map,
+.orrery-sky--drag {
+  touch-action: none;
+}
+
+.orrery-sky--drag {
+  cursor: grabbing;
+}
+
+.orrery-nav {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+}
+
+.orrery-nav button {
+  min-width: 28px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--color-text-dim);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 1px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.orrery-nav button:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--color-border-hi);
+}
+
+.orrery-nav button:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.orrery-zoom {
+  min-width: 3.4em;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--color-text-faint);
 }
 
 .orrery-side {
@@ -491,6 +563,7 @@ input, button, select, textarea {
   fill: none;
   stroke: var(--color-border-hi);
   stroke-width: 1;
+  vector-effect: non-scaling-stroke;
   transition: stroke 150ms linear, opacity 150ms linear;
 }
 
@@ -516,6 +589,7 @@ input, button, select, textarea {
 .orrery-hit {
   fill: transparent;
   stroke: transparent;
+  pointer-events: all;
 }
 
 .orrery-mark {
@@ -578,10 +652,14 @@ input, button, select, textarea {
     margin: 0 auto;
   }
 
-  .orrery-sky {
+  .orrery-stage {
     width: min(38vh, 380px);
-    max-height: 38vh;
     flex: 0 0 auto;
+  }
+
+  .orrery-sky {
+    width: 100%;
+    max-height: 38vh;
   }
 
   .orrery-side {
@@ -602,11 +680,16 @@ input, button, select, textarea {
     justify-content: center;
   }
 
-  .sheet-orrery .orrery-sky {
+  .sheet-orrery .orrery-stage {
     width: min(100%, 520px);
+    align-self: center;
+    max-height: calc(100% - 168px);
+  }
+
+  .sheet-orrery .orrery-sky {
+    width: 100%;
     height: auto;
     max-height: calc(100% - 168px);
-    align-self: center;
   }
 }
 
