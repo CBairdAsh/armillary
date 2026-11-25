@@ -9,7 +9,7 @@ npm run dev
 
 Open the app in your browser. Keep DevTools (F12) → **Console** open; there should be no red errors during these steps.
 
-**Current target:** v1.6.0 (insert a world into a chosen orbit)
+**Current target:** v1.7.0 (the system drawn as an orrery)
 
 See [Phase 2 checks](#phase-2-checks-v130) below.
 
@@ -177,7 +177,7 @@ Ready to commit/push/deploy when all are true:
 
 | # | Action | Expected |
 |---|--------|----------|
-| P2-1 | **⚡ Generate New** (blank seed) | Overview shows new **SEED** row; boot/about show v1.6.0 |
+| P2-1 | **⚡ Generate New** (blank seed) | Overview shows new **SEED** row; boot/about show v1.7.0 |
 | P2-2 | Enter seed `test-alpha` → **From seed** twice (same star count) | Same stars/worlds layout both times |
 | P2-2b | **⚡ Generate New** twice (seed field empty or filled) | **Different** systems each time |
 | P2-2c | **↻ Redraw Free** with nothing locked | System changes each click |
@@ -237,11 +237,11 @@ Ready to commit/push/deploy when all are true:
 
 ---
 
-## v1.6 update notice
+## v1.7 update notice
 
 | # | Action | Expected |
 |---|--------|----------|
-| U-1 | First visit this version, after boot | A notice names **v1.6.0** and Crush, Eject, Destroy, and Insert. The card ends with the Ko-fi line and the Kummer Wolfe links. It does not say it is shown once |
+| U-1 | First visit this version, after boot | A notice names **v1.7.0** and Orrery, Orbits, Life, and Records. The card ends with the Ko-fi line and the Kummer Wolfe links. It does not say it is shown once |
 | U-2 | **Continue**, then reload | The notice does not return |
 | U-3 | Clear site data for this origin, reload | The notice returns |
 
