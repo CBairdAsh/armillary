@@ -339,16 +339,36 @@ function Tail({ r, color }) {
   );
 }
 
-function GiantRing({ r, color }) {
+const RING_TILT = -18;
+
+function ringPoint(rx, ry, angle) {
+  const tilt = RING_TILT * Math.PI / 180;
+  const x = rx * Math.cos(angle);
+  const y = ry * Math.sin(angle);
+  return [
+    x * Math.cos(tilt) - y * Math.sin(tilt),
+    x * Math.sin(tilt) + y * Math.cos(tilt),
+  ];
+}
+
+/**
+ * One half of a giant's ring. The far half is drawn before the disc and
+ * the near half after, so the ring crosses the face instead of sitting
+ * behind it. `near` is the lower half in screen space.
+ */
+function RingArc({ r, color, near = false }) {
+  const rx = r + 6;
+  const ry = Math.max(2.2, r * 0.38);
+  const [x0, y0] = ringPoint(rx, ry, 0);
+  const [x1, y1] = ringPoint(rx, ry, Math.PI);
   return (
-    <ellipse
-      rx={r + 6}
-      ry={Math.max(2.2, r * 0.38)}
+    <path
+      d={`M ${x0} ${y0} A ${rx} ${ry} ${RING_TILT} 0 ${near ? 1 : 0} ${x1} ${y1}`}
       fill="none"
       stroke={color}
-      strokeOpacity="0.72"
+      strokeOpacity={near ? 0.92 : 0.46}
       strokeWidth="1.15"
-      transform="rotate(-18)"
+      pointerEvents="none"
     />
   );
 }
@@ -363,8 +383,9 @@ function BodyGlyph({ body }) {
   const giant = body.worldType === 'Gas Giant' || body.worldType === 'Ice Giant';
   return (
     <g>
-      {giant && <GiantRing r={radius} color={color} />}
+      {giant && <RingArc r={radius} color={color} />}
       <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} />
+      {giant && <RingArc r={radius} color={color} near />}
       {body.worldType === 'Disintegrating' && <Tail r={radius} color={color} />}
       {body.habitable && (
         <circle r={radius + 3.5} fill="none" stroke={C.HABITABLE || '#4CAF7D'} strokeWidth="1" />
