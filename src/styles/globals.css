@@ -157,7 +157,7 @@ input, button, select, textarea {
    put, and the left and right columns scroll on their own. Under 1100px the
    page is the phone stack and scrolls as one. */
 
-.world-card { margin-bottom: 8px; }
+.world-card { margin-bottom: 8px; scroll-margin: 12px; }
 
 .world-card-body {
   flex: 1;
@@ -207,6 +207,7 @@ input, button, select, textarea {
 
   .app-root--sheet .container {
     flex: 1;
+    width: 100%;
     min-height: 0;
     overflow: hidden;
     display: flex;
@@ -225,6 +226,7 @@ input, button, select, textarea {
 
   .system-sheet {
     flex: 1;
+    width: 100%;
     min-height: 0;
     overflow: hidden;
     display: grid;
@@ -428,5 +430,189 @@ input, button, select, textarea {
 
   .system-sheet:has(.sheet-orrery:not(:empty)) .sheet-orrery {
     max-height: none;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* ─── ORRERY ─────────────────────────────────────────────────────────────── */
+/* One instrument panel. Rings use the card border. The sun plate is the
+   lower register of the same panel, not a second card. */
+
+.orrery {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(100%, 640px);
+  min-width: 0;
+  margin: 0 auto 8px;
+  padding: 12px 12px 10px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  user-select: none;
+}
+
+.orrery-sky {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  max-height: 70vh;
+  display: block;
+  overflow: hidden;
+}
+
+.orrery-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.orrery-readout {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 1.4em;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--color-text-dim);
+}
+
+.orrery-readout-focus {
+  margin-left: auto;
+  color: var(--color-text);
+  text-align: right;
+}
+
+.orrery-ring {
+  fill: none;
+  stroke: var(--color-border-hi);
+  stroke-width: 1;
+  transition: stroke 150ms linear, opacity 150ms linear;
+}
+
+.orrery-ring--belt {
+  stroke-dasharray: 1.6 3.4;
+}
+
+.orrery--selected .orrery-ring {
+  opacity: 0.45;
+}
+
+.orrery--selected .orrery-ring--selected,
+.orrery-ring--hot {
+  opacity: 1;
+  stroke: var(--color-primary-l);
+}
+
+.orrery--selected .orrery-ring--selected {
+  stroke: var(--color-border-hi);
+  stroke-width: 1.25;
+}
+
+.orrery-hit {
+  fill: transparent;
+  stroke: transparent;
+}
+
+.orrery-mark {
+  cursor: pointer;
+}
+
+.orrery-mark:focus {
+  outline: none;
+}
+
+.orrery-mark:hover .orrery-hit,
+.orrery-mark:focus-visible .orrery-hit {
+  stroke: var(--color-primary);
+  stroke-width: 1;
+}
+
+.orrery-mark--selected .orrery-hit {
+  stroke: transparent;
+}
+
+.sun-plate {
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+}
+
+.sun-plate-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+.sun-plate-note {
+  margin: 8px 0 2px;
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  color: var(--color-text-dim);
+}
+
+.sun-plate-sky {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+@media (min-width: 1100px) and (max-width: 1599px) {
+  .orrery {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 28px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  .orrery-sky {
+    width: min(38vh, 380px);
+    max-height: 38vh;
+    flex: 0 0 auto;
+  }
+
+  .orrery-side {
+    width: auto;
+    max-width: 320px;
+    flex: 0 1 auto;
+  }
+}
+
+@media (min-width: 1600px) {
+  .sheet-orrery .orrery {
+    flex: 1;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    min-height: 0;
+    margin-bottom: 0;
+    justify-content: center;
+  }
+
+  .sheet-orrery .orrery-sky {
+    width: min(100%, 520px);
+    height: auto;
+    max-height: calc(100% - 168px);
+    align-self: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orrery-ring,
+  .world-card {
+    transition: none !important;
   }
 }

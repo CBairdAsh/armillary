@@ -6,6 +6,8 @@ import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData
 import { C, ZONE_COLORS, navBtn, cardStyle, lockStripeStyle, lockBtnStyle, panelStyle } from './tokens.js';
 import BootSequence from './components/BootSequence.jsx';
 import { MarkSlot, WorldMark, worldMarkKind } from './components/WorldMarks.jsx';
+import Orrery from './components/Orrery.jsx';
+import { apparentSuns, sunMeasure } from './data/orrery.js';
 import UpdateNotice, { releaseAlreadySeen, markReleaseSeen } from './components/UpdateNotice.jsx';
 import { KOFI_URL, SUBSTACK_URL, LIVE_URL, LINKTREE, APP_VERSION } from './config.js';
 
@@ -456,12 +458,14 @@ function MoonLifeBlock({ moon, unbound, onRenameSpecies, onGenerateSpecies }) {
   );
 }
 
-function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, onGenerateMoonSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
+function WorldCard({ world, index, stars = [], separation = null, selected = false, onSelect, onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, onGenerateMoonSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
   const [expanded, setExpanded] = useState(false);
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
   const worldDef  = WORLD_TYPES[world.worldType];
   const yearLabel = unbound ? null : worldYearLabel(world, stars);
+  const sunView = unbound ? null : apparentSuns(world, stars, separation);
+  const sun = sunMeasure(sunView);
   const spin = worldSpinLabel(world, stars);
   const ruins = worldRuins(world, unbound ? null : stars);
   const orbitBits = [unbound ? 'UNBOUND' : `${world.orbitalAU} AU`];
@@ -474,7 +478,18 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
   const livingMoons = (world.moons || []).filter(moon => moon.canSupportLife || moon.biosphere);
 
   return (
-    <div className="world-card" style={cardStyle(locked, zoneColor)}>
+    <div
+      className="world-card"
+      data-world-id={world.id}
+      onClick={event => {
+        if (event.target.closest('button, input, a, textarea, select')) return;
+        onSelect?.(world.id);
+      }}
+      style={{
+        ...cardStyle(locked, zoneColor),
+        ...(selected ? { outline: `1px solid ${C.BORDER_HI}`, outlineOffset: 2 } : {}),
+      }}
+    >
       <div onClick={() => onLock(world.id)} style={{ ...lockStripeStyle(locked, zoneColor), minHeight: 64 }}/>
       <div className="world-card-body">
         {world.name ? (
@@ -543,6 +558,14 @@ function WorldCard({ world, index, stars = [], onLock, onRedraw, onRename, onRen
           <span style={{ fontSize: 13, color: C.TEXT_DIM }}>H₂O: <span style={{ color: C.TEXT }}>{world.hydrosphere}</span></span>
           <span style={{ fontSize: 13, color: C.TEXT_DIM }}>G: <span style={{ color: C.TEXT }}>{world.gravity}g</span></span>
           <span style={{ fontSize: 13, color: C.TEXT_DIM }}>T: <span style={{ color: world.temperature > 50 ? C.HAZARD : world.temperature < -50 ? C.COLD : C.TEXT }}>{world.temperature}°C</span></span>
+          {sun && (
+            <span
+              style={{ fontSize: 13, color: C.TEXT_DIM }}
+              title="Angular diameter at this orbit, derived from luminosity and spectral type."
+            >
+              {sunView.discs.length > 1 ? 'SUNS' : 'SUN'}: <span style={{ color: C.TEXT }}>{sun}</span>
+            </span>
+          )}
           {world.moons.length > 0 && <span style={{ fontSize: 13, color: C.TEXT_DIM }}>MOONS: <span style={{ color: C.TEXT }}>{world.moons.length}</span></span>}
         </div>
         {world.biosphere?.label && (
@@ -1130,6 +1153,7 @@ export default function App() {
   const [archiveQuery,     setArchiveQuery]     = useState('');
   const [pendingWorldEdit, setPendingWorldEdit] = useState(null);
   const [pendingInsert, setPendingInsert] = useState(null);
+  const [selection, setSelection] = useState(null);
   const clearPendingEdits = () => {
     setPendingWorldEdit(null);
     setPendingInsert(null);
@@ -1141,6 +1165,15 @@ export default function App() {
   // already stored that way. A seed does not include opened neighbors.
   const active     = activeNeighborId ? (neighborSystems[activeNeighborId] || system) : system;
   const isNeighbor = !!activeNeighborId;
+  const selectedWorldId = selection?.systemId === active.id ? selection.worldId : null;
+
+  const selectWorld = (id, source) => {
+    setSelection({ systemId: active.id, worldId: id });
+    if (source === 'card') return;
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    const escape = window.CSS?.escape ? CSS.escape(id) : id;
+    document.querySelector(`[data-world-id="${escape}"]`)?.scrollIntoView({ block: 'nearest', behavior });
+  };
 
   const updateActive = useCallback(s => {
     if (activeNeighborId) {
@@ -1521,8 +1554,17 @@ export default function App() {
           )}
           </div>
 
-          {/* Center column. Empty until the orrery is placed here. */}
-          <div className="sheet-orrery" data-sheet-slot="orrery" />
+          {/* Center column. A rogue leaves it empty, and the grid stays two columns. */}
+          <div className="sheet-orrery" data-sheet-slot="orrery">
+            {!active.isRoguePlanet && active.stars?.length > 0 && (
+              <Orrery
+                system={active}
+                selectedId={selectedWorldId}
+                onSelect={id => selectWorld(id, 'orrery')}
+                onClear={() => setSelection(null)}
+              />
+            )}
+          </div>
 
           <div className="sheet-worlds">
           <div style={{ marginBottom: 16 }}>
@@ -1556,6 +1598,9 @@ export default function App() {
                       <WorldCard
                         world={world}
                         stars={active.stars}
+                        separation={active.separation}
+                        selected={world.id === selectedWorldId}
+                        onSelect={id => selectWorld(id, 'card')}
                         index={i}
                         onLock={handleLockWorld}
                         onRedraw={() => handleRedrawWorld(world.id)}
