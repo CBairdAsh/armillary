@@ -281,7 +281,9 @@ function separateStars(stars) {
         const a = next[i];
         const b = next[j];
         const dist = Math.hypot(b.x - a.x, b.y - a.y);
-        const need = a.r + b.r + 4;
+        // The extra gap is for the bloom. Disc edges that only clear by a
+        // few units still read as one star once the halo is drawn.
+        const need = a.r + b.r + 18;
         if (dist >= need) continue;
         const push = (need - dist) / 2 + 0.5;
         if (a.y <= b.y) {
@@ -398,6 +400,8 @@ export function buildOrrery(system, selectedId = null) {
     return {
       label: entry.label,
       color: entry.star.color || '#ffffff',
+      spectralClass: entry.star.spectralClass || '',
+      primary: index === 0,
       x: at.x,
       y: at.y,
       ringR: at.r,
