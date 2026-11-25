@@ -8,6 +8,7 @@ import {
   formatAngular,
   sunMeasure,
 } from '../data/orrery.js';
+import { planetDiscUrl } from '../data/planetDisc.js';
 import { starDiscUrl } from '../data/starDisc.js';
 
 const INK = 'var(--font-mono)';
@@ -228,22 +229,46 @@ function ShadedDisc({ uid, r, color, kind }) {
   const fill = `fill-${uid}`;
   const clip = `clip-${uid}`;
   const limb = darken(color, kind === 'Chthonian' ? 0.28 : 0.7);
-  const bands = kind === 'Gas Giant' || kind === 'Ice Giant' || kind === 'Gas Dwarf';
+  const disc = planetDiscUrl(color, kind);
+  const bands = !disc && (kind === 'Gas Giant' || kind === 'Ice Giant' || kind === 'Gas Dwarf');
   const bandOpacity = kind === 'Gas Dwarf' ? 0.1 : 0.18;
   return (
     <g>
       <defs>
-        <radialGradient id={fill} cx="30%" cy="26%" r="78%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity={kind === 'Chthonian' ? 0.9 : 0.82} />
-          <stop offset="16%" stopColor={mixHex(color, '#ffffff', 0.35)} />
-          <stop offset="48%" stopColor={color} />
-          <stop offset="100%" stopColor={limb} />
-        </radialGradient>
+        {disc ? (
+          <radialGradient id={fill} cx="30%" cy="26%" r="75%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.75" />
+            <stop offset="20%" stopColor="#ffffff" stopOpacity="0.2" />
+            <stop offset="48%" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="80%" stopColor="#041018" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#041018" stopOpacity="0.62" />
+          </radialGradient>
+        ) : (
+          <radialGradient id={fill} cx="30%" cy="26%" r="78%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity={kind === 'Chthonian' ? 0.9 : 0.82} />
+            <stop offset="16%" stopColor={mixHex(color, '#ffffff', 0.35)} />
+            <stop offset="48%" stopColor={color} />
+            <stop offset="100%" stopColor={limb} />
+          </radialGradient>
+        )}
         <clipPath id={clip}>
           <circle r={r} />
         </clipPath>
       </defs>
-      <circle r={r} fill={`url(#${fill})`} />
+      {disc ? (
+        <image
+          href={disc}
+          x={-r}
+          y={-r}
+          width={r * 2}
+          height={r * 2}
+          clipPath={`url(#${clip})`}
+          pointerEvents="none"
+        />
+      ) : (
+        <circle r={r} fill={`url(#${fill})`} />
+      )}
+      {disc && <circle r={r} fill={`url(#${fill})`} pointerEvents="none" />}
       <g clipPath={`url(#${clip})`}>
         {bands && (
           <>
@@ -314,16 +339,36 @@ function Tail({ r, color }) {
   );
 }
 
-function GiantRing({ r, color }) {
+const RING_TILT = -18;
+
+function ringPoint(rx, ry, angle) {
+  const tilt = RING_TILT * Math.PI / 180;
+  const x = rx * Math.cos(angle);
+  const y = ry * Math.sin(angle);
+  return [
+    x * Math.cos(tilt) - y * Math.sin(tilt),
+    x * Math.sin(tilt) + y * Math.cos(tilt),
+  ];
+}
+
+/**
+ * One half of a giant's ring. The far half is drawn before the disc and
+ * the near half after, so the ring crosses the face instead of sitting
+ * behind it. `near` is the lower half in screen space.
+ */
+function RingArc({ r, color, near = false }) {
+  const rx = r + 6;
+  const ry = Math.max(2.2, r * 0.38);
+  const [x0, y0] = ringPoint(rx, ry, 0);
+  const [x1, y1] = ringPoint(rx, ry, Math.PI);
   return (
-    <ellipse
-      rx={r + 6}
-      ry={Math.max(2.2, r * 0.38)}
+    <path
+      d={`M ${x0} ${y0} A ${rx} ${ry} ${RING_TILT} 0 ${near ? 1 : 0} ${x1} ${y1}`}
       fill="none"
       stroke={color}
-      strokeOpacity="0.72"
+      strokeOpacity={near ? 0.92 : 0.46}
       strokeWidth="1.15"
-      transform="rotate(-18)"
+      pointerEvents="none"
     />
   );
 }
@@ -338,8 +383,9 @@ function BodyGlyph({ body }) {
   const giant = body.worldType === 'Gas Giant' || body.worldType === 'Ice Giant';
   return (
     <g>
-      {giant && <GiantRing r={radius} color={color} />}
+      {giant && <RingArc r={radius} color={color} />}
       <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} />
+      {giant && <RingArc r={radius} color={color} near />}
       {body.worldType === 'Disintegrating' && <Tail r={radius} color={color} />}
       {body.habitable && (
         <circle r={radius + 3.5} fill="none" stroke={C.HABITABLE || '#4CAF7D'} strokeWidth="1" />
