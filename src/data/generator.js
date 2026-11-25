@@ -156,6 +156,52 @@ function generateStar(index = 0, allowExotic = true, forcedSpectralClass = null)
 }
 
 // ─── MULTI-STAR SYSTEM ────────────────────────────────────────────────────────
+// Companion distance is logarithmic, from a close pair out to a wide one.
+// The span matches the companion table in GURPS Space. The period is Kepler
+// from that distance and the masses already rolled. A triple is a pair,
+// then the third star at least five times farther out.
+function rollSeparationAU() {
+  const min = Math.log(0.05);
+  const max = Math.log(2000);
+  return round2(Math.exp(min + getRandom() * (max - min)));
+}
+
+function stellarSeparation(stars) {
+  if (!stars || stars.length < 2) return null;
+  const inner = rollSeparationAU();
+  const pairMass = (stars[0].mass || 0) + (stars[1].mass || 0);
+  const pairs = [{
+    label: 'A–B',
+    au: inner,
+    periodYears: orbitalPeriodYears(inner, pairMass),
+  }];
+  if (stars.length >= 3) {
+    const outer = round2(inner * rnd(5, 40));
+    pairs.push({
+      label: 'C',
+      au: outer,
+      periodYears: orbitalPeriodYears(outer, pairMass + (stars[2].mass || 0)),
+    });
+  }
+  return pairs;
+}
+
+function separationFits(stars, separation) {
+  if (!Array.isArray(separation)) return false;
+  if (stars.length === 2) return separation.length === 1;
+  if (stars.length === 3) return separation.length === 2;
+  return false;
+}
+
+// A circumbinary world orbits past the pair. The stable floor is about
+// three times the outer separation. An old system with no separation
+// keeps the habitable-zone multiple it was built with.
+function circumbinaryOrbitAU(separation, combinedHZ) {
+  const outer = separation?.[separation.length - 1]?.au;
+  if (outer > 0) return round2(outer * rnd(3, 5));
+  return round2(combinedHZ.outer * rnd(1.5, 4.0));
+}
+
 function enforceSecondaryMassLimits(stars) {
   if (stars.length <= 1) return stars;
   for (let i = 1; i < stars.length; i++) {
@@ -873,9 +919,20 @@ function generateSystemCore({ starCount = 1, locked = {}, primarySpectralClass =
   const primaryStar = stars[0];
   const hz          = primaryStar.habitableZone;
 
-  // Combined luminosity for binary/triple affects HZ
+  // Combined luminosity for binary/triple affects HZ.
+  // Separation is rolled after the stars and before the worlds. A redraw
+  // that keeps every star keeps the stored distance. An old save has none
+  // until the stars are redrawn.
   const totalLuminosity = stars.reduce((sum, s) => sum + s.luminosity, 0);
   const combinedHZ      = calculateHabitableZone(totalLuminosity);
+  const starsWereKept = Array.isArray(locked.stars)
+    && locked.stars.length === stars.length
+    && locked.stars.every(Boolean);
+  const separation = stars.length < 2
+    ? null
+    : (starsWereKept && separationFits(stars, locked.separation)
+      ? locked.separation
+      : stellarSeparation(stars));
 
   // World count from star type. A locked world past the roll is kept,
   // so a crushed belt (or any lock) cannot vanish on Redraw Free.
@@ -901,7 +958,8 @@ function generateSystemCore({ starCount = 1, locked = {}, primarySpectralClass =
   let circumbinaryWorld = null;
   const hasLockedCircumbinary = locked.worlds?.some(world => world?.isCircumbinary);
   if (stars.length > 1 && !hasLockedCircumbinary && getRandom() < CIRCUMBINARY_CHANCE) {
-    circumbinaryWorld = generateCircumbinaryWorld(null, combinedHZ, totalLuminosity, worlds.length);
+    const orbitAU = circumbinaryOrbitAU(separation, combinedHZ);
+    circumbinaryWorld = generateCircumbinaryWorld(orbitAU, combinedHZ, totalLuminosity, worlds.length);
   }
 
   // Combine regular worlds with circumbinary world if present
@@ -922,6 +980,7 @@ function generateSystemCore({ starCount = 1, locked = {}, primarySpectralClass =
     worldCount,
     worlds:       allWorlds,
     comets,
+    separation,
   };
 }
 
@@ -981,6 +1040,7 @@ export function redrawSystem(existingSystem, { redrawnStarCount } = {}) {
       neighborhood: lockedNeighborhood,
       stars:        lockedStars,
       worlds:       lockedWorlds,
+      separation:   existingSystem.separation || null,
     },
   };
 
@@ -1027,6 +1087,7 @@ export function redrawStar(system, starId) {
 
   const totalLuminosity = stars.reduce((sum, s) => sum + s.luminosity, 0);
   const combinedHZ      = calculateHabitableZone(totalLuminosity);
+  const separation      = stellarSeparation(stars);
 
   const worlds = system.worlds.map(world => {
     if (world.locked) return world;
@@ -1037,6 +1098,7 @@ export function redrawStar(system, starId) {
     ...system,
     stars,
     hz:        combinedHZ,
+    separation,
     worlds,
     timestamp: Date.now(),
   };
@@ -1745,7 +1807,7 @@ export function regenerateMoonSpecies(world, moonId) {
 // Kepler's third law. P is Earth years, a is AU, M is solar masses.
 // A circumbinary world orbits every star, so M is their combined mass.
 // Every other world uses the primary. The ladder does not record which
-// star a binary world circles, and the stars have no separation yet.
+// star a binary world circles. Stellar separation is stored on the system.
 // The year is computed when the card is drawn. It is not stored, so a
 // seed does not change.
 const EARTH_DAYS_PER_YEAR = 365.25;
@@ -1753,6 +1815,23 @@ const EARTH_DAYS_PER_YEAR = 365.25;
 export function orbitalPeriodYears(au, solarMasses) {
   if (!(au > 0) || !(solarMasses > 0)) return null;
   return Math.sqrt((au ** 3) / solarMasses);
+}
+
+/**
+ * One line per pair. A binary is a single separation. A triple names the
+ * close pair, then the third star's distance from that pair.
+ * @param {Array<{ label: string, au: number, periodYears: number }>|null} pairs
+ * @returns {string[]}
+ */
+export function formatSeparation(pairs) {
+  if (!Array.isArray(pairs) || pairs.length === 0) return [];
+  return pairs.map((pair, index) => {
+    const period = formatOrbitalPeriod(pair.periodYears);
+    const periodText = period ? ` · period ${period}` : '';
+    if (pairs.length === 1) return `SEPARATION: ${pair.au} AU${periodText}`;
+    if (index === 0) return `${pair.label}: ${pair.au} AU${periodText}`;
+    return `${pair.label}: ${pair.au} AU from the pair${periodText}`;
+  });
 }
 
 export function formatOrbitalPeriod(years) {
@@ -1907,6 +1986,7 @@ export function generateTextSummary(system) {
       lines.push(`${label}: ${star.spectralClass}-type (${star.description})`);
       lines.push(`  Luminosity: ${star.luminosity} L☉  |  Mass: ${star.mass} M☉  |  Age: ${star.age} Gyr`);
     });
+    for (const line of formatSeparation(system.separation)) lines.push(line);
     lines.push(`Habitable Zone: ${hz.inner}–${hz.outer} AU`);
   }
   lines.push('');

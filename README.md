@@ -37,6 +37,7 @@ As quoted from Wikipedia "armillary sphere" https://en.wikipedia.org/wiki/Armill
 - Spectral class (O B A F G K M + exotic: White Dwarf, Neutron Star, Brown Dwarf)
 - Luminosity, mass, age, and habitable zone calculated per star
 - Combined habitable zone for multi-star systems
+- A binary or triple states how far apart the stars are, and the period of that pair. The distance is a logarithmic roll from 0.05 AU to 2,000 AU. The period is Kepler's law from that distance and the masses. A triple is a close pair, then the third star at least five times farther out. A circumbinary world orbits at 3–5 times the outer separation. A saved system keeps its sky, and shows no line, until the stars are redrawn
 
 **Comets**
 - 0–5 per system, weighted toward 0–2
@@ -121,7 +122,7 @@ Species generation draws on **GURPS Aliens** biological origin and social struct
 
 Key physics:
 - Habitable zone: `inner = 0.95 × √L`, `outer = 1.37 × √L` (where L = solar luminosity)
-- Orbital period: `P = √(a³ / M)` in Earth years (`a` in AU, `M` in solar masses). A circumbinary world uses the combined mass. The period is calculated for display and is not part of the seed
+- Orbital period: `P = √(a³ / M)` in Earth years (`a` in AU, `M` in solar masses). A circumbinary world uses the combined mass. A binary pair uses both stars. The world's period is calculated for display and is not part of the seed. The stellar separation is rolled, and its period is stored with it
 - Day length: a locked world uses its year. A resonant world uses twice its year. Any other spin is derived from the body. It is not part of the seed
 - Surface temperature: Stefan-Boltzmann–inspired scaling from orbital AU and luminosity
 - Stellar mass and luminosity: coupled within spectral-class bounds
