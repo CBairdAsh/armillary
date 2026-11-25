@@ -1268,6 +1268,56 @@ export function ejectionLifeFate(world) {
   };
 }
 
+const TECH_RANK = new Map(TECH_LEVELS.map((entry, index) => [entry.label, index]));
+const INDUSTRIAL_RANK = TECH_RANK.get('Industrial');
+const ADVANCED_RANK = TECH_RANK.get('Advanced');
+const CLOSED_DISPOSITION = new Set(['Openly Hostile', 'Absorbed/Isolated']);
+
+function joinWorldNames(names) {
+  if (names.length <= 1) return names[0] || '';
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
+/**
+ * One relation among every world that has a living people. Null when fewer
+ * than two such worlds exist. Tech and disposition already on those species
+ * decide it. A moon's people stay with their world and do not open a line.
+ * @param {{ worlds?: Array }} system
+ * @returns {{ kind: 'unaware'|'aware'|'trade'|'closed', text: string }|null}
+ */
+export function livingWorldsRelation(system) {
+  const worlds = (system?.worlds || [])
+    .map((world, index) => ({ world, index }))
+    .filter(entry => (entry.world.species || []).length > 0);
+  if (worlds.length < 2) return null;
+
+  let tech = -1;
+  let closed = false;
+  for (const { world } of worlds) {
+    for (const species of world.species) {
+      tech = Math.max(tech, TECH_RANK.get(species.tech) ?? -1);
+      if (CLOSED_DISPOSITION.has(species.disposition)) closed = true;
+    }
+  }
+
+  let kind = 'trade';
+  if (tech < INDUSTRIAL_RANK) kind = 'unaware';
+  else if (tech < ADVANCED_RANK) kind = 'aware';
+  else if (closed) kind = 'closed';
+
+  const names = joinWorldNames(worlds.map(entry => (
+    entry.world.name || `[${entry.index + 1}] ${entry.world.worldType}`
+  )));
+  const text = {
+    unaware: `${names} are unaware of each other.`,
+    aware: `${names} are aware of each other.`,
+    trade: `${names} trade.`,
+    closed: `${names} know of each other. Contact is closed.`,
+  }[kind];
+  return { kind, text };
+}
+
 function highestCivilizationTech(speciesList) {
   const rank = new Map(TECH_LEVELS.map((entry, index) => [entry.label, index]));
   let best = speciesList[0]?.tech || 'Primitive';
@@ -1993,6 +2043,8 @@ export function generateTextSummary(system) {
       lines.push('Apparent solar size is given for an orbit that encloses the stars.');
     }
   }
+  const relation = livingWorldsRelation(system);
+  if (relation) lines.push(relation.text);
   lines.push('');
 
   // Comets
