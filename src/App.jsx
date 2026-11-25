@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins, formatSeparation } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins, formatSeparation, livingWorldsRelation } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -811,6 +811,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
   const [copied, setCopied] = useState(null);
   const habitable    = system.worlds.filter(w => w.isHabitable).length;
   const totalSpecies = sapientCount(system);
+  const relation     = livingWorldsRelation(system);
 
   const copyText = (text, label) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -896,6 +897,9 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
           )}
         </div>
       </div>
+      {relation && (
+        <p className="body-text" style={{ margin: '12px 0 0' }}>{relation.text}</p>
+      )}
     </div>
   );
 }
