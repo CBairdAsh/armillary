@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins, formatSeparation, livingWorldsRelation } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins, formatSeparation, livingWorldsRelation, worldOrbitLabel, orbitCrossingNote, diskTiltLabel } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -458,7 +458,7 @@ function MoonLifeBlock({ moon, unbound, onRenameSpecies, onGenerateSpecies }) {
   );
 }
 
-function WorldCard({ world, index, stars = [], separation = null, selected = false, onSelect, onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, onGenerateMoonSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
+function WorldCard({ world, index, worlds = [], stars = [], separation = null, selected = false, onSelect, onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, onGenerateMoonSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
   const [expanded, setExpanded] = useState(false);
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
@@ -476,6 +476,8 @@ function WorldCard({ world, index, stars = [], separation = null, selected = fal
     || world.isCircumbinary || world.worldNotes;
   const barrenMoons = (world.moons || []).filter(moon => !moon.canSupportLife && !moon.biosphere);
   const livingMoons = (world.moons || []).filter(moon => moon.canSupportLife || moon.biosphere);
+  const orbitLabel = unbound ? null : worldOrbitLabel(world, stars);
+  const crossing = unbound ? null : orbitCrossingNote(world, worlds, stars);
 
   return (
     <div
@@ -568,6 +570,17 @@ function WorldCard({ world, index, stars = [], separation = null, selected = fal
           )}
           {world.moons.length > 0 && <span style={{ fontSize: 13, color: C.TEXT_DIM }}>MOONS: <span style={{ color: C.TEXT }}>{world.moons.length}</span></span>}
         </div>
+        {orbitLabel && (
+          <div
+            style={{ marginTop: 6, fontSize: 13, color: C.TEXT_DIM }}
+            title="Inclination to the system plane. Perihelion and aphelion when the orbit is eccentric."
+          >
+            ORBIT: <span style={{ color: C.TEXT }}>{orbitLabel}</span>
+          </div>
+        )}
+        {crossing && (
+          <div style={{ marginTop: 4, fontSize: 13, color: C.TEXT_DIM }}>{crossing}</div>
+        )}
         {world.biosphere?.label && (
           <div style={{ marginTop: 6, fontSize: 13, color: C.TEXT_DIM }}>
             BIOSPHERE: <span style={{ color: C.HABITABLE }}>{world.biosphere.label}</span>
@@ -812,6 +825,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
   const habitable    = system.worlds.filter(w => w.isHabitable).length;
   const totalSpecies = sapientCount(system);
   const relation     = livingWorldsRelation(system);
+  const diskTilt     = diskTiltLabel(system);
 
   const copyText = (text, label) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -899,6 +913,9 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
       </div>
       {relation && (
         <p className="body-text" style={{ margin: '12px 0 0' }}>{relation.text}</p>
+      )}
+      {diskTilt && (
+        <p className="body-text" style={{ margin: '12px 0 0' }}>{diskTilt}</p>
       )}
     </div>
   );
@@ -1601,6 +1618,7 @@ export default function App() {
                     <div key={world.id}>
                       <WorldCard
                         world={world}
+                        worlds={active.worlds}
                         stars={active.stars}
                         separation={active.separation}
                         selected={world.id === selectedWorldId}
