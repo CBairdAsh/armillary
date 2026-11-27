@@ -679,6 +679,32 @@ input, button, select, textarea {
   animation: orrery-reticle-spin 16s linear infinite;
 }
 
+.orrery-life-arc,
+.orrery-life-flow,
+.orrery-life-tick {
+  fill: none;
+  stroke: #4CAF7D;
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.orrery-life-arc,
+.orrery-life-tick {
+  stroke-opacity: 0.9;
+}
+
+.orrery-life-flow {
+  stroke: #e7fff2;
+  stroke-opacity: 0.42;
+  stroke-dasharray: 16 84;
+  animation: orrery-life-flow 9s linear infinite;
+}
+
+@keyframes orrery-life-flow {
+  to { stroke-dashoffset: -100; }
+}
+
 @keyframes orrery-reticle-spin {
   to { transform: rotate(360deg); }
 }
@@ -797,5 +823,9 @@ input, button, select, textarea {
 
   .orrery-reticle-sweep {
     animation: none;
+  }
+
+  .orrery-life-flow {
+    display: none;
   }
 }

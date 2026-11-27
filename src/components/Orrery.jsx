@@ -503,32 +503,36 @@ function BodyGlyph({ body }) {
   );
 }
 
-// Five-point mark. Drawn as a path so it does not depend on the mono font.
-function starPath(radius) {
-  const points = [];
-  for (let i = 0; i < 10; i += 1) {
-    const angle = -Math.PI / 2 + (i * Math.PI) / 5;
-    const r = i % 2 === 0 ? radius : radius * 0.4;
-    points.push(`${(r * Math.cos(angle)).toFixed(2)} ${(r * Math.sin(angle)).toFixed(2)}`);
-  }
-  return `M ${points.join(' L ')} Z`;
-}
-
 /**
- * Habitability mark. Sits just outside the world, on the side away from
- * the star, and stays the same screen size as the labels.
+ * Habitability mark. A short bracket on the side away from the star.
+ * Large enough to read when the system is fitted, and just outside the
+ * disc once the view is zoomed in. A faint dash travels the arc.
  */
-function LifeMark({ body, frame, zoom }) {
-  const dx = body.markX - frame.cx;
-  const dy = body.markY - frame.cy;
-  const distance = Math.hypot(dx, dy) || 1;
-  const reach = reticleRadius(body) + 9;
-  const x = body.markX + (dx / distance) * reach;
-  const y = body.markY + (dy / distance) * reach;
+function LifeBracket({ body, frame, zoom }) {
+  const facing = Math.atan2(body.markY - frame.cy, body.markX - frame.cx) * 180 / Math.PI;
+  const radius = Math.max(18, reticleRadius(body) * zoom + 5);
+  const half = 36 * Math.PI / 180;
+  const tick = 4.5;
+  const end = (angle) => ({
+    x: radius * Math.cos(angle),
+    y: radius * Math.sin(angle),
+    ix: (radius - tick) * Math.cos(angle),
+    iy: (radius - tick) * Math.sin(angle),
+  });
+  const start = end(-half);
+  const finish = end(half);
+  const arc = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius.toFixed(2)} ${radius.toFixed(2)} 0 0 1 ${finish.x.toFixed(2)} ${finish.y.toFixed(2)}`;
   return (
-    <g transform={`translate(${x} ${y}) scale(${1 / zoom})`} pointerEvents="none">
+    <g
+      className="orrery-life"
+      transform={`translate(${body.markX} ${body.markY}) rotate(${facing}) scale(${1 / zoom})`}
+      pointerEvents="none"
+    >
       <title>Habitable</title>
-      <path d={starPath(5)} fill={C.HABITABLE || '#4CAF7D'} />
+      <path className="orrery-life-arc" d={arc} />
+      <path className="orrery-life-flow" d={arc} pathLength="100" />
+      <line className="orrery-life-tick" x1={start.x} y1={start.y} x2={start.ix} y2={start.iy} />
+      <line className="orrery-life-tick" x1={finish.x} y1={finish.y} x2={finish.ix} y2={finish.iy} />
     </g>
   );
 }
@@ -1114,7 +1118,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
               );
             })}
             {frame.bodies.map(body => body.habitable && (
-              <LifeMark key={`life-${body.id}`} body={body} frame={frame} zoom={view.z} />
+              <LifeBracket key={`life-${body.id}`} body={body} frame={frame} zoom={view.z} />
             ))}
           </g>
         </svg>
