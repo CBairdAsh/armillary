@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins, formatSeparation, livingWorldsRelation, worldOrbitLabel, orbitCrossingNote, diskTiltLabel, outerBeltLabel } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins, formatSeparation, livingWorldsRelation, worldOrbitLabel, orbitCrossingNote, diskTiltLabel, outerBeltLabel, kuiperBeltCard } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -815,6 +815,24 @@ function SpeciesCard({ species, index, onRename }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function KuiperCard({ belt }) {
+  return (
+    <div className="world-card" style={cardStyle(false, C.COLD)}>
+      <div style={{ ...lockStripeStyle(false, C.COLD), minHeight: 64, cursor: 'default' }} />
+      <div className="world-card-body">
+        <div className="world-head flex-row flex-wrap gap-md">
+          <div className="world-identity">
+            <span style={{ fontSize: 15, color: C.COLD }}>Kuiper Belt</span>
+            <Tag color={C.COLD}>{belt.stirred ? 'STIRRED' : 'UNSTIRRED'}</Tag>
+            <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{belt.span}</span>
+          </div>
+        </div>
+        <p className="body-text" style={{ margin: '8px 0 0' }}>{belt.detail}</p>
+      </div>
     </div>
   );
 }
@@ -1649,6 +1667,9 @@ export default function App() {
                 </>
               );
             })()}
+            {kuiperBeltCard(active) && (
+              <KuiperCard belt={kuiperBeltCard(active)} />
+            )}
           </div>
 
           {/* Comets */}

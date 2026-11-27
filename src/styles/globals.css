@@ -588,29 +588,30 @@ input, button, select, textarea {
 }
 
 .orrery-ring--belt {
-  stroke-dasharray: 1.6 3.4;
+  stroke-opacity: 0.28;
 }
 
-.orrery-outer-belt {
-  fill: #7f9eb4;
-  fill-opacity: 0.38;
+.orrery-kuiper {
+  fill: #6f93a8;
+  fill-opacity: 0.28;
 }
 
-.orrery-outer-belt--narrow {
-  fill-opacity: 0.55;
+.orrery-kuiper--narrow {
+  fill-opacity: 0.45;
 }
 
-.orrery-outer-belt-edge {
+.orrery-kuiper-edge {
   fill: none;
-  stroke: #d5e2ea;
-  stroke-opacity: 0.95;
-  stroke-width: 1.35;
-  stroke-dasharray: 2 2.2;
+  stroke: #9ebccd;
+  stroke-opacity: 0.7;
+  stroke-width: 1.1;
   vector-effect: non-scaling-stroke;
 }
 
-.orrery-outer-belt-edge--narrow {
-  stroke-width: 2.6;
+.orrery-kuiper-edge--narrow {
+  stroke: #c5d7e2;
+  stroke-opacity: 0.9;
+  stroke-width: 2.2;
 }
 
 .orrery--selected .orrery-ring {

@@ -2008,7 +2008,7 @@ export function diskTiltLabel(system) {
 }
 
 /**
- * The outer belt as one sentence. Null when the belt was lost, or the
+ * The Kuiper belt as one sentence. Null when the belt was lost, or the
  * system has no star.
  * @param {object} system
  * @returns {string|null}
@@ -2017,10 +2017,27 @@ export function outerBeltLabel(system) {
   const belt = outerBelt(system);
   if (!belt) return null;
   const span = `${formatAU(belt.inner)}–${formatAU(belt.outer)} AU`;
-  if (!belt.stirred) return `An outer belt from ${span}. Cold and flat. Nothing has stirred it.`;
-  const base = `An outer belt from ${span}. Cold and flat, with a hotter inclined population. The bodies thin past the outer resonance.`;
+  if (!belt.stirred) return `A Kuiper belt from ${span}. Cold and flat. Nothing has stirred it.`;
+  const base = `A Kuiper belt from ${span}. Cold and flat, with a hotter inclined population. The bodies thin past the outer resonance.`;
   if (!belt.dust) return base;
   return `${base} Dust is still dense past the outer edge.`;
+}
+
+/**
+ * Fields for the Kuiper belt card. Null when the system has no belt.
+ * @param {object} system
+ * @returns {{ span: string, detail: string, stirred: boolean, dust: boolean }|null}
+ */
+export function kuiperBeltCard(system) {
+  const belt = outerBelt(system);
+  if (!belt) return null;
+  const span = `${formatAU(belt.inner)}–${formatAU(belt.outer)} AU`;
+  const detail = !belt.stirred
+    ? 'Cold and flat. Nothing has stirred it.'
+    : belt.dust
+      ? 'Cold and flat, with a hotter inclined population. The bodies thin past the outer resonance. Dust is still dense past the outer edge.'
+      : 'Cold and flat, with a hotter inclined population. The bodies thin past the outer resonance.';
+  return { span, detail, stirred: belt.stirred, dust: belt.dust };
 }
 
 // ─── TEXT EXPORT ──────────────────────────────────────────────────────────────

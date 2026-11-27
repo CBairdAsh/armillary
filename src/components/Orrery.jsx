@@ -9,6 +9,7 @@ import {
   sunMeasure,
 } from '../data/orrery.js';
 import { planetDiscUrl } from '../data/planetDisc.js';
+import { asteroidFieldUrl } from '../data/asteroidField.js';
 import { starDiscUrl } from '../data/starDisc.js';
 
 const INK = 'var(--font-mono)';
@@ -294,16 +295,29 @@ function ShadedDisc({ uid, r, color, kind }) {
 }
 
 function Belt({ color, uid }) {
+  const field = asteroidFieldUrl(color);
+  if (!field) {
+    return (
+      <g>
+        <g transform="translate(-6 0)">
+          <ShadedDisc uid={`${uid}a`} r={1.5} color={color} kind="rock" />
+        </g>
+        <ShadedDisc uid={`${uid}b`} r={1.8} color={color} kind="rock" />
+        <g transform="translate(6 0.3)">
+          <ShadedDisc uid={`${uid}c`} r={1.35} color={color} kind="rock" />
+        </g>
+      </g>
+    );
+  }
   return (
-    <g>
-      <g transform="translate(-6 0)">
-        <ShadedDisc uid={`${uid}a`} r={1.5} color={color} kind="rock" />
-      </g>
-      <ShadedDisc uid={`${uid}b`} r={1.8} color={color} kind="rock" />
-      <g transform="translate(6 0.3)">
-        <ShadedDisc uid={`${uid}c`} r={1.35} color={color} kind="rock" />
-      </g>
-    </g>
+    <image
+      href={field}
+      x={-16}
+      y={-8}
+      width={32}
+      height={16}
+      pointerEvents="none"
+    />
   );
 }
 
@@ -794,16 +808,16 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
               <g pointerEvents="none">
                 <path
                   d={frame.belt.bandPath}
-                  className={frame.belt.narrow ? 'orrery-outer-belt orrery-outer-belt--narrow' : 'orrery-outer-belt'}
+                  className={frame.belt.narrow ? 'orrery-kuiper orrery-kuiper--narrow' : 'orrery-kuiper'}
                   fillRule="evenodd"
                 >
-                  <title>{`Outer belt, ${frame.belt.label.text} AU`}</title>
+                  <title>{`Kuiper belt, ${frame.belt.label.text} AU`}</title>
                 </path>
-                {[frame.belt.innerPath, frame.belt.midPath, frame.belt.outerPath].map(path => (
+                {(frame.belt.narrow ? [frame.belt.midPath] : [frame.belt.innerPath, frame.belt.outerPath]).map(path => (
                   <path
                     key={path}
                     d={path}
-                    className={frame.belt.narrow ? 'orrery-outer-belt-edge orrery-outer-belt-edge--narrow' : 'orrery-outer-belt-edge'}
+                    className={frame.belt.narrow ? 'orrery-kuiper-edge orrery-kuiper-edge--narrow' : 'orrery-kuiper-edge'}
                   />
                 ))}
               </g>
@@ -848,6 +862,16 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
                 {body.outerPath && (
                   <path className={ringClass(body, hoverId)} d={body.outerPath} />
                 )}
+                {body.specks?.map((speck, speckIndex) => (
+                  <circle
+                    key={speckIndex}
+                    cx={speck.x}
+                    cy={speck.y}
+                    r={speck.r}
+                    fill={zoneColor(body.zone)}
+                    opacity="0.9"
+                  />
+                ))}
               </g>
             ))}
             {frame.stars.map(star => (

@@ -455,6 +455,12 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
       selected,
     } : null;
     if (label) bodyLabels.push(label);
+    const specks = entry.world.worldType === 'Asteroid Belt'
+      ? [0.08, 0.2, 0.33, 0.46, 0.67, 0.79, 0.92].map((fraction, speckIndex) => {
+        const at = projectVector(orbitVector(elements, fraction * Math.PI * 2), scale, pitch);
+        return { x: at.x, y: at.y, r: 1.15 + (speckIndex % 3) * 0.45 };
+      })
+      : null;
     return {
       id: entry.world.id,
       index: entry.index,
@@ -471,6 +477,7 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
       markY: mark.y,
       ringX: onRing.x,
       ringY: onRing.y,
+      specks,
       selected,
       label,
     };
