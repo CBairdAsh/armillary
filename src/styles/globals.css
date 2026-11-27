@@ -731,6 +731,26 @@ input, button, select, textarea {
   animation: orrery-reticle-spin 16s linear infinite;
 }
 
+.orrery-nameplate-plate {
+  fill: #071018;
+  fill-opacity: 0.88;
+  stroke: #c5e6f2;
+  stroke-opacity: 0.42;
+  stroke-width: 1;
+}
+
+.orrery-nameplate-corner {
+  fill: none;
+  stroke: #c5e6f2;
+  stroke-opacity: 0.92;
+  stroke-width: 1.35;
+  stroke-linecap: square;
+}
+
+.orrery-nameplate-led {
+  fill: #e6c35c;
+}
+
 .orrery-life-arc,
 .orrery-life-flow,
 .orrery-life-tick {

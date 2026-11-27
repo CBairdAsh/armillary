@@ -577,9 +577,9 @@ function CometMark({ comet }) {
   );
 }
 
-function PlateText({ x, y, zoom, anchor = 'middle', fill, size = 10, children }) {
+function PlateText({ x, y, zoom, anchor = 'middle', fill, size = 10, opacity = 1, children }) {
   return (
-    <g transform={`translate(${x} ${y}) scale(${1 / zoom})`} pointerEvents="none">
+    <g transform={`translate(${x} ${y}) scale(${1 / zoom})`} opacity={opacity} pointerEvents="none">
       <text
         textAnchor={anchor}
         fill={fill}
@@ -589,6 +589,81 @@ function PlateText({ x, y, zoom, anchor = 'middle', fill, size = 10, children })
         dominantBaseline="middle"
       >
         {children}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * Screen size of a planet or moon name. Fit stays at the chart caption.
+ * Zoomed in, it grows to a readable readout and the frame fades up.
+ * @param {number} zoom
+ * @param {boolean} emphasis
+ */
+function nameplateMetrics(zoom, emphasis) {
+  const t = Math.min(1, Math.max(0, (zoom - 1.05) / 2.15));
+  const size = (emphasis ? 12 : 11) + t * (emphasis ? 13 : 10);
+  const padX = 9 + t * 7;
+  const padY = 5 + t * 4;
+  return { t, size, padX, padY, boxH: size + padY * 2 };
+}
+
+/** Caption slot just outside the disc, in plate units. */
+function nameplatePoint(body, frame, zoom, metrics) {
+  const clear = reticleRadius(body);
+  return {
+    x: body.markX,
+    y: body.markY + clear + (metrics.boxH / 2 + 10) / zoom,
+  };
+}
+
+function nameplateCorners(x, y, width, height) {
+  const arm = 8;
+  const left = x - 1.5;
+  const right = x + width + 1.5;
+  const top = y - 1.5;
+  const bottom = y + height + 1.5;
+  return [
+    `M ${left} ${top + arm} V ${top} H ${left + arm}`,
+    `M ${right - arm} ${top} H ${right} V ${top + arm}`,
+    `M ${right} ${bottom - arm} V ${bottom} H ${right - arm}`,
+    `M ${left + arm} ${bottom} H ${left} V ${bottom - arm}`,
+  ].join(' ');
+}
+
+/**
+ * Planet or moon name. The counter-scale keeps the type at a chosen
+ * screen size. Past a fitted view the plate and corner ticks read as
+ * an instrument label.
+ */
+function NamePlate({ x, y, zoom, fill, emphasis = false, opacity = 1, children }) {
+  const text = String(children ?? '');
+  const metrics = nameplateMetrics(zoom, emphasis);
+  const { t, size, padX, padY, boxH } = metrics;
+  const textWidth = Math.max(size, text.length * (size * 0.66 + 1.2));
+  const boxW = textWidth + padX * 2;
+  const boxX = -boxW / 2;
+  const boxY = -boxH / 2;
+  const frame = Math.min(1, Math.max(0, (t - 0.08) / 0.42));
+  const ink = frame > 0.55 ? C.TEXT : fill;
+  return (
+    <g className="orrery-nameplate" transform={`translate(${x} ${y}) scale(${1 / zoom})`} opacity={opacity} pointerEvents="none">
+      {frame > 0 && (
+        <g opacity={frame}>
+          <rect className="orrery-nameplate-plate" x={boxX} y={boxY} width={boxW} height={boxH} />
+          <path className="orrery-nameplate-corner" d={nameplateCorners(boxX, boxY, boxW, boxH)} />
+          <rect className="orrery-nameplate-led" x={boxX + 5} y={boxY + 5} width={3.5} height={3.5} />
+        </g>
+      )}
+      <text
+        textAnchor="middle"
+        fill={ink}
+        fontFamily={INK}
+        fontSize={size}
+        letterSpacing={1 + t * 0.8}
+        dominantBaseline="middle"
+      >
+        {text}
       </text>
     </g>
   );
@@ -1280,14 +1355,20 @@ export default function Orrery({ system, selectedId, focusToken = 0, focusMoonId
                   <Reticle radius={reticleRadius(frame.parent)} locked={frame.parent.selected} />
                 )}
                 <BodyGlyph body={frame.parent} />
-                <PlateText
+                <NamePlate
                   x={0}
-                  y={frame.parent.radius + 16}
+                  y={(() => {
+                    const metrics = nameplateMetrics(view.z, true);
+                    const rest = frame.parent.radius + 16;
+                    const clear = reticleRadius(frame.parent) + (metrics.boxH / 2 + 10) / view.z;
+                    return rest + (clear - rest) * metrics.t;
+                  })()}
                   zoom={view.z}
                   fill={C.TEXT_DIM}
+                  emphasis
                 >
                   {frame.parent.label}
-                </PlateText>
+                </NamePlate>
               </g>
             )}
             {frame.stars.map(star => {
@@ -1329,30 +1410,18 @@ export default function Orrery({ system, selectedId, focusToken = 0, focusMoonId
                 {label.text}
               </PlateText>
             ))}
-            {frame.bodies.map(body => body.label && (
-              <g key={`label-${body.id}`} pointerEvents="none">
-                {body.selected && (
-                  <line
-                    x1={body.ringX}
-                    y1={body.ringY}
-                    x2={body.label.anchor === 'start' ? body.label.x - 4 : body.label.x + 4}
-                    y2={body.label.y}
-                    stroke={C.BORDER_HI}
-                    strokeWidth="1"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                )}
-                <PlateText
-                  x={body.label.x}
-                  y={body.label.y}
-                  zoom={view.z}
-                  anchor={body.label.anchor}
-                  fill={body.selected ? C.TEXT : C.TEXT_DIM}
-                  size={body.selected ? 12 : 10}
-                >
-                  {body.label.text}
-                </PlateText>
-              </g>
+            {frame.bodies.map(body => body.label && !body.moon && !body.selected && (
+              <PlateText
+                key={`label-${body.id}`}
+                x={body.label.x}
+                y={body.label.y}
+                zoom={view.z}
+                anchor={body.label.anchor}
+                fill={C.TEXT_DIM}
+                size={10}
+              >
+                {body.label.text}
+              </PlateText>
             ))}
             {frame.bodies.map(body => {
               const world = worlds.find(item => item.id === body.id);
@@ -1402,6 +1471,59 @@ export default function Orrery({ system, selectedId, focusToken = 0, focusMoonId
             {frame.bodies.map(body => body.habitable && (
               <LifeBracket key={`life-${body.id}`} body={body} frame={frame} zoom={view.z} />
             ))}
+            {frame.bodies.map(body => {
+              if (!body.label || (!body.moon && !body.selected)) return null;
+              const emphasis = body.selected || hoverId === body.id;
+              const metrics = nameplateMetrics(view.z, emphasis);
+              const caption = nameplatePoint(body, frame, view.z, metrics);
+              const travel = Math.min(1, Math.max(0, (metrics.t - 0.12) / 0.88));
+              const plateFade = Math.min(1, Math.max(0, (metrics.t - 0.12) / 0.38));
+              const captionFade = 1 - Math.min(1, metrics.t / 0.4);
+              const fill = emphasis ? C.TEXT : C.TEXT_DIM;
+              return (
+                <g key={`name-${body.id}`} pointerEvents="none">
+                  {captionFade > 0.02 && (
+                    <>
+                      {body.selected && (
+                        <line
+                          x1={body.ringX}
+                          y1={body.ringY}
+                          x2={body.label.anchor === 'start' ? body.label.x - 4 : body.label.x + 4}
+                          y2={body.label.y}
+                          stroke={C.BORDER_HI}
+                          strokeWidth="1"
+                          strokeOpacity={captionFade}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      )}
+                      <PlateText
+                        x={body.label.x}
+                        y={body.label.y}
+                        zoom={view.z}
+                        anchor={body.label.anchor}
+                        fill={fill}
+                        size={emphasis ? 12 : 10}
+                        opacity={captionFade}
+                      >
+                        {body.label.text}
+                      </PlateText>
+                    </>
+                  )}
+                  {plateFade > 0.02 && (
+                    <NamePlate
+                      x={body.label.x + (caption.x - body.label.x) * travel}
+                      y={body.label.y + (caption.y - body.label.y) * travel}
+                      zoom={view.z}
+                      fill={fill}
+                      emphasis={emphasis}
+                      opacity={plateFade}
+                    >
+                      {body.label.text}
+                    </NamePlate>
+                  )}
+                </g>
+              );
+            })}
             {frame.comets?.map(comet => (
               <CometMark key={`comet-${comet.id}`} comet={comet} />
             ))}
