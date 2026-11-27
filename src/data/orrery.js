@@ -6,7 +6,9 @@
 // It is not the orbit's inclination.
 //
 // Ring radius is logarithmic. A linear drawing hides the inner worlds
-// behind a companion at hundreds of AU. The labels stay in AU.
+// behind a companion at hundreds of AU. The labels stay in AU. The
+// radius span is wide enough that a disc, a ring lying along the orbit,
+// and a belt do not reach the next path.
 //
 // Apparent size needs a radius. Main-sequence radius comes from luminosity
 // and a temperature for the class (Stefan–Boltzmann). A white dwarf, a
@@ -31,12 +33,12 @@ const FIXED_RADIUS_SOLAR = {
 };
 
 const VIEW = {
-  width: 460,
-  height: 420,
-  cx: 196,
-  cy: 208,
-  rMin: 34,
-  rMax: 152,
+  width: 832,
+  height: 832,
+  cx: 416,
+  cy: 416,
+  rMin: 48,
+  rMax: 380,
 };
 
 const WORLD_LABEL_ANGLE = -Math.PI / 5;
@@ -443,6 +445,7 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
     const points = ringPoints(elements, scale, pitch);
     const angle = bodyAngles[index];
     const mark = projectVector(orbitVector(elements, angle), scale, pitch);
+    const tangent = Math.atan2(mark.y - scale.cy, mark.x - scale.cx) * 180 / Math.PI + 90;
     const onRing = projectVector(orbitVector(elements, WORLD_LABEL_ANGLE), scale, pitch);
     const selected = entry.world.id === selectedId;
     const showLabel = labeled.has(entry.world.id);
@@ -480,6 +483,7 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
       outerPath: entry.world.isCircumbinary ? ringPath(growPoints(points, scale, 3)) : null,
       markX: mark.x,
       markY: mark.y,
+      tangent,
       ringX: onRing.x,
       ringY: onRing.y,
       specks,

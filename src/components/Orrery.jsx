@@ -313,7 +313,7 @@ function ShadedDisc({ uid, r, color, kind, seed = '' }) {
   );
 }
 
-function Belt({ color, uid, seed = '' }) {
+function Belt({ color, uid, seed = '', tangent = 0 }) {
   const field = asteroidFieldUrl(color, seed);
   if (!field) {
     return (
@@ -329,14 +329,15 @@ function Belt({ color, uid, seed = '' }) {
     );
   }
   return (
-    <image
-      href={field}
-      x={-23}
-      y={-12}
-      width={46}
-      height={23}
-      pointerEvents="none"
-    />
+    <g transform={`rotate(${tangent})`} pointerEvents="none">
+      <image
+        href={field}
+        x={-23}
+        y={-12}
+        width={46}
+        height={23}
+      />
+    </g>
   );
 }
 
@@ -391,7 +392,7 @@ const RING_ASPECT = 0.3;
  * the near half after, so the ring crosses the face. The cut is the long
  * axis of the ring plane.
  */
-function RingHalf({ r, kind, tint, near, uid }) {
+function RingHalf({ r, kind, tint, near, uid, tangent = 0 }) {
   const url = ringDiscUrl(kind, tint);
   const outer = r * (kind === 'Ice Giant' ? 1.82 : 2.16);
   if (!url) {
@@ -400,18 +401,19 @@ function RingHalf({ r, kind, tint, near, uid }) {
     const [x0, y0] = ringPoint(rx, ry, 0);
     const [x1, y1] = ringPoint(rx, ry, Math.PI);
     return (
-      <path
-        d={`M ${x0} ${y0} A ${rx} ${ry} ${RING_TILT} 0 ${near ? 1 : 0} ${x1} ${y1}`}
-        fill="none"
-        stroke={tint}
-        strokeOpacity={near ? 0.92 : 0.46}
-        strokeWidth="1.15"
-        pointerEvents="none"
-      />
+      <g transform={`rotate(${tangent})`} pointerEvents="none">
+        <path
+          d={`M ${x0} ${y0} A ${rx} ${ry} ${RING_TILT} 0 ${near ? 1 : 0} ${x1} ${y1}`}
+          fill="none"
+          stroke={tint}
+          strokeOpacity={near ? 0.92 : 0.46}
+          strokeWidth="1.15"
+        />
+      </g>
     );
   }
   const clip = `ring-clip-${uid}-${near ? 'n' : 'f'}`;
-  const spin = `rotate(${RING_TILT}) scale(1 ${RING_ASPECT})`;
+  const spin = `rotate(${tangent}) rotate(${RING_TILT}) scale(1 ${RING_ASPECT})`;
   return (
     <g opacity={near ? 1 : 0.84} pointerEvents="none">
       <defs>
@@ -486,16 +488,16 @@ function Reticle({ radius, locked = false }) {
 function BodyGlyph({ body }) {
   const uid = svgId(useId());
   const color = ink(body);
-  if (body.belt) return <Belt color={color} uid={uid} seed={body.id} />;
+  if (body.belt) return <Belt color={color} uid={uid} seed={body.id} tangent={body.tangent || 0} />;
   if (body.worldType === 'Double Planet') return <Twin color={color} uid={uid} seed={body.id} />;
   const radius = body.selected ? 8 : (DISC[body.worldType] || 5);
   if (body.worldType === 'Coreless') return <Coreless color={color} r={radius} />;
   const giant = body.worldType === 'Gas Giant' || body.worldType === 'Ice Giant';
   return (
     <g>
-      {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} />}
+      {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} tangent={body.tangent || 0} />}
       <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} seed={body.id} />
-      {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} near />}
+      {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} tangent={body.tangent || 0} near />}
       {body.worldType === 'Disintegrating' && <Tail r={radius} color={color} />}
       {body.habitable && (
         <circle r={radius + 3.5} fill="none" stroke={C.HABITABLE || '#4CAF7D'} strokeWidth="1" />
