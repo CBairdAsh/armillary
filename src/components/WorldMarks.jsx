@@ -51,8 +51,9 @@ function Drift({ size }) {
 function EmptyCore({ size }) {
   return (
     <Frame size={size} label="Coreless world">
-      <circle cx="12" cy="12" r="8.2" fill="none" stroke={C.TEXT_DIM} strokeWidth="2.1" />
-      <circle cx="12" cy="12" r="2.7" fill="none" stroke={C.COLD} strokeWidth="1.8" strokeDasharray="2.5 1.7" />
+      <circle cx="12" cy="12" r="8.2" fill="#6d8248" />
+      <circle cx="8.6" cy="9.4" r="3.2" fill="#314028" />
+      <circle cx="14.8" cy="14.4" r="1.35" fill="#c9c2ac" />
     </Frame>
   );
 }

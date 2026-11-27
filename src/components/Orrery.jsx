@@ -357,15 +357,6 @@ function Twin({ color, uid, seed = '' }) {
   );
 }
 
-function Coreless({ color, r }) {
-  return (
-    <g>
-      <circle r={r} fill={color} fillOpacity="0.14" stroke={color} strokeWidth="1.6" />
-      <circle r={r * 0.4} fill="none" stroke="#7EC8E3" strokeWidth="1.1" strokeDasharray="2 1.6" />
-    </g>
-  );
-}
-
 function Tail({ r, color }) {
   return (
     <g fill={color}>
@@ -496,7 +487,6 @@ function BodyGlyph({ body }) {
   if (body.belt) return <Belt color={color} uid={uid} seed={body.id} tangent={body.tangent || 0} />;
   if (body.worldType === 'Double Planet') return <Twin color={color} uid={uid} seed={body.id} />;
   const radius = glyphRadius(body);
-  if (body.worldType === 'Coreless') return <Coreless color={color} r={radius} />;
   const giant = body.worldType === 'Gas Giant' || body.worldType === 'Ice Giant';
   return (
     <g>

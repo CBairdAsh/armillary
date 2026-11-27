@@ -90,7 +90,12 @@ function craters(seed, count, minR, maxR) {
   return list;
 }
 
-function applyCraters(rgb, nx, ny, list) {
+function applyCraters(rgb, nx, ny, list, kind) {
+  const mantle = kind === 'Coreless';
+  const rim = mantle ? [214, 206, 184] : [236, 228, 210];
+  const shade = mantle ? [28, 36, 24] : [24, 18, 14];
+  const floorColor = mantle ? [34, 48, 30] : [28, 24, 22];
+  const ejecta = mantle ? [168, 178, 132] : [210, 200, 186];
   let next = rgb;
   for (const crater of list) {
     const ox = (nx - crater.x) / crater.r;
@@ -99,12 +104,12 @@ function applyCraters(rgb, nx, ny, list) {
     if (distance > 1.08) continue;
     const facing = Math.max(0, -ox * 0.65 - oy * 0.75);
     if (distance > 0.78) {
-      next = mix(next, [236, 228, 210], 0.12 + facing * 0.5);
-      next = mix(next, [24, 18, 14], (1 - facing) * 0.4);
+      next = mix(next, rim, mantle ? 0.06 + facing * 0.22 : 0.12 + facing * 0.5);
+      next = mix(next, shade, (1 - facing) * (mantle ? 0.55 : 0.4));
     } else {
       const floor = 1 - distance / 0.78;
-      next = mix(next, [28, 24, 22], 0.22 + floor * 0.2);
-      next = mix(next, [210, 200, 186], floor * floor * 0.18);
+      next = mix(next, floorColor, mantle ? 0.42 + floor * 0.34 : 0.22 + floor * 0.2);
+      next = mix(next, ejecta, floor * floor * (mantle ? 0.08 : 0.18));
     }
   }
   return next;
@@ -139,6 +144,18 @@ function surface(kind, nx, ny, tint, seed) {
     const crack = Math.abs(fbm(nx * 6.5, ny * 6.5, seed + 3) - 0.5);
     if (crack < 0.018) rgb = mix(rgb, [64, 86, 108], (0.018 - crack) / 0.018);
     return mix(rgb, tint, 0.08);
+  }
+  if (kind === 'Coreless') {
+    // Iron stayed in the silicates, so this is mantle the whole way down.
+    // Pale crust on the high ground. Impacts open the olivine under it.
+    const relief = fbm(nx * 1.7 + 1.4, ny * 1.7, seed + 3);
+    const crust = smooth(0.44, 0.68, relief);
+    const stone = mix([46, 60, 38], [104, 116, 64], fine);
+    const highlands = mix([148, 140, 124], [190, 182, 164], fine);
+    let rgb = mix(stone, highlands, crust * 0.8);
+    const basin = 1 - smooth(0.2, 0.42, relief);
+    rgb = mix(rgb, [28, 40, 26], basin * 0.72);
+    return mix(rgb, tint, 0.12);
   }
   if (kind === 'Chthonian') {
     let rgb = mix([42, 32, 30], [72, 48, 40], fine);
@@ -178,9 +195,9 @@ export function rockDiscPixels(color, kind, worldSeed = '', size = SIZE) {
   const tint = channels(color);
   const marks = craters(
     seed,
-    kind === 'Disintegrating' ? 16 : kind === 'Ice Planet' || kind === 'Desert' ? 7 : 4,
-    kind === 'Ice Planet' ? 0.05 : 0.035,
-    kind === 'Disintegrating' ? 0.16 : 0.09,
+    kind === 'Disintegrating' ? 16 : kind === 'Coreless' ? 9 : kind === 'Ice Planet' || kind === 'Desert' ? 7 : 4,
+    kind === 'Ice Planet' ? 0.05 : kind === 'Coreless' ? 0.045 : 0.035,
+    kind === 'Disintegrating' ? 0.16 : kind === 'Coreless' ? 0.12 : 0.09,
   );
   const pixels = new Uint8ClampedArray(size * size * 4);
   const radius = size * 0.5 - 1;
@@ -194,7 +211,7 @@ export function rockDiscPixels(color, kind, worldSeed = '', size = SIZE) {
       const nx = dx / radius;
       const ny = dy / radius;
       let rgb = surface(kind, nx, ny, tint, seed);
-      if (kind !== 'Ocean Planet' && kind !== 'Hycean') rgb = applyCraters(rgb, nx, ny, marks);
+      if (kind !== 'Ocean Planet' && kind !== 'Hycean') rgb = applyCraters(rgb, nx, ny, marks, kind);
       const grain = (noise(x / 3, y / 3, seed + 21) - 0.5) * 0.06;
       rgb = rgb.map(channel => channel * (1 + grain));
       const edge = rho > 0.97 ? (1 - rho) / 0.03 : 1;
