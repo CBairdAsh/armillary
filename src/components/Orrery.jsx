@@ -10,6 +10,7 @@ import {
 } from '../data/orrery.js';
 import { bodyColor } from '../data/bodyColor.js';
 import { planetDiscUrl } from '../data/planetDisc.js';
+import { ringDiscUrl } from '../data/ringDisc.js';
 import { asteroidFieldUrl } from '../data/asteroidField.js';
 import { starDiscUrl } from '../data/starDisc.js';
 
@@ -366,25 +367,56 @@ function ringPoint(rx, ry, angle) {
   ];
 }
 
+const RING_ASPECT = 0.3;
+
 /**
- * One half of a giant's ring. The far half is drawn before the disc and
- * the near half after, so the ring crosses the face instead of sitting
- * behind it. `near` is the lower half in screen space.
+ * One half of a painted ring. The far half is drawn before the disc and
+ * the near half after, so the ring crosses the face. The cut is the long
+ * axis of the ring plane.
  */
-function RingArc({ r, color, near = false }) {
-  const rx = r + 6;
-  const ry = Math.max(2.2, r * 0.38);
-  const [x0, y0] = ringPoint(rx, ry, 0);
-  const [x1, y1] = ringPoint(rx, ry, Math.PI);
+function RingHalf({ r, kind, tint, near, uid }) {
+  const url = ringDiscUrl(kind, tint);
+  const outer = r * (kind === 'Ice Giant' ? 1.82 : 2.16);
+  if (!url) {
+    const rx = outer;
+    const ry = Math.max(2.2, outer * RING_ASPECT);
+    const [x0, y0] = ringPoint(rx, ry, 0);
+    const [x1, y1] = ringPoint(rx, ry, Math.PI);
+    return (
+      <path
+        d={`M ${x0} ${y0} A ${rx} ${ry} ${RING_TILT} 0 ${near ? 1 : 0} ${x1} ${y1}`}
+        fill="none"
+        stroke={tint}
+        strokeOpacity={near ? 0.92 : 0.46}
+        strokeWidth="1.15"
+        pointerEvents="none"
+      />
+    );
+  }
+  const clip = `ring-clip-${uid}-${near ? 'n' : 'f'}`;
+  const spin = `rotate(${RING_TILT}) scale(1 ${RING_ASPECT})`;
   return (
-    <path
-      d={`M ${x0} ${y0} A ${rx} ${ry} ${RING_TILT} 0 ${near ? 1 : 0} ${x1} ${y1}`}
-      fill="none"
-      stroke={color}
-      strokeOpacity={near ? 0.92 : 0.46}
-      strokeWidth="1.15"
-      pointerEvents="none"
-    />
+    <g opacity={near ? 1 : 0.84} pointerEvents="none">
+      <defs>
+        <clipPath id={clip} clipPathUnits="userSpaceOnUse">
+          <rect
+            x={-outer - 2}
+            y={near ? -0.4 : -outer - 2}
+            width={outer * 2 + 4}
+            height={outer + 2.4}
+          />
+        </clipPath>
+      </defs>
+      <image
+        href={url}
+        x={-outer}
+        y={-outer}
+        width={outer * 2}
+        height={outer * 2}
+        transform={spin}
+        clipPath={`url(#${clip})`}
+      />
+    </g>
   );
 }
 
@@ -400,14 +432,11 @@ function BodyGlyph({ body }) {
   const radius = body.selected ? 8 : (DISC[body.worldType] || 5);
   if (body.worldType === 'Coreless') return <Coreless color={color} r={radius} />;
   const giant = body.worldType === 'Gas Giant' || body.worldType === 'Ice Giant';
-  const ring = body.worldType === 'Ice Giant'
-    ? mixHex(color, '#e4f2f4', 0.45)
-    : mixHex(color, '#f3ead8', 0.4);
   return (
     <g>
-      {giant && <RingArc r={radius} color={ring} />}
+      {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} />}
       <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} />
-      {giant && <RingArc r={radius} color={ring} near />}
+      {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} near />}
       {body.worldType === 'Disintegrating' && <Tail r={radius} color={color} />}
       {body.habitable && (
         <circle r={radius + 3.5} fill="none" stroke={C.HABITABLE || '#4CAF7D'} strokeWidth="1" />
