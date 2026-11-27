@@ -71,7 +71,7 @@ export default function UpdateNotice({ onDismiss }) {
           v{APP_VERSION}
         </div>
         <p style={{ margin: '0 0 14px', color: C.TEXT, fontSize: 13, lineHeight: 1.6 }}>
-          A system is drawn as an orrery. A world keeps its year, its day, and a name.
+          Every body on the orrery has its own surface. A world opens onto its moons.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
           {RELEASE_NOTES.map(note => (

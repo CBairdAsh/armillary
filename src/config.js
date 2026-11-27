@@ -1,11 +1,11 @@
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.8.0';
 
 // Shown once per browser for this version. Bump APP_VERSION to show a new note.
 export const RELEASE_NOTES = [
-  { label: 'Orrery', detail: 'Zoom, pan, and raise the view. Stars show a photosphere. Gas and ice giants have bands, and a ring crosses the disc.' },
-  { label: 'Orbits', detail: 'Each world shows its year and its day. An outer orbit can be tilted, and the orrery draws that tilt.' },
-  { label: 'Life', detail: 'A habitable world states its biosphere. A life-bearing moon has its own card. Two living worlds say whether they know of each other.' },
-  { label: 'Records', detail: 'A world and a species can keep a typed name. A space-capable people has a port. An opened neighbor is saved with the system, and multiple stars state their separation.' },
+  { label: 'Surfaces', detail: 'Each world type is painted. A pulsar planet is dark glass. A captured rogue is tholin-stained rock, or dirty ice when it carries an ice sheet. A disintegrating world sheds a dust stream away from the star. A coreless world is exposed mantle.' },
+  { label: 'Moons', detail: 'Rock is cratered. Ice stays bright. A subsurface ocean shows fractures. A cryovolcanic moon vents a plume. Volcanic ground is sulfur and lava. A thin atmosphere is orange haze. A terrestrial moon has land, sea, and cloud. Selecting a world opens its moons. Clicking a moon centers it, and the name grows into a readout.' },
+  { label: 'Belts', detail: 'An asteroid belt is a field of stones. A Kuiper belt is an ice disk, narrow when a cold giant has stirred it, and it has its own card. A comet shows a coma, a dust fan, and a thin ion streak.' },
+  { label: 'Chart', detail: 'Orbits sit far enough apart that a ring or a belt stays on its own path. A giant\'s ring is painted ice, and the near half crosses the disc. A habitable world carries two thin green brackets. Hovering or locking a body frames it with a holographic ring.' },
 ];
 
 export const KOFI_URL     = 'https://ko-fi.com/cbash';
