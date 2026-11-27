@@ -553,6 +553,26 @@ function LifeBracket({ body, frame, zoom }) {
   );
 }
 
+function CometMark({ comet }) {
+  const uid = svgId(useId());
+  const length = 36;
+  return (
+    <g transform={`translate(${comet.x} ${comet.y}) rotate(${comet.tail})`} pointerEvents="none">
+      <title>{comet.title}</title>
+      <defs>
+        <linearGradient id={uid} gradientUnits="userSpaceOnUse" x1="1" y1="0" x2={length} y2="0">
+          <stop offset="0" stopColor={comet.color} stopOpacity="0.85" />
+          <stop offset="0.4" stopColor={comet.color} stopOpacity="0.28" />
+          <stop offset="1" stopColor={comet.color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={`M 1.2 -1.35 L ${length} 0 L 1.2 1.35 Z`} fill={`url(#${uid})`} />
+      <circle r="2.5" fill={comet.color} />
+      <circle r="1.15" fill="#f8fbff" />
+    </g>
+  );
+}
+
 function PlateText({ x, y, zoom, anchor = 'middle', fill, size = 10, children }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${1 / zoom})`} pointerEvents="none">
@@ -1079,6 +1099,13 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
                 ))}
               </g>
             ))}
+            {frame.comets?.map(comet => (
+              <g key={`comet-path-${comet.id}`} pointerEvents="none">
+                {comet.paths.map(path => (
+                  <path key={path} className="orrery-comet-path" d={path} stroke={comet.color} />
+                ))}
+              </g>
+            ))}
             {frame.stars.map(star => (
               <g
                 key={`star-${star.label}`}
@@ -1195,6 +1222,9 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
             })}
             {frame.bodies.map(body => body.habitable && (
               <LifeBracket key={`life-${body.id}`} body={body} frame={frame} zoom={view.z} />
+            ))}
+            {frame.comets?.map(comet => (
+              <CometMark key={`comet-${comet.id}`} comet={comet} />
             ))}
           </g>
         </svg>

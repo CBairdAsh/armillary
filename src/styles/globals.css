@@ -705,6 +705,15 @@ input, button, select, textarea {
   animation-direction: reverse;
 }
 
+.orrery-comet-path {
+  fill: none;
+  stroke-width: 1;
+  stroke-opacity: 0.55;
+  stroke-dasharray: 1.5 3.2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
 @keyframes orrery-life-flow {
   to { stroke-dashoffset: -100; }
 }

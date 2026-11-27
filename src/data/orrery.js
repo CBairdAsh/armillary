@@ -10,6 +10,12 @@
 // radius span is wide enough that a disc, a ring lying along the orbit,
 // and a belt do not reach the next path.
 //
+// A comet's semi-major axis comes from its stored period and the stellar
+// mass. The shape, the tilt, and the place on that orbit are a hash of
+// the comet's id, so nothing here consumes the generator's random stream.
+// The far end of a long orbit is left off the chart, so a cloud comet
+// does not shrink the worlds.
+//
 // Apparent size needs a radius. Main-sequence radius comes from luminosity
 // and a temperature for the class (Stefan–Boltzmann). A white dwarf, a
 // neutron star, and a brown dwarf do not follow that relation, so each
@@ -290,6 +296,111 @@ function ringPoints(elements, scale, pitch) {
 
 function diskElements(au) {
   return { a: au, e: 0, i: 0, node: 0, peri: 0, inclination: 0 };
+}
+
+function hashUnit(text) {
+  let hash = 2166136261;
+  const value = String(text);
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967296;
+}
+
+function cometColor(composition) {
+  if (composition === 'Rocky-Icy') return '#e4d2b4';
+  if (composition === 'Metallic') return '#d5dde4';
+  if (composition === 'Carbon-rich') return '#b7aea4';
+  if (composition === 'Exotic') return '#e4d4f2';
+  return '#e7f4fb';
+}
+
+function cometElements(comet, mass, scale) {
+  const stellar = mass > 0 ? mass : 1;
+  const period = comet.period > 0 ? comet.period : 10;
+  const axis = Math.cbrt(period * period * stellar);
+  const unit = hashUnit;
+  const id = comet.id || `${comet.index}|${period}`;
+  const qMax = comet.periodType === 'Long-period' ? 4.5 : comet.periodType === 'Medium-period' ? 3.2 : 2.2;
+  const room = Math.min(qMax, Math.max(scale.minAU * 6, scale.maxAU * 0.45));
+  let perihelion = scale.minAU * 3 + unit(`${id}|q`) * Math.max(0.2, room - scale.minAU * 3);
+  if (perihelion > axis * 0.55) perihelion = axis * 0.55;
+  const eccentricity = Math.min(0.985, Math.max(0.45, 1 - perihelion / axis));
+  const tilt = comet.periodType === 'Short-period'
+    ? unit(`${id}|i`) * 28
+    : comet.periodType === 'Medium-period'
+      ? unit(`${id}|i`) * 60
+      : unit(`${id}|i`) * 165;
+  return {
+    a: axis,
+    e: eccentricity,
+    i: tilt * Math.PI / 180,
+    node: unit(`${id}|node`) * Math.PI * 2,
+    peri: unit(`${id}|peri`) * Math.PI * 2,
+    anomaly: (unit(`${id}|nu`) - 0.5) * 1.2,
+    color: cometColor(comet.composition),
+  };
+}
+
+function openPath(points, close) {
+  if (points.length < 2) return '';
+  const body = points.map((point, index) => (
+    `${index ? 'L' : 'M'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+  )).join(' ');
+  return close ? `${body} Z` : body;
+}
+
+function cometTracks(elements, scale, pitch) {
+  const samples = 128;
+  const inside = [];
+  for (let step = 0; step <= samples; step += 1) {
+    const anomaly = (step / samples) * Math.PI * 2;
+    const vector = orbitVector(elements, anomaly);
+    const rho = Math.hypot(vector.x, vector.y, vector.z);
+    inside.push(rho > 0 && rho <= scale.maxAU ? projectVector(vector, scale, pitch) : null);
+  }
+  const runs = [];
+  let run = [];
+  for (let step = 0; step < samples; step += 1) {
+    const point = inside[step];
+    if (!point) {
+      if (run.length > 1) runs.push(run);
+      run = [];
+      continue;
+    }
+    run.push(point);
+  }
+  if (run.length > 1) runs.push(run);
+  if (runs.length >= 2 && inside[0] && inside[samples - 1]) {
+    const wrapped = runs.pop();
+    runs[0] = wrapped.concat(runs[0]);
+  }
+  const full = inside.slice(0, samples).every(Boolean);
+  return runs.map(points => openPath(points, full)).filter(Boolean);
+}
+
+function layoutComets(system, scale, pitch) {
+  const list = system?.comets || [];
+  if (!list.length || system?.isRoguePlanet) return [];
+  const mass = (system.stars || []).reduce((sum, star) => sum + (star.mass > 0 ? star.mass : 0), 0);
+  return list.map(comet => {
+    const elements = cometElements(comet, mass, scale);
+    const vector = orbitVector(elements, elements.anomaly);
+    const mark = projectVector(vector, scale, pitch);
+    const tail = Math.atan2(mark.y - scale.cy, mark.x - scale.cx) * 180 / Math.PI;
+    const name = `C${(comet.index ?? 0) + 1}`;
+    return {
+      id: comet.id,
+      index: comet.index ?? 0,
+      x: mark.x,
+      y: mark.y,
+      tail,
+      color: elements.color,
+      paths: cometTracks(elements, scale, pitch),
+      title: `${name} ${comet.composition || 'Comet'}, ${comet.periodType || 'comet'}, ${comet.period} yr`,
+    };
+  });
 }
 
 function ringPath(points) {
@@ -579,6 +690,7 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
     hz: hzLayout,
     belt: beltLayout,
     stars: fittedStars,
+    comets: layoutComets(system, scale, pitch),
     bodies,
   };
 }
