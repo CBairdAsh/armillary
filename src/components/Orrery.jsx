@@ -10,6 +10,7 @@ import {
 } from '../data/orrery.js';
 import { bodyColor } from '../data/bodyColor.js';
 import { planetDiscUrl } from '../data/planetDisc.js';
+import { rockDiscUrl } from '../data/rockDisc.js';
 import { ringDiscUrl } from '../data/ringDisc.js';
 import { asteroidFieldUrl } from '../data/asteroidField.js';
 import { starDiscUrl } from '../data/starDisc.js';
@@ -228,11 +229,13 @@ function dunePath(r) {
   return `M ${-r} ${r * 0.22} C ${-r * 0.25} ${-r * 0.12} ${r * 0.15} ${r * 0.52} ${r} ${r * 0.06} L ${r} ${r} L ${-r} ${r} Z`;
 }
 
-function ShadedDisc({ uid, r, color, kind }) {
+function ShadedDisc({ uid, r, color, kind, seed = '' }) {
   const fill = `fill-${uid}`;
   const clip = `clip-${uid}`;
   const limb = darken(color, kind === 'Chthonian' ? 0.28 : 0.7);
-  const disc = planetDiscUrl(color, kind);
+  const giantDisc = planetDiscUrl(color, kind);
+  const rockDisc = giantDisc ? null : rockDiscUrl(color, kind, seed);
+  const disc = giantDisc || rockDisc;
   const bands = !disc && (kind === 'Gas Giant' || kind === 'Ice Giant' || kind === 'Gas Dwarf');
   const bandOpacity = kind === 'Gas Dwarf' ? 0.1 : 0.18;
   return (
@@ -240,11 +243,23 @@ function ShadedDisc({ uid, r, color, kind }) {
       <defs>
         {disc ? (
           <radialGradient id={fill} cx="30%" cy="26%" r="75%">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.75" />
-            <stop offset="20%" stopColor="#ffffff" stopOpacity="0.2" />
-            <stop offset="48%" stopColor="#ffffff" stopOpacity="0" />
-            <stop offset="80%" stopColor="#041018" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#041018" stopOpacity="0.62" />
+            {rockDisc ? (
+              <>
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.4" />
+                <stop offset="16%" stopColor="#ffffff" stopOpacity="0.1" />
+                <stop offset="46%" stopColor="#ffffff" stopOpacity="0" />
+                <stop offset="78%" stopColor="#0a1016" stopOpacity="0.1" />
+                <stop offset="100%" stopColor="#0a1016" stopOpacity="0.48" />
+              </>
+            ) : (
+              <>
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.75" />
+                <stop offset="20%" stopColor="#ffffff" stopOpacity="0.2" />
+                <stop offset="48%" stopColor="#ffffff" stopOpacity="0" />
+                <stop offset="80%" stopColor="#041018" stopOpacity="0.18" />
+                <stop offset="100%" stopColor="#041018" stopOpacity="0.62" />
+              </>
+            )}
           </radialGradient>
         ) : (
           <radialGradient id={fill} cx="30%" cy="26%" r="78%">
@@ -272,32 +287,34 @@ function ShadedDisc({ uid, r, color, kind }) {
         <circle r={r} fill={`url(#${fill})`} />
       )}
       {disc && <circle r={r} fill={`url(#${fill})`} pointerEvents="none" />}
-      <g clipPath={`url(#${clip})`}>
-        {bands && (
-          <>
-            <rect x={-r} y={-r * 0.22} width={r * 2} height={r * 0.16} fill="#ffffff" opacity={bandOpacity} />
-            <rect x={-r} y={r * 0.14} width={r * 2} height={r * 0.14} fill="#041018" opacity="0.22" />
-          </>
-        )}
-        {kind === 'Ice Planet' && (
-          <ellipse cx="0" cy={-r * 0.4} rx={r * 0.72} ry={r * 0.36} fill="#f7fbff" opacity="0.92" />
-        )}
-        {kind === 'Desert' && (
-          <path d={dunePath(r)} fill={darken(color, 0.28)} />
-        )}
-        {(kind === 'Ocean Planet' || kind === 'Hycean') && (
-          <ellipse cx={-r * 0.22} cy={-r * 0.28} rx={r * 0.36} ry={r * 0.15} fill="#ffffff" opacity="0.42" />
-        )}
-        {kind === 'Chthonian' && (
-          <circle r={r * 0.32} fill="#ffb089" opacity="0.7" />
-        )}
-      </g>
+      {!disc && (
+        <g clipPath={`url(#${clip})`}>
+          {bands && (
+            <>
+              <rect x={-r} y={-r * 0.22} width={r * 2} height={r * 0.16} fill="#ffffff" opacity={bandOpacity} />
+              <rect x={-r} y={r * 0.14} width={r * 2} height={r * 0.14} fill="#041018" opacity="0.22" />
+            </>
+          )}
+          {kind === 'Ice Planet' && (
+            <ellipse cx="0" cy={-r * 0.4} rx={r * 0.72} ry={r * 0.36} fill="#f7fbff" opacity="0.92" />
+          )}
+          {kind === 'Desert' && (
+            <path d={dunePath(r)} fill={darken(color, 0.28)} />
+          )}
+          {(kind === 'Ocean Planet' || kind === 'Hycean') && (
+            <ellipse cx={-r * 0.22} cy={-r * 0.28} rx={r * 0.36} ry={r * 0.15} fill="#ffffff" opacity="0.42" />
+          )}
+          {kind === 'Chthonian' && (
+            <circle r={r * 0.32} fill="#ffb089" opacity="0.7" />
+          )}
+        </g>
+      )}
     </g>
   );
 }
 
-function Belt({ color, uid }) {
-  const field = asteroidFieldUrl(color);
+function Belt({ color, uid, seed = '' }) {
+  const field = asteroidFieldUrl(color, seed);
   if (!field) {
     return (
       <g>
@@ -314,23 +331,23 @@ function Belt({ color, uid }) {
   return (
     <image
       href={field}
-      x={-16}
-      y={-8}
-      width={32}
-      height={16}
+      x={-23}
+      y={-12}
+      width={46}
+      height={23}
       pointerEvents="none"
     />
   );
 }
 
-function Twin({ color, uid }) {
+function Twin({ color, uid, seed = '' }) {
   return (
     <g>
       <g transform="translate(-3.2 0)">
-        <ShadedDisc uid={`${uid}a`} r={4.2} color={color} kind="Terrestrial" />
+        <ShadedDisc uid={`${uid}a`} r={4.2} color={color} kind="Terrestrial" seed={`${seed}a`} />
       </g>
       <g transform="translate(3.2 0)">
-        <ShadedDisc uid={`${uid}b`} r={4.2} color={darken(color, 0.16)} kind="Terrestrial" />
+        <ShadedDisc uid={`${uid}b`} r={4.2} color={darken(color, 0.16)} kind="Terrestrial" seed={`${seed}b`} />
       </g>
     </g>
   );
@@ -432,7 +449,7 @@ function reticleRadius(body) {
   const disc = glyphRadius(body);
   if (body.worldType === 'Gas Giant') return disc * 2.16 + 4;
   if (body.worldType === 'Ice Giant') return disc * 1.82 + 4;
-  if (body.belt) return 18;
+  if (body.belt) return 28;
   if (body.worldType === 'Double Planet') return 12;
   return disc + 6;
 }
@@ -469,15 +486,15 @@ function Reticle({ radius, locked = false }) {
 function BodyGlyph({ body }) {
   const uid = svgId(useId());
   const color = ink(body);
-  if (body.belt) return <Belt color={color} uid={uid} />;
-  if (body.worldType === 'Double Planet') return <Twin color={color} uid={uid} />;
+  if (body.belt) return <Belt color={color} uid={uid} seed={body.id} />;
+  if (body.worldType === 'Double Planet') return <Twin color={color} uid={uid} seed={body.id} />;
   const radius = body.selected ? 8 : (DISC[body.worldType] || 5);
   if (body.worldType === 'Coreless') return <Coreless color={color} r={radius} />;
   const giant = body.worldType === 'Gas Giant' || body.worldType === 'Ice Giant';
   return (
     <g>
       {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} />}
-      <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} />
+      <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} seed={body.id} />
       {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} near />}
       {body.worldType === 'Disintegrating' && <Tail r={radius} color={color} />}
       {body.habitable && (
@@ -947,7 +964,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
                     cx={speck.x}
                     cy={speck.y}
                     r={speck.r}
-                    fill={ink(body)}
+                    fill={mixHex(ink(body), '#14110e', speck.shade || 0)}
                     opacity="0.9"
                   />
                 ))}

@@ -456,9 +456,14 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
     } : null;
     if (label) bodyLabels.push(label);
     const specks = entry.world.worldType === 'Asteroid Belt'
-      ? [0.08, 0.2, 0.33, 0.46, 0.67, 0.79, 0.92].map((fraction, speckIndex) => {
+      ? [0.05, 0.14, 0.23, 0.33, 0.42, 0.52, 0.61, 0.71, 0.8, 0.89, 0.96].map((fraction, speckIndex) => {
         const at = projectVector(orbitVector(elements, fraction * Math.PI * 2), scale, pitch);
-        return { x: at.x, y: at.y, r: 1.15 + (speckIndex % 3) * 0.45 };
+        return {
+          x: at.x,
+          y: at.y,
+          r: 0.95 + (speckIndex % 4) * 0.38,
+          shade: 0.08 + (speckIndex % 5) * 0.1,
+        };
       })
       : null;
     return {

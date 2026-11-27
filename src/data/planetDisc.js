@@ -1,7 +1,7 @@
 // One banded albedo per giant type and zone color. Painted once, then
 // handed to the SVG as the body. The highlight, the limb, and the ring
-// stay vector, so the light is not baked into the texture. Rocky worlds
-// are silhouettes and have no disc.
+// stay vector, so the light is not baked into the texture. A rocky world
+// has its own disc.
 
 const SIZE = 256;
 const cache = new Map();
