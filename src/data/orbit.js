@@ -157,20 +157,49 @@ function outermostColdGiant(system) {
 }
 
 /**
- * A flat outer belt beyond the last cold giant. Derived, so a saved
- * system grows it. Null when the system has no such giant. Dust past
- * the outer edge is rare, about one system in twelve, and is not drawn.
- * @param {{ isRoguePlanet?: boolean, stars?: Array, worlds?: Array }} system
- * @returns {{ inner: number, outer: number, dust: boolean }|null}
+ * The farthest orbit. The unstirred belt starts beyond this when the
+ * fringe is already occupied.
+ * @param {{ worlds?: Array }} system
+ * @returns {number}
+ */
+function outermostOrbit(system) {
+  let best = 0;
+  for (const world of system?.worlds || []) {
+    if (world?.orbitalAU > best) best = world.orbitalAU;
+  }
+  return best;
+}
+
+/**
+ * A flat outer belt. A cold giant sculpts it, from 1.4 times that orbit
+ * out to the 2:1. With no cold giant the belt is a broader disk in the
+ * fringe, because the planetesimals were never stirred. About one system
+ * in eight has lost the belt. Dust past a sculpted edge is rarer and is
+ * not drawn. Derived, so a saved system grows it.
+ * @param {{ isRoguePlanet?: boolean, stars?: Array, worlds?: Array, hz?: { outer?: number } }} system
+ * @returns {{ inner: number, outer: number, stirred: boolean, dust: boolean }|null}
  */
 export function outerBelt(system) {
   if (!system || system.isRoguePlanet || !(system.stars || []).length) return null;
+  if (hashUnit(`belt-gone|${starKey(system.stars)}`) < 0.125) return null;
   const giant = outermostColdGiant(system);
-  if (!giant) return null;
+  if (giant) {
+    return {
+      inner: giant.orbitalAU * BELT_INNER,
+      outer: giant.orbitalAU * BELT_OUTER,
+      stirred: true,
+      dust: hashUnit(`belt-dust|${starKey(system.stars)}`) < 0.08,
+    };
+  }
+  const fringe = system.hz?.outer > 0 ? system.hz.outer * 3 : 0;
+  if (!(fringe > 0)) return null;
+  const last = outermostOrbit(system);
+  const inner = last > fringe ? last * 1.3 : fringe;
   return {
-    inner: giant.orbitalAU * BELT_INNER,
-    outer: giant.orbitalAU * BELT_OUTER,
-    dust: hashUnit(`belt-dust|${starKey(system.stars)}`) < 0.08,
+    inner,
+    outer: inner * 2,
+    stirred: false,
+    dust: false,
   };
 }
 

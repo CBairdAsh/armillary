@@ -2008,7 +2008,8 @@ export function diskTiltLabel(system) {
 }
 
 /**
- * The outer belt as one sentence. Null when the system has no cold giant.
+ * The outer belt as one sentence. Null when the belt was lost, or the
+ * system has no star.
  * @param {object} system
  * @returns {string|null}
  */
@@ -2016,6 +2017,7 @@ export function outerBeltLabel(system) {
   const belt = outerBelt(system);
   if (!belt) return null;
   const span = `${formatAU(belt.inner)}–${formatAU(belt.outer)} AU`;
+  if (!belt.stirred) return `An outer belt from ${span}. Cold and flat. Nothing has stirred it.`;
   const base = `An outer belt from ${span}. Cold and flat, with a hotter inclined population. The bodies thin past the outer resonance.`;
   if (!belt.dust) return base;
   return `${base} Dust is still dense past the outer edge.`;

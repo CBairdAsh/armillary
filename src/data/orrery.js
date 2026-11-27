@@ -481,15 +481,20 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
   if (belt) {
     const innerPoints = ringPoints(diskElements(belt.inner), scale, pitch);
     const outerPoints = ringPoints(diskElements(belt.outer), scale, pitch);
+    const mid = Math.sqrt(belt.inner * belt.outer);
+    const midPoints = ringPoints(diskElements(mid), scale, pitch);
     const at = projectVector(orbitVector(diskElements(belt.outer), BELT_LABEL_ANGLE), scale, pitch);
     const label = {
       ...labelFrom(at, scale),
       text: `${formatAU(belt.inner)}–${formatAU(belt.outer)}`,
     };
+    const drawn = radiusFor(belt.outer, scale) - radiusFor(belt.inner, scale);
     beltLayout = {
       innerPath: ringPath(innerPoints),
       outerPath: ringPath(outerPoints),
+      midPath: ringPath(midPoints),
       bandPath: `${ringPath(outerPoints)} ${ringPath([...innerPoints].reverse())}`,
+      narrow: drawn < 8,
       label,
     };
   }

@@ -592,17 +592,25 @@ input, button, select, textarea {
 }
 
 .orrery-outer-belt {
-  fill: #6a8aa0;
-  fill-opacity: 0.16;
+  fill: #7f9eb4;
+  fill-opacity: 0.38;
+}
+
+.orrery-outer-belt--narrow {
+  fill-opacity: 0.55;
 }
 
 .orrery-outer-belt-edge {
   fill: none;
-  stroke: #8aa4b8;
-  stroke-opacity: 0.75;
-  stroke-width: 1;
-  stroke-dasharray: 1.2 2.4;
+  stroke: #d5e2ea;
+  stroke-opacity: 0.95;
+  stroke-width: 1.35;
+  stroke-dasharray: 2 2.2;
   vector-effect: non-scaling-stroke;
+}
+
+.orrery-outer-belt-edge--narrow {
+  stroke-width: 2.6;
 }
 
 .orrery--selected .orrery-ring {

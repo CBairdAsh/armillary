@@ -794,13 +794,17 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
               <g pointerEvents="none">
                 <path
                   d={frame.belt.bandPath}
-                  className="orrery-outer-belt"
+                  className={frame.belt.narrow ? 'orrery-outer-belt orrery-outer-belt--narrow' : 'orrery-outer-belt'}
                   fillRule="evenodd"
                 >
                   <title>{`Outer belt, ${frame.belt.label.text} AU`}</title>
                 </path>
-                {[frame.belt.innerPath, frame.belt.outerPath].map(path => (
-                  <path key={path} d={path} className="orrery-outer-belt-edge" />
+                {[frame.belt.innerPath, frame.belt.midPath, frame.belt.outerPath].map(path => (
+                  <path
+                    key={path}
+                    d={path}
+                    className={frame.belt.narrow ? 'orrery-outer-belt-edge orrery-outer-belt-edge--narrow' : 'orrery-outer-belt-edge'}
+                  />
                 ))}
               </g>
             )}
