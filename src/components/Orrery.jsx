@@ -8,6 +8,7 @@ import {
   formatAngular,
   sunMeasure,
 } from '../data/orrery.js';
+import { bodyColor } from '../data/bodyColor.js';
 import { planetDiscUrl } from '../data/planetDisc.js';
 import { asteroidFieldUrl } from '../data/asteroidField.js';
 import { starDiscUrl } from '../data/starDisc.js';
@@ -387,19 +388,26 @@ function RingArc({ r, color, near = false }) {
   );
 }
 
+function ink(body) {
+  return bodyColor(body.worldType, body.zone, body.id) || zoneColor(body.zone);
+}
+
 function BodyGlyph({ body }) {
   const uid = svgId(useId());
-  const color = zoneColor(body.zone);
+  const color = ink(body);
   if (body.belt) return <Belt color={color} uid={uid} />;
   if (body.worldType === 'Double Planet') return <Twin color={color} uid={uid} />;
   const radius = body.selected ? 8 : (DISC[body.worldType] || 5);
   if (body.worldType === 'Coreless') return <Coreless color={color} r={radius} />;
   const giant = body.worldType === 'Gas Giant' || body.worldType === 'Ice Giant';
+  const ring = body.worldType === 'Ice Giant'
+    ? mixHex(color, '#e4f2f4', 0.45)
+    : mixHex(color, '#f3ead8', 0.4);
   return (
     <g>
-      {giant && <RingArc r={radius} color={color} />}
+      {giant && <RingArc r={radius} color={ring} />}
       <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} />
-      {giant && <RingArc r={radius} color={color} near />}
+      {giant && <RingArc r={radius} color={ring} near />}
       {body.worldType === 'Disintegrating' && <Tail r={radius} color={color} />}
       {body.habitable && (
         <circle r={radius + 3.5} fill="none" stroke={C.HABITABLE || '#4CAF7D'} strokeWidth="1" />
@@ -868,7 +876,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
                     cx={speck.x}
                     cy={speck.y}
                     r={speck.r}
-                    fill={zoneColor(body.zone)}
+                    fill={ink(body)}
                     opacity="0.9"
                   />
                 ))}

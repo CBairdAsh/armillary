@@ -7,9 +7,11 @@ const SIZE = 256;
 const cache = new Map();
 
 const PROFILE = {
-  'Gas Giant': { bands: 6.5, contrast: 0.92, wobble: 1, haze: 0.08 },
-  'Ice Giant': { bands: 4.2, contrast: 0.48, wobble: 0.4, haze: 0.34 },
-  'Gas Dwarf': { bands: 5, contrast: 0.28, wobble: 0.3, haze: 0.16 },
+  // Ammonia ice over ammonium hydrosulfide. Dark bands go brown.
+  'Gas Giant': { bands: 6.5, contrast: 0.92, wobble: 1, haze: 0.08, shadow: [42, 22, 10], light: [255, 244, 214] },
+  // Methane absorbs red. The deep stays blue, the haze stays pale cyan.
+  'Ice Giant': { bands: 4.2, contrast: 0.48, wobble: 0.4, haze: 0.34, shadow: [10, 36, 48], light: [226, 244, 242] },
+  'Gas Dwarf': { bands: 5, contrast: 0.28, wobble: 0.3, haze: 0.16, shadow: [36, 30, 24], light: [238, 236, 228] },
 };
 
 function hash(x, y, seed) {
@@ -77,9 +79,9 @@ export function planetDiscPixels(color, kind, size = SIZE) {
   const pixels = new Uint8ClampedArray(size * size * 4);
   const radius = size * 0.5 - 1;
   const origin = (size - 1) / 2;
-  const pale = mix(base, [255, 255, 255], 0.42 + profile.haze);
-  const deep = mix(base, [6, 12, 18], 0.62);
-  const hazy = mix(base, [247, 251, 255], profile.haze);
+  const pale = mix(base, profile.light, 0.42 + profile.haze);
+  const deep = mix(base, profile.shadow, 0.62);
+  const hazy = mix(base, profile.light, profile.haze);
 
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
