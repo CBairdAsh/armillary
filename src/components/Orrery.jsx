@@ -499,9 +499,36 @@ function BodyGlyph({ body }) {
       <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} seed={body.id} />
       {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} tangent={body.tangent || 0} near />}
       {body.worldType === 'Disintegrating' && <Tail r={radius} color={color} />}
-      {body.habitable && (
-        <circle r={radius + 3.5} fill="none" stroke={C.HABITABLE || '#4CAF7D'} strokeWidth="1" />
-      )}
+    </g>
+  );
+}
+
+// Five-point mark. Drawn as a path so it does not depend on the mono font.
+function starPath(radius) {
+  const points = [];
+  for (let i = 0; i < 10; i += 1) {
+    const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+    const r = i % 2 === 0 ? radius : radius * 0.4;
+    points.push(`${(r * Math.cos(angle)).toFixed(2)} ${(r * Math.sin(angle)).toFixed(2)}`);
+  }
+  return `M ${points.join(' L ')} Z`;
+}
+
+/**
+ * Habitability mark. Sits just outside the world, on the side away from
+ * the star, and stays the same screen size as the labels.
+ */
+function LifeMark({ body, frame, zoom }) {
+  const dx = body.markX - frame.cx;
+  const dy = body.markY - frame.cy;
+  const distance = Math.hypot(dx, dy) || 1;
+  const reach = reticleRadius(body) + 9;
+  const x = body.markX + (dx / distance) * reach;
+  const y = body.markY + (dy / distance) * reach;
+  return (
+    <g transform={`translate(${x} ${y}) scale(${1 / zoom})`} pointerEvents="none">
+      <title>Habitable</title>
+      <path d={starPath(5)} fill={C.HABITABLE || '#4CAF7D'} />
     </g>
   );
 }
@@ -1064,7 +1091,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
                   transform={`translate(${body.markX} ${body.markY})`}
                   role="button"
                   tabIndex={0}
-                  aria-label={`[${body.index + 1}] ${name}, ${body.au} AU${body.inclination ? `, inclined ${body.inclination}°` : ''}`}
+                  aria-label={`[${body.index + 1}] ${name}, ${body.au} AU${body.inclination ? `, inclined ${body.inclination}°` : ''}${body.habitable ? ', habitable' : ''}`}
                   aria-pressed={body.selected}
                   onMouseEnter={() => setHoverId(body.id)}
                   onMouseLeave={() => setHoverId(current => (current === body.id ? null : current))}
@@ -1086,6 +1113,9 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
                 </g>
               );
             })}
+            {frame.bodies.map(body => body.habitable && (
+              <LifeMark key={`life-${body.id}`} body={body} frame={frame} zoom={view.z} />
+            ))}
           </g>
         </svg>
         <div className="orrery-nav">
