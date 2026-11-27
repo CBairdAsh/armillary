@@ -184,6 +184,38 @@ input, button, select, textarea {
 
 .world-moon-lines > div { margin-top: 6px; }
 
+.moon-detail {
+  cursor: pointer;
+}
+
+.moon-detail--line,
+.moon-detail--row {
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+
+.moon-detail--row {
+  padding: 4px 6px;
+  margin-left: -6px;
+}
+
+.moon-detail--line:hover,
+.moon-detail--row:hover,
+.moon-detail--line.moon-detail--selected,
+.moon-detail--row.moon-detail--selected {
+  border-color: var(--color-border-hi);
+}
+
+.moon-life-card.moon-detail:hover {
+  outline: 1px solid var(--color-border-hi);
+  outline-offset: 2px;
+}
+
+.moon-detail:focus-visible {
+  outline: 1px solid var(--color-border-hi);
+  outline-offset: 2px;
+}
+
 .world-detail-grid,
 .world-detail-physical,
 .world-detail-life,

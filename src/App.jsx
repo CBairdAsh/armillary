@@ -422,10 +422,19 @@ function InsertSlot({ slot, armed, onArm, onConfirm, onCancel }) {
   );
 }
 
-function MoonLifeBlock({ moon, unbound, onRenameSpecies, onGenerateSpecies }) {
+function MoonLifeBlock({ moon, unbound, selected = false, onSelect, onRenameSpecies, onGenerateSpecies }) {
   const species = moon.species || [];
   return (
-    <div className="moon-life-card" style={{ background: C.PANEL_ALT, border: `1px solid ${C.HABITABLE}33`, borderRadius: 3, padding: '12px 14px' }}>
+    <div
+      className={selected ? 'moon-life-card moon-detail moon-detail--selected' : 'moon-life-card moon-detail'}
+      data-moon-id={moon.id}
+      onClick={event => {
+        if (event.target.closest('button, input, a, textarea, select')) return;
+        event.stopPropagation();
+        onSelect?.();
+      }}
+      style={{ background: C.PANEL_ALT, border: `1px solid ${selected ? C.BORDER_HI : `${C.HABITABLE}33`}`, borderRadius: 3, padding: '12px 14px' }}
+    >
       <div className="moon-life-head">
         <Label color={C.HABITABLE}>Moon {moon.index + 1} · {moon.type}</Label>
         {moon.canSupportLife && !unbound && (
@@ -458,7 +467,7 @@ function MoonLifeBlock({ moon, unbound, onRenameSpecies, onGenerateSpecies }) {
   );
 }
 
-function WorldCard({ world, index, worlds = [], stars = [], separation = null, selected = false, onSelect, onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, onGenerateMoonSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
+function WorldCard({ world, index, worlds = [], stars = [], separation = null, selected = false, focusedMoonId = null, onSelect, onSelectMoon, onLock, onRedraw, onRename, onRenameSpecies, onGenerateSpecies, onGenerateMoonSpecies, canRestructure = false, unbound = false, pendingKind = null, onArmEdit, onConfirmCrush, onConfirmEject, onConfirmDestroy, onCancelEdit }) {
   const [expanded, setExpanded] = useState(false);
   const locked    = world.locked;
   const zoneColor = ZONE_COLORS[world.zone] || C.PRIMARY;
@@ -484,7 +493,7 @@ function WorldCard({ world, index, worlds = [], stars = [], separation = null, s
       className="world-card"
       data-world-id={world.id}
       onClick={event => {
-        if (event.target.closest('button, input, a, textarea, select')) return;
+        if (event.target.closest('button, input, a, textarea, select, [data-moon-id]')) return;
         onSelect?.(world.id);
       }}
       style={{
@@ -589,7 +598,25 @@ function WorldCard({ world, index, worlds = [], stars = [], separation = null, s
         {livingMoons.some(moon => moon.biosphere?.label) && (
           <div className="world-moon-lines">
             {livingMoons.filter(moon => moon.biosphere?.label).map(moon => (
-              <div key={moon.id} style={{ fontSize: 13, color: C.TEXT_DIM }}>
+              <div
+                key={moon.id}
+                data-moon-id={moon.id}
+                className={moon.id === focusedMoonId ? 'moon-detail moon-detail--line moon-detail--selected' : 'moon-detail moon-detail--line'}
+                role="button"
+                tabIndex={0}
+                aria-pressed={moon.id === focusedMoonId}
+                aria-label={`Moon ${moon.index + 1}, ${moon.type}. Show it on the orrery.`}
+                onClick={event => {
+                  event.stopPropagation();
+                  onSelectMoon?.(world.id, moon.id);
+                }}
+                onKeyDown={event => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onSelectMoon?.(world.id, moon.id);
+                }}
+              >
                 MOON {moon.index + 1} · {moon.type} · <span style={{ color: C.HABITABLE }}>{moon.biosphere.label}</span>
               </div>
             ))}
@@ -698,7 +725,26 @@ function WorldCard({ world, index, worlds = [], stars = [], separation = null, s
                       <Label>{livingMoons.length > 0 ? 'Barren moons' : `Moons (${world.moons.length})`}</Label>
                       <div className="flex-col gap-sm" style={{ marginTop: 6 }}>
                         {barrenMoons.map(moon => (
-                          <div key={moon.id} className="flex-row flex-wrap gap-sm">
+                          <div
+                            key={moon.id}
+                            data-moon-id={moon.id}
+                            className={moon.id === focusedMoonId ? 'moon-detail moon-detail--row moon-detail--selected flex-row flex-wrap gap-sm' : 'moon-detail moon-detail--row flex-row flex-wrap gap-sm'}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={moon.id === focusedMoonId}
+                            aria-label={`Moon ${moon.index + 1}, ${moon.type}. Show it on the orrery.`}
+                            onClick={event => {
+                              event.stopPropagation();
+                              onSelectMoon?.(world.id, moon.id);
+                            }}
+                            onKeyDown={event => {
+                              if (event.key !== 'Enter' && event.key !== ' ') return;
+                              event.preventDefault();
+                              event.stopPropagation();
+                              onSelectMoon?.(world.id, moon.id);
+                            }}
+                          >
+                            <span style={{ fontSize: 12, color: C.TEXT_FAINT }}>M{moon.index + 1}</span>
                             <Tag color={C.TEXT_DIM}>{moon.type}</Tag>
                             <span style={{ fontSize: 12, color: C.TEXT_DIM }}>{moon.description}</span>
                           </div>
@@ -719,6 +765,8 @@ function WorldCard({ world, index, worlds = [], stars = [], separation = null, s
                             key={moon.id}
                             moon={moon}
                             unbound={unbound}
+                            selected={moon.id === focusedMoonId}
+                            onSelect={() => onSelectMoon?.(world.id, moon.id)}
                             onRenameSpecies={(speciesId, name) => onRenameSpecies(world.id, speciesId, name)}
                             onGenerateSpecies={() => onGenerateMoonSpecies(world.id, moon.id)}
                           />
@@ -1198,6 +1246,7 @@ export default function App() {
   const [pendingInsert, setPendingInsert] = useState(null);
   const [selection, setSelection] = useState(null);
   const [focusToken, setFocusToken] = useState(0);
+  const [focusMoonId, setFocusMoonId] = useState(null);
   const clearPendingEdits = () => {
     setPendingWorldEdit(null);
     setPendingInsert(null);
@@ -1212,6 +1261,7 @@ export default function App() {
   const selectedWorldId = selection?.systemId === active.id ? selection.worldId : null;
 
   const selectWorld = (id, source) => {
+    setFocusMoonId(null);
     setSelection({ systemId: active.id, worldId: id });
     if (source === 'card') {
       setFocusToken(token => token + 1);
@@ -1220,6 +1270,14 @@ export default function App() {
     const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
     const escape = window.CSS?.escape ? CSS.escape(id) : id;
     document.querySelector(`[data-world-id="${escape}"]`)?.scrollIntoView({ block: 'nearest', behavior });
+  };
+
+  const selectMoon = (worldId, moonId) => {
+    setSelection({ systemId: active.id, worldId });
+    setFocusMoonId(moonId);
+    setFocusToken(token => token + 1);
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    document.querySelector('.sheet-orrery')?.scrollIntoView({ block: 'nearest', behavior });
   };
 
   const updateActive = useCallback(s => {
@@ -1608,6 +1666,7 @@ export default function App() {
                 system={active}
                 selectedId={selectedWorldId}
                 focusToken={focusToken}
+                focusMoonId={focusMoonId}
                 onSelect={id => selectWorld(id, 'orrery')}
                 onClear={() => setSelection(null)}
               />
@@ -1649,7 +1708,9 @@ export default function App() {
                         stars={active.stars}
                         separation={active.separation}
                         selected={world.id === selectedWorldId}
+                        focusedMoonId={world.id === selectedWorldId ? focusMoonId : null}
                         onSelect={id => selectWorld(id, 'card')}
+                        onSelectMoon={selectMoon}
                         index={i}
                         onLock={handleLockWorld}
                         onRedraw={() => handleRedrawWorld(world.id)}

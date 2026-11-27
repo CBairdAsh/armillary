@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { C, ZONE_COLORS } from '../tokens.js';
 import { worldYearLabel } from '../data/generator.js';
 import {
@@ -721,7 +721,7 @@ function starLabelSingle(system) {
  * do not change. Pitch is the camera, not an orbit's inclination.
  * Moons are a second plate. The wheel stays on whichever plate is up.
  */
-export default function Orrery({ system, selectedId, focusToken = 0, onSelect, onClear }) {
+export default function Orrery({ system, selectedId, focusToken = 0, focusMoonId = null, onSelect, onClear }) {
   const [hoverId, setHoverId] = useState(null);
   const [view, setView] = useState(FIT);
   const [dragging, setDragging] = useState(false);
@@ -786,20 +786,19 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
   }, [system?.id]);
 
   useEffect(() => {
-    if (moonWorldId && moonWorldId !== selectedId) {
-      const restored = systemViewRef.current || FIT;
-      setMoonWorldId(null);
-      setMoonPick(null);
-      viewRef.current = restored;
-      setView(restored);
-    }
-  }, [selectedId, moonWorldId]);
+    if (!moonWorldId || moonWorldId === selectedId) return;
+    const aiming = focusMoonId && (system?.worlds || []).some(
+      world => world.id === selectedId && world.moons?.some(moon => moon.id === focusMoonId),
+    );
+    if (aiming) return;
+    const restored = systemViewRef.current || FIT;
+    setMoonWorldId(null);
+    setMoonPick(null);
+    viewRef.current = restored;
+    setView(restored);
+  }, [selectedId, moonWorldId, focusMoonId, system]);
 
-  useEffect(() => {
-    if (!focusToken) return undefined;
-    const plate = frameRef.current;
-    const body = plate?.bodies?.find(item => item.id === selectedId);
-    if (!plate || !body) return undefined;
+  function centerOf(plate) {
     const sky = skyRef.current;
     const side = sideRef.current;
     const rect = sky?.getBoundingClientRect();
@@ -807,23 +806,31 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
     const chrome = rect && sideRect ? Math.max(0, Math.min(rect.height, rect.bottom - sideRect.top)) : 0;
     const fitted = rect ? skyViewBox(plate, { width: rect.width, height: rect.height, chrome }) : null;
     const span = rect ? Math.max(1, rect.height - chrome) : 1;
-    const center = fitted
-      ? { x: fitted.x + fitted.width / 2, y: fitted.y + ((span / 2) / rect.height) * fitted.height }
-      : { x: plate.cx, y: plate.cy };
+    if (!fitted) return { x: plate.cx, y: plate.cy };
+    return {
+      x: fitted.x + fitted.width / 2,
+      y: fitted.y + ((span / 2) / rect.height) * fitted.height,
+    };
+  }
+
+  function flyTo(plate, body, start) {
+    frameRef.current = plate;
+    const place = centerOf(plate);
     const target = clampView({
       z: FOCUS_ZOOM,
-      x: center.x - plate.cx - (body.markX - plate.cx) * FOCUS_ZOOM,
-      y: center.y - plate.cy - (body.markY - plate.cy) * FOCUS_ZOOM,
-      pitch: viewRef.current.pitch || 0,
+      x: place.x - plate.cx - (body.markX - plate.cx) * FOCUS_ZOOM,
+      y: place.y - plate.cy - (body.markY - plate.cy) * FOCUS_ZOOM,
+      pitch: start.pitch || 0,
     });
-    const start = viewRef.current;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     stopFocus();
     if (reduced) {
       viewRef.current = target;
       setView(target);
-      return undefined;
+      return;
     }
+    viewRef.current = start;
+    setView(start);
     const t0 = performance.now();
     const duration = 460;
     const step = (now) => {
@@ -840,6 +847,40 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
       focusRaf.current = t < 1 ? requestAnimationFrame(step) : 0;
     };
     focusRaf.current = requestAnimationFrame(step);
+  }
+
+  useLayoutEffect(() => {
+    if (!focusToken) return undefined;
+    const pitch = viewRef.current.pitch || 0;
+    const world = (system?.worlds || []).find(item => item.id === selectedId) || null;
+    const moon = focusMoonId ? world?.moons?.find(item => item.id === focusMoonId) : null;
+    if (moon && world) {
+      const onPlate = moonWorldId === world.id;
+      if (!onPlate) {
+        if (frameRef.current?.mode !== 'moons') systemViewRef.current = viewRef.current;
+        setMoonWorldId(world.id);
+      }
+      setMoonPick(moon.id);
+      setHoverId(null);
+      const plate = buildMoonPlate(world, moon.id, pitch);
+      const body = plate?.bodies?.find(item => item.id === moon.id);
+      if (!plate || !body) return undefined;
+      flyTo(plate, body, onPlate ? viewRef.current : { ...FIT, pitch });
+      return stopFocus;
+    }
+
+    if (moonWorldId) {
+      const restored = systemViewRef.current || { ...FIT, pitch };
+      setMoonWorldId(null);
+      setMoonPick(null);
+      setHoverId(null);
+      viewRef.current = restored;
+      setView(restored);
+    }
+    const plate = system ? buildOrrery(system, selectedId, pitch) : null;
+    const body = plate?.bodies?.find(item => item.id === selectedId);
+    if (!plate || !body) return undefined;
+    flyTo(plate, body, viewRef.current);
     return stopFocus;
   }, [focusToken]);
 
