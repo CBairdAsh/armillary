@@ -15,6 +15,7 @@ import { rockDiscUrl } from '../data/rockDisc.js';
 import { ringDiscUrl } from '../data/ringDisc.js';
 import { asteroidFieldUrl } from '../data/asteroidField.js';
 import { cometSpriteUrl } from '../data/cometSprite.js';
+import { dustTailUrl } from '../data/dustTail.js';
 import { starDiscUrl } from '../data/starDisc.js';
 
 const INK = 'var(--font-mono)';
@@ -232,12 +233,12 @@ function dunePath(r) {
   return `M ${-r} ${r * 0.22} C ${-r * 0.25} ${-r * 0.12} ${r * 0.15} ${r * 0.52} ${r} ${r * 0.06} L ${r} ${r} L ${-r} ${r} Z`;
 }
 
-function ShadedDisc({ uid, r, color, kind, seed = '' }) {
+function ShadedDisc({ uid, r, color, kind, seed = '', facet = '' }) {
   const fill = `fill-${uid}`;
   const clip = `clip-${uid}`;
   const limb = darken(color, kind === 'Chthonian' ? 0.28 : 0.7);
   const giantDisc = planetDiscUrl(color, kind);
-  const rockDisc = giantDisc ? null : rockDiscUrl(color, kind, seed);
+  const rockDisc = giantDisc ? null : rockDiscUrl(color, kind, seed, facet);
   const disc = giantDisc || rockDisc;
   const bands = !disc && (kind === 'Gas Giant' || kind === 'Ice Giant' || kind === 'Gas Dwarf');
   const bandOpacity = kind === 'Gas Dwarf' ? 0.1 : 0.18;
@@ -357,12 +358,24 @@ function Twin({ color, uid, seed = '' }) {
   );
 }
 
-function Tail({ r, color }) {
+const DUST_ORIGIN = 18 / 640;
+
+function DustTail({ r, color, seed, outward }) {
+  const sprite = dustTailUrl(color, seed);
+  const length = Math.min(68, 30 + r * 3.4);
+  const height = length * (200 / 640);
+  const x = r - length * DUST_ORIGIN;
   return (
-    <g fill={color}>
-      <circle cx={r + 3.2} cy="0.3" r="1.05" opacity="0.8" />
-      <circle cx={r + 6.2} cy="-0.5" r="0.75" opacity="0.55" />
-      <circle cx={r + 8.6} cy="0.7" r="0.5" opacity="0.35" />
+    <g transform={`rotate(${outward || 0})`} pointerEvents="none">
+      {sprite ? (
+        <image href={sprite} x={x} y={-height / 2} width={length} height={height} />
+      ) : (
+        <path
+          d={`M ${r} ${-r * 0.16} Q ${r + length * 0.45} ${-height * 0.32} ${r + length * 0.92} 0 Q ${r + length * 0.45} ${height * 0.32} ${r} ${r * 0.16} Z`}
+          fill="#c4a078"
+          opacity="0.5"
+        />
+      )}
     </g>
   );
 }
@@ -488,12 +501,15 @@ function BodyGlyph({ body }) {
   if (body.worldType === 'Double Planet') return <Twin color={color} uid={uid} seed={body.id} />;
   const radius = glyphRadius(body);
   const giant = body.worldType === 'Gas Giant' || body.worldType === 'Ice Giant';
+  const facet = body.worldType === 'Rogue/Captured' && body.hydrosphere === 'Ice Sheet' ? 'ice' : '';
   return (
     <g>
       {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} tangent={body.tangent || 0} />}
-      <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} seed={body.id} />
+      <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} seed={body.id} facet={facet} />
       {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} tangent={body.tangent || 0} near />}
-      {body.worldType === 'Disintegrating' && <Tail r={radius} color={color} />}
+      {body.worldType === 'Disintegrating' && (
+        <DustTail r={radius} color={color} seed={body.id} outward={body.outward || 0} />
+      )}
     </g>
   );
 }
