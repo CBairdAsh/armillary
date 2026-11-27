@@ -13,6 +13,7 @@ import { planetDiscUrl } from '../data/planetDisc.js';
 import { rockDiscUrl } from '../data/rockDisc.js';
 import { ringDiscUrl } from '../data/ringDisc.js';
 import { asteroidFieldUrl } from '../data/asteroidField.js';
+import { cometSpriteUrl } from '../data/cometSprite.js';
 import { starDiscUrl } from '../data/starDisc.js';
 
 const INK = 'var(--font-mono)';
@@ -554,21 +555,21 @@ function LifeBracket({ body, frame, zoom }) {
 }
 
 function CometMark({ comet }) {
-  const uid = svgId(useId());
-  const length = 36;
+  const sprite = cometSpriteUrl(comet.color, comet.id);
+  const turn = `translate(${comet.x} ${comet.y}) rotate(${comet.tail})`;
+  if (!sprite) {
+    return (
+      <g transform={turn} pointerEvents="none">
+        <title>{comet.title}</title>
+        <path d="M 1.2 -1.35 L 36 0 L 1.2 1.35 Z" fill={comet.color} opacity="0.7" />
+        <circle r="2.2" fill="#f8fbff" />
+      </g>
+    );
+  }
   return (
-    <g transform={`translate(${comet.x} ${comet.y}) rotate(${comet.tail})`} pointerEvents="none">
+    <g className="orrery-comet" transform={turn} pointerEvents="none">
       <title>{comet.title}</title>
-      <defs>
-        <linearGradient id={uid} gradientUnits="userSpaceOnUse" x1="1" y1="0" x2={length} y2="0">
-          <stop offset="0" stopColor={comet.color} stopOpacity="0.85" />
-          <stop offset="0.4" stopColor={comet.color} stopOpacity="0.28" />
-          <stop offset="1" stopColor={comet.color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={`M 1.2 -1.35 L ${length} 0 L 1.2 1.35 Z`} fill={`url(#${uid})`} />
-      <circle r="2.5" fill={comet.color} />
-      <circle r="1.15" fill="#f8fbff" />
+      <image href={sprite} x={-7.1} y={-10.3} width={62} height={20.7} />
     </g>
   );
 }
