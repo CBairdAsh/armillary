@@ -547,6 +547,26 @@ input, button, select, textarea {
   right: auto;
 }
 
+.orrery-layer {
+  top: 40px;
+  left: 6px;
+  right: auto;
+}
+
+.orrery-layer--back button {
+  color: var(--color-text);
+  border-color: var(--color-border-hi);
+}
+
+.orrery-plate {
+  animation: orrery-plate-in 280ms ease-out;
+}
+
+@keyframes orrery-plate-in {
+  from { opacity: 0.2; }
+  to { opacity: 1; }
+}
+
 .orrery-zoom {
   min-width: 3.4em;
   text-align: center;
@@ -705,6 +725,11 @@ input, button, select, textarea {
   animation-direction: reverse;
 }
 
+.orrery-life--moon .orrery-life-arc,
+.orrery-life--moon .orrery-life-tick {
+  stroke-width: 1.7;
+}
+
 .orrery-comet-path {
   fill: none;
   stroke-width: 1;
@@ -840,5 +865,9 @@ input, button, select, textarea {
 
   .orrery-life-flow {
     display: none;
+  }
+
+  .orrery-plate {
+    animation: none;
   }
 }

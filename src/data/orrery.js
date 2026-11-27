@@ -16,6 +16,11 @@
 // The far end of a long orbit is left off the chart, so a cloud comet
 // does not shrink the worlds.
 //
+// A moon has no stored distance. Its plate is a second chart, centered
+// on the parent world. The rings are a stable schematic of the moon's
+// id: spread by index, with a small tilt so a pitched view still
+// separates them. Those radii are not distances and are not labeled.
+//
 // Apparent size needs a radius. Main-sequence radius comes from luminosity
 // and a temperature for the class (Stefan–Boltzmann). A white dwarf, a
 // neutron star, and a brown dwarf do not follow that relation, so each
@@ -691,6 +696,165 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
     belt: beltLayout,
     stars: fittedStars,
     comets: layoutComets(system, scale, pitch),
+    bodies,
+  };
+}
+
+const MOON_FACE = {
+  Rocky: { glyph: 'Terrestrial', color: '#8d847c' },
+  Icy: { glyph: 'Ice Planet', color: '#d7e6f0' },
+  'Subsurface Ocean': { glyph: 'Ice Planet', color: '#b7d0dc' },
+  Cryovolcanic: { glyph: 'Ice Planet', color: '#c9e0ea' },
+  Volcanic: { glyph: 'Chthonian', color: '#c46a3a' },
+  Terrestrial: { glyph: 'Terrestrial', color: '#8f9a74' },
+  'Thin Atmosphere': { glyph: 'Desert', color: '#c4a36a' },
+};
+
+function moonFace(type) {
+  return MOON_FACE[type] || MOON_FACE.Rocky;
+}
+
+function parentDiscRadius(worldType) {
+  if (worldType === 'Gas Giant') return 32;
+  if (worldType === 'Ice Giant') return 27;
+  if (worldType === 'Gas Dwarf') return 22;
+  return 18;
+}
+
+/**
+ * Schematic elements for one moon. Spread by index so a crowded giant
+ * stays readable. The hash only jitters that slot.
+ * @param {{ id?: string, type?: string }} moon
+ * @param {number} index
+ * @param {number} count
+ */
+function moonElements(moon, index, count) {
+  const id = moon.id || String(index);
+  const t = count <= 1 ? 0.5 : index / (count - 1);
+  const axis = 1.7 * Math.exp(t * Math.log(12 / 1.7));
+  const irregular = hashUnit(`${id}|class`) > 0.8;
+  const tilt = irregular
+    ? 14 + hashUnit(`${id}|i`) * 26
+    : hashUnit(`${id}|i`) * 7;
+  const spread = -Math.PI / 2 + ((index + 0.5) * Math.PI * 2) / Math.max(1, count);
+  return {
+    a: axis * (0.94 + hashUnit(`${id}|a`) * 0.12),
+    e: hashUnit(`${id}|e`) * 0.07,
+    i: tilt * Math.PI / 180,
+    node: hashUnit(`${id}|node`) * Math.PI * 2,
+    peri: hashUnit(`${id}|peri`) * Math.PI * 2,
+    anomaly: spread + (hashUnit(`${id}|nu`) - 0.5) * 0.4,
+    inclination: tilt,
+  };
+}
+
+function moonDiscRadius(moon, selected) {
+  const unit = hashUnit(`${moon.id || moon.index}|r`);
+  const large = moon.type === 'Terrestrial' || moon.type === 'Thin Atmosphere';
+  return (large ? 8.6 : 6.8) + unit * 1.8 + (selected ? 1.1 : 0);
+}
+
+/**
+ * Moon chart for one world. Same view box as the system plate, so the
+ * camera math does not change. Null when the world has no moons.
+ * @param {{ id?: string, name?: string, worldType?: string, zone?: string, moons?: Array }} world
+ * @param {string|null} [selectedMoonId]
+ * @param {number} [pitch]
+ * @param {string|null} [hoverId]
+ */
+export function buildMoonPlate(world, selectedMoonId = null, pitch = 0, hoverId = null) {
+  const moons = world?.moons || [];
+  if (!moons.length) return null;
+  const laid = moons.map((moon, index) => ({
+    moon,
+    index,
+    elements: moonElements(moon, index, moons.length),
+  }));
+  const axes = laid.map(entry => entry.elements.a);
+  // The parent disc and its rings own the middle. One moon gets a single
+  // open ring. A crowd starts just outside the rings and runs outward.
+  const alone = moons.length === 1;
+  const scale = {
+    ...VIEW,
+    rMin: alone ? 196 : 142,
+    rMax: alone ? 214 : 328,
+    minAU: Math.min(...axes) / (alone ? 1.2 : 1.18),
+    maxAU: Math.max(...axes) * (alone ? 1.08 : 1.1),
+  };
+
+  const labeled = new Set();
+  labeled.add(laid[0].moon.id);
+  labeled.add(laid[laid.length - 1].moon.id);
+  if (selectedMoonId) labeled.add(selectedMoonId);
+  if (hoverId) labeled.add(hoverId);
+
+  const bodyLabels = [];
+  const bodies = laid.map(entry => {
+    const { moon, elements } = entry;
+    const face = moonFace(moon.type);
+    const points = ringPoints(elements, scale, pitch);
+    const mark = projectVector(orbitVector(elements, elements.anomaly), scale, pitch);
+    const onRing = projectVector(orbitVector(elements, WORLD_LABEL_ANGLE), scale, pitch);
+    const selected = moon.id === selectedMoonId;
+    const label = labeled.has(moon.id) ? {
+      ...labelFrom(onRing, scale),
+      text: selected || moon.id === hoverId
+        ? `M${entry.index + 1}  ${moon.type}`
+        : `M${entry.index + 1}`,
+      selected,
+    } : null;
+    if (label) bodyLabels.push(label);
+    return {
+      id: moon.id,
+      index: entry.index,
+      moon: true,
+      moonType: moon.type,
+      worldType: face.glyph,
+      zone: world.zone,
+      color: face.color,
+      habitable: !!(moon.canSupportLife || moon.biosphere),
+      belt: false,
+      au: null,
+      inclination: 0,
+      path: ringPath(points),
+      outerPath: null,
+      markX: mark.x,
+      markY: mark.y,
+      tangent: Math.atan2(mark.y - scale.cy, mark.x - scale.cx) * 180 / Math.PI + 90,
+      ringX: onRing.x,
+      ringY: onRing.y,
+      specks: null,
+      radius: moonDiscRadius(moon, selected),
+      selected,
+      label,
+    };
+  });
+  settleLabels(bodyLabels);
+
+  const count = moons.length;
+  return {
+    mode: 'moons',
+    width: VIEW.width,
+    height: VIEW.height,
+    cx: scale.cx,
+    cy: scale.cy,
+    span: count === 1 ? '1 moon' : `${count} moons`,
+    pair: null,
+    hz: null,
+    belt: null,
+    stars: [],
+    comets: [],
+    parent: {
+      id: world.id,
+      worldType: world.worldType,
+      zone: world.zone,
+      label: shortName(world),
+      markX: scale.cx,
+      markY: scale.cy,
+      tangent: 0,
+      radius: parentDiscRadius(world.worldType),
+      selected: !selectedMoonId,
+    },
     bodies,
   };
 }

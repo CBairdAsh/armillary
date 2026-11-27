@@ -4,6 +4,7 @@ import { worldYearLabel } from '../data/generator.js';
 import {
   SOL_ANGULAR_DEGREES,
   apparentSuns,
+  buildMoonPlate,
   buildOrrery,
   formatAngular,
   sunMeasure,
@@ -442,10 +443,12 @@ function RingHalf({ r, kind, tint, near, uid, tangent = 0 }) {
 }
 
 function ink(body) {
+  if (body.color) return body.color;
   return bodyColor(body.worldType, body.zone, body.id) || zoneColor(body.zone);
 }
 
 function glyphRadius(body) {
+  if (body.radius) return body.radius;
   return body.selected ? 8 : (DISC[body.worldType] || 5);
 }
 
@@ -492,7 +495,7 @@ function BodyGlyph({ body }) {
   const color = ink(body);
   if (body.belt) return <Belt color={color} uid={uid} seed={body.id} tangent={body.tangent || 0} />;
   if (body.worldType === 'Double Planet') return <Twin color={color} uid={uid} seed={body.id} />;
-  const radius = body.selected ? 8 : (DISC[body.worldType] || 5);
+  const radius = glyphRadius(body);
   if (body.worldType === 'Coreless') return <Coreless color={color} r={radius} />;
   const giant = body.worldType === 'Gas Giant' || body.worldType === 'Ice Giant';
   return (
@@ -528,12 +531,12 @@ function lifeArc(radius, mid) {
  */
 function LifeBracket({ body, frame, zoom }) {
   const facing = Math.atan2(body.markY - frame.cy, body.markX - frame.cx) * 180 / Math.PI;
-  const radius = Math.max(18, reticleRadius(body) * zoom + 5);
+  const radius = Math.max(body.moon ? 52 : 18, reticleRadius(body) * zoom + (body.moon ? 12 : 5));
   const outer = lifeArc(radius, 0);
   const inner = lifeArc(radius, Math.PI);
   return (
     <g
-      className="orrery-life"
+      className={body.moon ? 'orrery-life orrery-life--moon' : 'orrery-life'}
       transform={`translate(${body.markX} ${body.markY}) rotate(${facing}) scale(${1 / zoom})`}
       pointerEvents="none"
     >
@@ -597,6 +600,19 @@ function readoutText(body, world, stars) {
   const year = worldYearLabel(world, stars);
   const bits = [`[${body.index + 1}] ${name}`, `${world.orbitalAU} AU`];
   if (year) bits.push(`year ${year}`);
+  return bits.join(' · ');
+}
+
+function moonReadout(moon, world) {
+  if (!world) return '';
+  const name = world.name || world.worldType;
+  if (!moon) {
+    const count = world.moons?.length || 0;
+    return `[${(world.index ?? 0) + 1}] ${name} · ${count === 1 ? '1 moon' : `${count} moons`}`;
+  }
+  const bits = [`M${moon.index + 1} ${moon.type}`];
+  if (moon.biosphere?.label) bits.push(moon.biosphere.label);
+  else if (moon.canSupportLife) bits.push('life-bearing');
   return bits.join(' · ');
 }
 
@@ -703,11 +719,14 @@ function starLabelSingle(system) {
  * Instrument for one system. A rogue renders nothing, so the center
  * column stays shut. The plate zooms, pans, and pitches. The distances
  * do not change. Pitch is the camera, not an orbit's inclination.
+ * Moons are a second plate. The wheel stays on whichever plate is up.
  */
 export default function Orrery({ system, selectedId, focusToken = 0, onSelect, onClear }) {
   const [hoverId, setHoverId] = useState(null);
   const [view, setView] = useState(FIT);
   const [dragging, setDragging] = useState(false);
+  const [moonWorldId, setMoonWorldId] = useState(null);
+  const [moonPick, setMoonPick] = useState(null);
   const skyRef = useRef(null);
   const sideRef = useRef(null);
   const frameRef = useRef(null);
@@ -718,6 +737,7 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
   const pointers = useRef(new Map());
   const pinchRef = useRef(null);
   const focusRaf = useRef(0);
+  const systemViewRef = useRef(FIT);
   viewRef.current = view;
 
   function stopFocus() {
@@ -744,7 +764,15 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
   }
 
   const alive = !!(system && !system.isRoguePlanet && system.stars?.length);
-  const frame = alive ? buildOrrery(system, selectedId, view.pitch) : null;
+  const worlds = system?.worlds || [];
+  const moonWorld = moonWorldId
+    ? worlds.find(world => world.id === moonWorldId && world.id === selectedId && world.moons?.length) || null
+    : null;
+  const frame = !alive
+    ? null
+    : moonWorld
+      ? buildMoonPlate(moonWorld, moonPick, view.pitch, hoverId)
+      : buildOrrery(system, selectedId, view.pitch);
   frameRef.current = frame;
 
   useEffect(() => {
@@ -752,7 +780,20 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
     setView(FIT);
     setHoverId(null);
     setDragging(false);
+    setMoonWorldId(null);
+    setMoonPick(null);
+    systemViewRef.current = FIT;
   }, [system?.id]);
+
+  useEffect(() => {
+    if (moonWorldId && moonWorldId !== selectedId) {
+      const restored = systemViewRef.current || FIT;
+      setMoonWorldId(null);
+      setMoonPick(null);
+      viewRef.current = restored;
+      setView(restored);
+    }
+  }, [selectedId, moonWorldId]);
 
   useEffect(() => {
     if (!focusToken) return undefined;
@@ -816,7 +857,7 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
       const world = worldAt(screen, current, origin);
       const zoom = clamp(current.z * Math.exp(-event.deltaY * 0.0022), ZOOM_MIN, ZOOM_MAX);
       const pan = panToHold(world, screen, zoom, origin);
-      setView(clampView({ z: zoom, x: pan.x, y: pan.y }));
+      setView(clampView({ z: zoom, x: pan.x, y: pan.y, pitch: current.pitch }));
     };
     node.addEventListener('wheel', onWheel, { passive: false });
     return () => node.removeEventListener('wheel', onWheel);
@@ -848,12 +889,18 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
 
   if (!frame) return null;
 
-  const worlds = system.worlds || [];
-  const focusId = hoverId || selectedId;
+  const lunar = frame.mode === 'moons';
+  const focusId = lunar ? (hoverId || moonPick) : (hoverId || selectedId);
   const focusBody = frame.bodies.find(body => body.id === focusId) || null;
   const focusWorld = worlds.find(world => world.id === focusId) || null;
   const selectedWorld = worlds.find(world => world.id === selectedId) || null;
-  const readout = readoutText(focusBody, focusWorld, system.stars);
+  const moonTarget = selectedWorld?.moons?.length ? selectedWorld : null;
+  const focusMoon = lunar
+    ? (moonWorld?.moons || []).find(moon => moon.id === focusId) || null
+    : null;
+  const readout = lunar
+    ? moonReadout(focusMoon, moonWorld)
+    : readoutText(focusBody, focusWorld, system.stars);
   const origin = { x: frame.cx, y: frame.cy };
   const fitted = isFit(view);
   const skyClass = [
@@ -882,7 +929,36 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
     setView(clampView({ ...current, x: current.x + dx, y: current.y + dy }));
   }
 
+  function enterMoons() {
+    if (!moonTarget) return;
+    stopFocus();
+    systemViewRef.current = viewRef.current;
+    setMoonPick(null);
+    setHoverId(null);
+    setMoonWorldId(moonTarget.id);
+    const next = { ...FIT, pitch: viewRef.current.pitch || 0 };
+    viewRef.current = next;
+    setView(next);
+  }
+
+  function leaveMoons(fit) {
+    stopFocus();
+    const pitch = viewRef.current.pitch || 0;
+    const restored = fit
+      ? { ...FIT, pitch }
+      : { ...(systemViewRef.current || FIT) };
+    setMoonWorldId(null);
+    setMoonPick(null);
+    setHoverId(null);
+    viewRef.current = restored;
+    setView(restored);
+  }
+
   function fitFrame() {
+    if (lunar) {
+      leaveMoons(true);
+      return;
+    }
     stopFocus();
     setView({ ...FIT, pitch: viewRef.current.pitch || 0 });
   }
@@ -907,6 +983,9 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
     } else if (event.key === '0' || event.key === 'Home') {
       event.preventDefault();
       fitFrame();
+    } else if (event.key === 'Escape' && lunar) {
+      event.preventDefault();
+      leaveMoons(false);
     } else if (event.key === '[') {
       event.preventDefault();
       pitchBy(-PITCH_STEP);
@@ -998,7 +1077,13 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
     if (!drag || drag.id !== event.pointerId) return;
     dragRef.current = null;
     setDragging(false);
-    if (!drag.moved && !event.target.closest?.('[data-orrery-world]')) onClear?.();
+    if (!drag.moved && !event.target.closest?.('[data-orrery-world]')) {
+      if (lunar) {
+        setMoonPick(null);
+        return;
+      }
+      onClear?.();
+    }
   }
 
   function onDoubleClick(event) {
@@ -1010,8 +1095,13 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
   boxRef.current = box;
   const plate = `translate(${origin.x} ${origin.y}) scale(${view.z}) translate(${view.x / view.z} ${view.y / view.z}) translate(${-origin.x} ${-origin.y})`;
 
+  const skyLabel = lunar
+    ? `Moons of ${moonWorld?.name || moonWorld?.worldType || 'the selected world'}. Drag to pan. Scroll to zoom. System returns to the star system. Fit returns and fits it.`
+    : 'System orrery. Drag to pan. Scroll or use the zoom controls. Raise the view to see a tilted orbit. Double-click empty sky to fit.';
+  const dimmed = lunar ? !!moonPick : !!selectedId;
+
   return (
-    <div className={selectedId ? 'orrery orrery--selected' : 'orrery'}>
+    <div className={dimmed ? 'orrery orrery--selected' : 'orrery'}>
       <div className="orrery-stage" tabIndex={0} onKeyDown={onKey}>
         <svg
           ref={skyRef}
@@ -1020,7 +1110,7 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
           preserveAspectRatio="xMidYMid meet"
           overflow="hidden"
           role="group"
-          aria-label="System orrery. Drag to pan. Scroll or use the zoom controls. Raise the view to see a tilted orbit. Double-click empty sky to fit."
+          aria-label={skyLabel}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={endPointer}
@@ -1029,7 +1119,7 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
           onMouseLeave={() => setHoverId(null)}
         >
           <rect data-sky="1" x={box.x} y={box.y} width={box.width} height={box.height} fill="transparent" pointerEvents="all" />
-          <g transform={plate}>
+          <g key={lunar ? `moons-${moonWorld.id}` : 'system'} className="orrery-plate" transform={plate}>
             {frame.belt && (
               <g pointerEvents="none">
                 <path
@@ -1124,6 +1214,41 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
                 />
               </g>
             ))}
+            {frame.parent && (
+              <g
+                className="orrery-mark"
+                data-orrery-world={frame.parent.id}
+                transform={`translate(${frame.parent.markX} ${frame.parent.markY})`}
+                role="button"
+                tabIndex={0}
+                aria-label={`${frame.parent.label}, parent world`}
+                onMouseEnter={() => setHoverId(frame.parent.id)}
+                onMouseLeave={() => setHoverId(current => (current === frame.parent.id ? null : current))}
+                onFocus={() => setHoverId(frame.parent.id)}
+                onBlur={() => setHoverId(current => (current === frame.parent.id ? null : current))}
+                onClick={() => setMoonPick(null)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setMoonPick(null);
+                  }
+                }}
+              >
+                <circle className="orrery-hit" r={frame.parent.radius + 8} />
+                {(frame.parent.selected || hoverId === frame.parent.id) && (
+                  <Reticle radius={reticleRadius(frame.parent)} locked={frame.parent.selected} />
+                )}
+                <BodyGlyph body={frame.parent} />
+                <PlateText
+                  x={0}
+                  y={frame.parent.radius + 16}
+                  zoom={view.z}
+                  fill={C.TEXT_DIM}
+                >
+                  {frame.parent.label}
+                </PlateText>
+              </g>
+            )}
             {frame.stars.map(star => {
               const label = starLabelPoint(star, frame.cx);
               return (
@@ -1190,7 +1315,19 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
             ))}
             {frame.bodies.map(body => {
               const world = worlds.find(item => item.id === body.id);
-              const name = world?.name || body.worldType;
+              const name = body.moon
+                ? `M${body.index + 1} ${body.moonType}`
+                : (world?.name || body.worldType);
+              const detail = body.moon
+                ? (body.habitable ? ', life-bearing' : '')
+                : `, ${body.au} AU${body.inclination ? `, inclined ${body.inclination}°` : ''}${body.habitable ? ', habitable' : ''}`;
+              const choose = () => {
+                if (body.moon) {
+                  setMoonPick(body.id);
+                  return;
+                }
+                onSelect?.(body.id);
+              };
               return (
                 <g
                   key={`mark-${body.id}`}
@@ -1199,21 +1336,21 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
                   transform={`translate(${body.markX} ${body.markY})`}
                   role="button"
                   tabIndex={0}
-                  aria-label={`[${body.index + 1}] ${name}, ${body.au} AU${body.inclination ? `, inclined ${body.inclination}°` : ''}${body.habitable ? ', habitable' : ''}`}
+                  aria-label={`${body.moon ? '' : `[${body.index + 1}] `}${name}${detail}`}
                   aria-pressed={body.selected}
                   onMouseEnter={() => setHoverId(body.id)}
                   onMouseLeave={() => setHoverId(current => (current === body.id ? null : current))}
                   onFocus={() => setHoverId(body.id)}
                   onBlur={() => setHoverId(current => (current === body.id ? null : current))}
-                  onClick={() => onSelect?.(body.id)}
+                  onClick={choose}
                   onKeyDown={event => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      onSelect?.(body.id);
+                      choose();
                     }
                   }}
                 >
-                  <circle className="orrery-hit" r="16" />
+                  <circle className="orrery-hit" r={body.moon ? 12 : 16} />
                   {(body.selected || hoverId === body.id) && (
                     <Reticle radius={reticleRadius(body)} locked={body.selected} />
                   )}
@@ -1252,13 +1389,25 @@ export default function Orrery({ system, selectedId, focusToken = 0, onSelect, o
           <button
             type="button"
             onClick={fitFrame}
-            disabled={fitted}
-            aria-label="Fit the system"
-            title="Fit the system"
+            disabled={fitted && !lunar}
+            aria-label={lunar ? 'Leave the moons and fit the system' : 'Fit the system'}
+            title={lunar ? 'Leave the moons and fit the system' : 'Fit the system'}
           >
             FIT
           </button>
         </div>
+        {moonTarget && (
+          <div className={lunar ? 'orrery-nav orrery-layer orrery-layer--back' : 'orrery-nav orrery-layer'}>
+            <button
+              type="button"
+              onClick={lunar ? () => leaveMoons(false) : enterMoons}
+              aria-label={lunar ? 'Return to the system' : `Show the moons of ${moonTarget.name || moonTarget.worldType}`}
+              title={lunar ? 'Return to the system' : 'Show the moons'}
+            >
+              {lunar ? 'SYSTEM' : 'MOONS'}
+            </button>
+          </div>
+        )}
         <div className="orrery-nav orrery-pitch">
           <button
             type="button"
