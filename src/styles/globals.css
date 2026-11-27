@@ -661,7 +661,8 @@ input, button, select, textarea {
 }
 
 .orrery-reticle-arc {
-  stroke-opacity: 0.88;
+  stroke: #e6c35c;
+  stroke-opacity: 0.95;
   stroke-width: 1.05;
   stroke-linecap: round;
 }
