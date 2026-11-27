@@ -643,14 +643,43 @@ input, button, select, textarea {
   outline: none;
 }
 
-.orrery-mark:hover .orrery-hit,
-.orrery-mark:focus-visible .orrery-hit {
-  stroke: var(--color-primary);
-  stroke-width: 1;
+.orrery-reticle-ring,
+.orrery-reticle-arc,
+.orrery-reticle-bracket {
+  fill: none;
+  stroke: #c5e6f2;
+  vector-effect: non-scaling-stroke;
 }
 
-.orrery-mark--selected .orrery-hit {
-  stroke: transparent;
+.orrery-reticle-ring {
+  stroke-opacity: 0.32;
+  stroke-width: 0.75;
+}
+
+.orrery-reticle--lock .orrery-reticle-ring {
+  stroke-opacity: 0.55;
+}
+
+.orrery-reticle-arc {
+  stroke-opacity: 0.88;
+  stroke-width: 1.05;
+  stroke-linecap: round;
+}
+
+.orrery-reticle-bracket {
+  stroke-opacity: 0.6;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+
+.orrery-reticle-sweep {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: orrery-reticle-spin 16s linear infinite;
+}
+
+@keyframes orrery-reticle-spin {
+  to { transform: rotate(360deg); }
 }
 
 .sun-plate {
@@ -763,5 +792,9 @@ input, button, select, textarea {
   .orrery-ring,
   .world-card {
     transition: none !important;
+  }
+
+  .orrery-reticle-sweep {
+    animation: none;
   }
 }

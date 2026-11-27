@@ -424,6 +424,48 @@ function ink(body) {
   return bodyColor(body.worldType, body.zone, body.id) || zoneColor(body.zone);
 }
 
+function glyphRadius(body) {
+  return body.selected ? 8 : (DISC[body.worldType] || 5);
+}
+
+function reticleRadius(body) {
+  const disc = glyphRadius(body);
+  if (body.worldType === 'Gas Giant') return disc * 2.16 + 4;
+  if (body.worldType === 'Ice Giant') return disc * 1.82 + 4;
+  if (body.belt) return 18;
+  if (body.worldType === 'Double Planet') return 12;
+  return disc + 6;
+}
+
+function bracketPath(radius, center) {
+  const span = 16 * Math.PI / 180;
+  const mid = center * Math.PI / 180;
+  const x0 = radius * Math.cos(mid - span);
+  const y0 = radius * Math.sin(mid - span);
+  const x1 = radius * Math.cos(mid + span);
+  const y1 = radius * Math.sin(mid + span);
+  return `M ${x0} ${y0} A ${radius} ${radius} 0 0 1 ${x1} ${y1}`;
+}
+
+/**
+ * A thin lock ring. One quarter turns slowly. A locked body also gets
+ * the four corner brackets.
+ */
+function Reticle({ radius, locked = false }) {
+  const sweep = radius + 1.8;
+  return (
+    <g className={locked ? 'orrery-reticle orrery-reticle--lock' : 'orrery-reticle'} pointerEvents="none">
+      <circle className="orrery-reticle-ring" r={radius} />
+      {locked && [45, 135, 225, 315].map(angle => (
+        <path key={angle} className="orrery-reticle-bracket" d={bracketPath(radius + 3.2, angle)} />
+      ))}
+      <g className="orrery-reticle-sweep">
+        <circle className="orrery-reticle-arc" r={sweep} pathLength="100" strokeDasharray="25 75" />
+      </g>
+    </g>
+  );
+}
+
 function BodyGlyph({ body }) {
   const uid = svgId(useId());
   const color = ink(body);
@@ -912,7 +954,14 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
               </g>
             ))}
             {frame.stars.map(star => (
-              <g key={`star-${star.label}`} transform={`translate(${star.x} ${star.y})`}>
+              <g
+                key={`star-${star.label}`}
+                transform={`translate(${star.x} ${star.y})`}
+                onMouseEnter={() => setHoverId(`star:${star.label}`)}
+                onMouseLeave={() => setHoverId(current => (current === `star:${star.label}` ? null : current))}
+              >
+                <circle className="orrery-hit" r={star.r + 4} />
+                {hoverId === `star:${star.label}` && <Reticle radius={star.r + 5} />}
                 <StarGlyph
                   color={star.color}
                   r={star.r}
@@ -1000,6 +1049,8 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
                   aria-pressed={body.selected}
                   onMouseEnter={() => setHoverId(body.id)}
                   onMouseLeave={() => setHoverId(current => (current === body.id ? null : current))}
+                  onFocus={() => setHoverId(body.id)}
+                  onBlur={() => setHoverId(current => (current === body.id ? null : current))}
                   onClick={() => onSelect?.(body.id)}
                   onKeyDown={event => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -1009,8 +1060,8 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
                   }}
                 >
                   <circle className="orrery-hit" r="16" />
-                  {body.selected && (
-                    <circle r="12" fill="none" stroke={C.BORDER_HI} strokeWidth="1" pointerEvents="none" />
+                  {(body.selected || hoverId === body.id) && (
+                    <Reticle radius={reticleRadius(body)} locked={body.selected} />
                   )}
                   <BodyGlyph body={body} />
                 </g>
