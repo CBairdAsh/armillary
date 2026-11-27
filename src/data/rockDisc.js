@@ -129,6 +129,20 @@ function craterPalette(kind, facet) {
       floorBase: 0.26, floorSpan: 0.2, ejectaStrength: 0.1,
     };
   }
+  if (kind === 'Rocky') {
+    return {
+      rim: [176, 168, 156], shade: [36, 32, 28], floor: [58, 52, 46], ejecta: [148, 140, 128],
+      rimStrength: 0.16, rimFacing: 0.42, shadeStrength: 0.48,
+      floorBase: 0.3, floorSpan: 0.24, ejectaStrength: 0.16,
+    };
+  }
+  if (kind === 'Icy' || kind === 'Subsurface Ocean' || kind === 'Cryovolcanic') {
+    return {
+      rim: [236, 242, 246], shade: [86, 108, 122], floor: [146, 166, 178], ejecta: [220, 230, 236],
+      rimStrength: 0.1, rimFacing: 0.28, shadeStrength: 0.35,
+      floorBase: 0.16, floorSpan: 0.12, ejectaStrength: 0.1,
+    };
+  }
   return {
     rim: [236, 228, 210], shade: [24, 18, 14], floor: [28, 24, 22], ejecta: [210, 200, 186],
     rimStrength: 0.12, rimFacing: 0.5, shadeStrength: 0.4,
@@ -243,6 +257,67 @@ function surface(kind, nx, ny, tint, seed, facet) {
     rgb = mix(rgb, [3, 4, 6], pit * 0.75);
     return mix(rgb, tint, 0.04);
   }
+  if (kind === 'Rocky') {
+    // No air and no water. Dark plains, bright cratered highlands.
+    const relief = fbm(nx * 1.5 + 0.8, ny * 1.5, seed + 2);
+    let rgb = mix([78, 72, 64], [142, 134, 122], fine);
+    const mare = smooth(0.48, 0.7, relief);
+    rgb = mix(rgb, [52, 48, 44], mare * 0.75);
+    rgb = mix(rgb, [168, 160, 148], (1 - mare) * smooth(0.55, 0.8, fine) * 0.45);
+    return mix(rgb, tint, 0.08);
+  }
+  if (kind === 'Icy') {
+    // Cold ice, no heat to resurface it. Craters stay.
+    let rgb = mix([176, 190, 198], [232, 238, 242], field);
+    rgb = mix(rgb, [248, 250, 252], smooth(0.5, 0.8, fine) * 0.35);
+    const crack = Math.abs(fbm(nx * 5.5, ny * 5.5, seed + 3) - 0.5);
+    if (crack < 0.016) rgb = mix(rgb, [90, 112, 126], (0.016 - crack) / 0.016);
+    return mix(rgb, tint, 0.06);
+  }
+  if (kind === 'Subsurface Ocean') {
+    // An ice shell over water. The long stains are where the shell has pulled apart.
+    let rgb = mix([176, 194, 204], [230, 238, 242], field);
+    const warp = fbm(nx * 1.2, ny * 1.2, seed + 2);
+    const bands = [-0.28, 0.08, 0.42].map((offset, index) => {
+      const tilt = (hash(index, 9, seed) - 0.5) * 1.1;
+      const coord = nx * Math.cos(tilt) + ny * Math.sin(tilt) + (warp - 0.5) * 0.4;
+      const dist = Math.abs(coord - offset);
+      return dist < 0.05 ? (0.05 - dist) / 0.05 : 0;
+    });
+    rgb = mix(rgb, [112, 92, 72], Math.max(...bands) * 0.8);
+    return mix(rgb, tint, 0.05);
+  }
+  if (kind === 'Cryovolcanic') {
+    // Fresh ice. The dark bands are the fractures the geysers come from.
+    let rgb = mix([220, 230, 234], [250, 252, 253], fine);
+    const angle = hash(2, 6, seed) * Math.PI;
+    const across = -nx * Math.sin(angle) + ny * Math.cos(angle);
+    const along = nx * Math.cos(angle) + ny * Math.sin(angle);
+    const region = smooth(-0.15, 0.35, along) * (1 - smooth(0.55, 0.9, along));
+    const band = 0.5 + 0.5 * Math.sin(across * 8);
+    const stripe = band > 0.58 ? (band - 0.58) / 0.42 : 0;
+    rgb = mix(rgb, [64, 84, 96], stripe * region);
+    rgb = mix(rgb, [255, 255, 255], stripe * region * stripe * 0.35);
+    return mix(rgb, tint, 0.04);
+  }
+  if (kind === 'Volcanic') {
+    // Sulfur plains. The dark ground is cooled lava. A few vents are still open.
+    let rgb = mix([176, 124, 42], [236, 204, 110], field);
+    const flow = smooth(0.38, 0.62, fbm(nx * 1.5 + 1, ny * 1.5, seed + 2));
+    rgb = mix(rgb, [42, 22, 16], flow * 0.9);
+    const vent = Math.max(hotBasin(nx, ny, seed, 4, 0.12), hotBasin(nx, ny, seed, 5, 0.08));
+    rgb = mix(rgb, [255, 86, 28], smooth(0.2, 0.75, vent));
+    rgb = mix(rgb, [255, 210, 120], vent * vent * 0.7);
+    return mix(rgb, tint, 0.06);
+  }
+  if (kind === 'Thin Atmosphere') {
+    // Methane haze hides the ground. Titan, not a dune field.
+    let rgb = mix([132, 68, 28], [214, 132, 64], field);
+    rgb = mix(rgb, [236, 176, 108], 0.22 + fine * 0.12);
+    const patch = smooth(0.55, 0.78, fbm(nx * 1.8, ny * 1.8, seed + 4));
+    rgb = mix(rgb, [96, 48, 24], patch * 0.35);
+    return mix(rgb, tint, 0.08);
+  }
   if (kind === 'Rogue/Captured') {
     if (facet === 'ice') {
       // A dirty ice crust. Dark rock still shows through in broad patches.
@@ -274,6 +349,21 @@ function surface(kind, nx, ny, tint, seed, facet) {
   return mix(rgb, tint, 0.1);
 }
 
+function craterSpec(kind, facet) {
+  if (kind === 'Disintegrating') return { count: 15, min: 0.03, max: 0.1 };
+  if (kind === 'Pulsar Planet') return { count: 5, min: 0.045, max: 0.09 };
+  if (kind === 'Rogue/Captured') {
+    return { count: facet === 'ice' ? 6 : 8, min: 0.042, max: facet === 'ice' ? 0.1 : 0.12 };
+  }
+  if (kind === 'Coreless') return { count: 9, min: 0.045, max: 0.12 };
+  if (kind === 'Rocky') return { count: 16, min: 0.028, max: 0.13 };
+  if (kind === 'Icy') return { count: 9, min: 0.04, max: 0.11 };
+  if (kind === 'Subsurface Ocean' || kind === 'Cryovolcanic') return { count: 3, min: 0.04, max: 0.08 };
+  if (kind === 'Ice Planet') return { count: 7, min: 0.05, max: 0.09 };
+  if (kind === 'Desert') return { count: 7, min: 0.035, max: 0.09 };
+  return { count: 4, min: 0.035, max: 0.09 };
+}
+
 /**
  * RGBA bytes for a rocky surface. Outside the disc alpha is 0.
  * @param {string} color
@@ -287,19 +377,7 @@ export function rockDiscPixels(color, kind, worldSeed = '', size = SIZE, facet =
   if (!kind || GIANTS.has(kind)) return null;
   const seed = seedFrom(`${kind}|${facet}|${color}|${worldSeed}`);
   const tint = channels(color);
-  const spec = kind === 'Disintegrating'
-    ? { count: 15, min: 0.03, max: 0.1 }
-    : kind === 'Pulsar Planet'
-      ? { count: 5, min: 0.045, max: 0.09 }
-      : kind === 'Rogue/Captured'
-        ? { count: facet === 'ice' ? 6 : 8, min: 0.042, max: facet === 'ice' ? 0.1 : 0.12 }
-        : kind === 'Coreless'
-          ? { count: 9, min: 0.045, max: 0.12 }
-          : kind === 'Ice Planet'
-            ? { count: 7, min: 0.05, max: 0.09 }
-            : kind === 'Desert'
-              ? { count: 7, min: 0.035, max: 0.09 }
-              : { count: 4, min: 0.035, max: 0.09 };
+  const spec = craterSpec(kind, facet);
   const marks = craters(seed, spec.count, spec.min, spec.max);
   const pixels = new Uint8ClampedArray(size * size * 4);
   const radius = size * 0.5 - 1;
@@ -313,7 +391,9 @@ export function rockDiscPixels(color, kind, worldSeed = '', size = SIZE, facet =
       const nx = dx / radius;
       const ny = dy / radius;
       let rgb = surface(kind, nx, ny, tint, seed, facet);
-      if (kind !== 'Ocean Planet' && kind !== 'Hycean') rgb = applyCraters(rgb, nx, ny, marks, kind, facet);
+      if (kind !== 'Ocean Planet' && kind !== 'Hycean' && kind !== 'Thin Atmosphere' && kind !== 'Volcanic') {
+        rgb = applyCraters(rgb, nx, ny, marks, kind, facet);
+      }
       const grain = (noise(x / 3, y / 3, seed + 21) - 0.5) * 0.06;
       rgb = rgb.map(channel => channel * (1 + grain));
       const edge = rho > 0.97 ? (1 - rho) / 0.03 : 1;

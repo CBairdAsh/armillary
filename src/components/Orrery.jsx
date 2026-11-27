@@ -16,6 +16,7 @@ import { ringDiscUrl } from '../data/ringDisc.js';
 import { asteroidFieldUrl } from '../data/asteroidField.js';
 import { cometSpriteUrl } from '../data/cometSprite.js';
 import { dustTailUrl } from '../data/dustTail.js';
+import { plumeUrl } from '../data/plume.js';
 import { starDiscUrl } from '../data/starDisc.js';
 
 const INK = 'var(--font-mono)';
@@ -360,6 +361,28 @@ function Twin({ color, uid, seed = '' }) {
 
 const DUST_ORIGIN = 18 / 640;
 
+const PLUME_ORIGIN = 12 / 360;
+
+function Plume({ r, seed, outward }) {
+  const sprite = plumeUrl(seed);
+  const length = Math.min(26, 10 + r * 1.5);
+  const height = length * (140 / 360);
+  const x = r * 0.72 - length * PLUME_ORIGIN;
+  return (
+    <g transform={`rotate(${outward || 0})`} pointerEvents="none">
+      {sprite ? (
+        <image href={sprite} x={x} y={-height / 2} width={length} height={height} />
+      ) : (
+        <path
+          d={`M ${r * 0.7} ${-r * 0.12} Q ${r + length * 0.5} ${-height * 0.3} ${r + length} 0 Q ${r + length * 0.5} ${height * 0.3} ${r * 0.7} ${r * 0.12} Z`}
+          fill="#e8f4f8"
+          opacity="0.55"
+        />
+      )}
+    </g>
+  );
+}
+
 function DustTail({ r, color, seed, outward }) {
   const sprite = dustTailUrl(color, seed);
   const length = Math.min(68, 30 + r * 3.4);
@@ -501,14 +524,18 @@ function BodyGlyph({ body }) {
   if (body.worldType === 'Double Planet') return <Twin color={color} uid={uid} seed={body.id} />;
   const radius = glyphRadius(body);
   const giant = body.worldType === 'Gas Giant' || body.worldType === 'Ice Giant';
-  const facet = body.worldType === 'Rogue/Captured' && body.hydrosphere === 'Ice Sheet' ? 'ice' : '';
+  const kind = body.moon && body.moonType ? body.moonType : body.worldType;
+  const facet = kind === 'Rogue/Captured' && body.hydrosphere === 'Ice Sheet' ? 'ice' : '';
   return (
     <g>
       {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} tangent={body.tangent || 0} />}
-      <ShadedDisc uid={uid} r={radius} color={color} kind={body.worldType} seed={body.id} facet={facet} />
+      <ShadedDisc uid={uid} r={radius} color={color} kind={kind} seed={body.id} facet={facet} />
       {giant && <RingHalf r={radius} kind={body.worldType} tint={color} uid={uid} tangent={body.tangent || 0} near />}
-      {body.worldType === 'Disintegrating' && (
+      {kind === 'Disintegrating' && (
         <DustTail r={radius} color={color} seed={body.id} outward={body.outward || 0} />
+      )}
+      {kind === 'Cryovolcanic' && (
+        <Plume r={radius} seed={body.id} outward={body.outward || 0} />
       )}
     </g>
   );

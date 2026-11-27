@@ -703,13 +703,14 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
 }
 
 const MOON_FACE = {
-  Rocky: { glyph: 'Terrestrial', color: '#8d847c' },
+  Rocky: { glyph: 'Terrestrial', color: '#9a9288' },
   Icy: { glyph: 'Ice Planet', color: '#d7e6f0' },
   'Subsurface Ocean': { glyph: 'Ice Planet', color: '#b7d0dc' },
-  Cryovolcanic: { glyph: 'Ice Planet', color: '#c9e0ea' },
-  Volcanic: { glyph: 'Chthonian', color: '#c46a3a' },
+  Cryovolcanic: { glyph: 'Ice Planet', color: '#e7f3f6' },
+  Volcanic: { glyph: 'Chthonian', color: '#e2b15a' },
   Terrestrial: { glyph: 'Terrestrial', color: '#8f9a74' },
-  'Thin Atmosphere': { glyph: 'Desert', color: '#c4a36a' },
+  // Nitrogen and methane. The haze is orange. The ground stays hidden.
+  'Thin Atmosphere': { glyph: 'Desert', color: '#d4894a' },
 };
 
 function moonFace(type) {
@@ -823,6 +824,7 @@ export function buildMoonPlate(world, selectedMoonId = null, pitch = 0, hoverId 
       markX: mark.x,
       markY: mark.y,
       tangent: Math.atan2(mark.y - scale.cy, mark.x - scale.cx) * 180 / Math.PI + 90,
+      outward: Math.atan2(mark.y - scale.cy, mark.x - scale.cx) * 180 / Math.PI,
       ringX: onRing.x,
       ringY: onRing.y,
       specks: null,
