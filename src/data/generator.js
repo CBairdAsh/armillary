@@ -14,7 +14,7 @@
 import { getRandom, runWithSeed, generateRandomSeed } from './rng.js';
 import { APP_VERSION } from '../config.js';
 import { apparentSuns, formatAU, sunMeasure } from './orrery.js';
-import { diskTilt, orbitCrossing, worldOrbit, INCLINATION_PRINT_DEGREES } from './orbit.js';
+import { diskTilt, orbitCrossing, outerBelt, worldOrbit, INCLINATION_PRINT_DEGREES } from './orbit.js';
 import {
   SPECTRAL_CLASSES,
   WORLD_TYPE_BY_ZONE,
@@ -2007,6 +2007,20 @@ export function diskTiltLabel(system) {
   return `The planetary plane is tilted ${tilt.degrees}° to the star's equator.`;
 }
 
+/**
+ * The outer belt as one sentence. Null when the system has no cold giant.
+ * @param {object} system
+ * @returns {string|null}
+ */
+export function outerBeltLabel(system) {
+  const belt = outerBelt(system);
+  if (!belt) return null;
+  const span = `${formatAU(belt.inner)}–${formatAU(belt.outer)} AU`;
+  const base = `An outer belt from ${span}. Cold and flat, with a hotter inclined population. The bodies thin past the outer resonance.`;
+  if (!belt.dust) return base;
+  return `${base} Dust is still dense past the outer edge.`;
+}
+
 // ─── TEXT EXPORT ──────────────────────────────────────────────────────────────
 export function generateTextSummary(system) {
   const lines = [];
@@ -2090,6 +2104,8 @@ export function generateTextSummary(system) {
   if (relation) lines.push(relation.text);
   const tilt = diskTiltLabel(system);
   if (tilt) lines.push(tilt);
+  const belt = outerBeltLabel(system);
+  if (belt) lines.push(belt);
   lines.push('');
 
   // Comets

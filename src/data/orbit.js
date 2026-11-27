@@ -133,5 +133,46 @@ export function diskTilt(system) {
   return { degrees, retrograde };
 }
 
+const COLD_GIANT = new Set(['Gas Giant', 'Ice Giant']);
+// The classical belt starts beyond the outermost cold giant and thins at
+// the 2:1 resonance. Sol's Neptune puts that at about 42–48 AU.
+const BELT_INNER = 1.4;
+const BELT_OUTER = 2 ** (2 / 3);
+
+/**
+ * The outermost cold giant. A hot giant, a gas dwarf, and a belt are not
+ * the edge of this disk.
+ * @param {{ worlds?: Array }} system
+ * @returns {object|null}
+ */
+function outermostColdGiant(system) {
+  let best = null;
+  for (const world of system?.worlds || []) {
+    if (!COLD_GIANT.has(world?.worldType)) continue;
+    if (world.zone !== 'OUTER' && world.zone !== 'FRINGE') continue;
+    if (!(world.orbitalAU > 0)) continue;
+    if (!best || world.orbitalAU > best.orbitalAU) best = world;
+  }
+  return best;
+}
+
+/**
+ * A flat outer belt beyond the last cold giant. Derived, so a saved
+ * system grows it. Null when the system has no such giant. Dust past
+ * the outer edge is rare, about one system in twelve, and is not drawn.
+ * @param {{ isRoguePlanet?: boolean, stars?: Array, worlds?: Array }} system
+ * @returns {{ inner: number, outer: number, dust: boolean }|null}
+ */
+export function outerBelt(system) {
+  if (!system || system.isRoguePlanet || !(system.stars || []).length) return null;
+  const giant = outermostColdGiant(system);
+  if (!giant) return null;
+  return {
+    inner: giant.orbitalAU * BELT_INNER,
+    outer: giant.orbitalAU * BELT_OUTER,
+    dust: hashUnit(`belt-dust|${starKey(system.stars)}`) < 0.08,
+  };
+}
+
 export const INCLINATION_PRINT_DEGREES = PRINT_INCLINATION;
 export const INCLINATION_DRAW_DEGREES = HOT_INCLINATION;

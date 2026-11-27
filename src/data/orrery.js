@@ -17,7 +17,7 @@
 // the ladder does not record that.
 
 import { SPECTRAL_CLASSES } from './stellarData.js';
-import { worldOrbit } from './orbit.js';
+import { outerBelt, worldOrbit } from './orbit.js';
 
 const SOL_TEMPERATURE_K = 5772;
 const SOLAR_RADIUS_AU = 0.00465047;
@@ -41,6 +41,7 @@ const VIEW = {
 
 const WORLD_LABEL_ANGLE = -Math.PI / 5;
 const HZ_LABEL_ANGLE = Math.PI + Math.PI / 5;
+const BELT_LABEL_ANGLE = Math.PI / 2;
 
 const DISC_RADIUS = {
   'Gas Giant': 8,
@@ -409,6 +410,11 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
   const hz = system?.hz;
   if (hz?.inner > 0) distances.push(hz.inner);
   if (hz?.outer > 0) distances.push(hz.outer);
+  const belt = outerBelt(system);
+  if (belt) {
+    distances.push(belt.inner);
+    distances.push(belt.outer);
+  }
 
   const positive = distances.filter(value => value > 0);
   const scale = positive.length
@@ -470,6 +476,23 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
     };
   });
   settleLabels(bodyLabels);
+
+  let beltLayout = null;
+  if (belt) {
+    const innerPoints = ringPoints(diskElements(belt.inner), scale, pitch);
+    const outerPoints = ringPoints(diskElements(belt.outer), scale, pitch);
+    const at = projectVector(orbitVector(diskElements(belt.outer), BELT_LABEL_ANGLE), scale, pitch);
+    const label = {
+      ...labelFrom(at, scale),
+      text: `${formatAU(belt.inner)}–${formatAU(belt.outer)}`,
+    };
+    beltLayout = {
+      innerPath: ringPath(innerPoints),
+      outerPath: ringPath(outerPoints),
+      bandPath: `${ringPath(outerPoints)} ${ringPath([...innerPoints].reverse())}`,
+      label,
+    };
+  }
 
   let hzLayout = null;
   if (hz?.inner > 0 && hz?.outer > 0) {
@@ -533,6 +556,7 @@ export function buildOrrery(system, selectedId = null, pitch = 0) {
     span,
     pair,
     hz: hzLayout,
+    belt: beltLayout,
     stars: fittedStars,
     bodies,
   };

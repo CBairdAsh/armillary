@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins, formatSeparation, livingWorldsRelation, worldOrbitLabel, orbitCrossingNote, diskTiltLabel } from './data/generator.js';
+import { generateSystem, redrawSystem, redrawStar, redrawWorld, crushWorld, ejectWorld, destroyBelt, insertWorld, insertionSlots, ejectionLifeFate, regenerateSpeciesForWorld, regenerateMoonSpecies, generateTextSummary, generateRoguePlanetSystem, worldYearLabel, worldSpinLabel, worldRuins, formatSeparation, livingWorldsRelation, worldOrbitLabel, orbitCrossingNote, diskTiltLabel, outerBeltLabel } from './data/generator.js';
 import { serializeSystemExport, parseImportedJson, archiveEntryMatchesQuery } from './data/importExport.js';
 import { buildSeedShareUrl } from './data/rng.js';
 import { SPECTRAL_CLASSES, WORLD_TYPES, ORBITAL_ZONES } from './data/stellarData.js';
@@ -826,6 +826,7 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
   const totalSpecies = sapientCount(system);
   const relation     = livingWorldsRelation(system);
   const diskTilt     = diskTiltLabel(system);
+  const outerBelt    = outerBeltLabel(system);
 
   const copyText = (text, label) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -916,6 +917,9 @@ function SystemOverview({ system, isNeighbor, onBack, onRename }) {
       )}
       {diskTilt && (
         <p className="body-text" style={{ margin: '12px 0 0' }}>{diskTilt}</p>
+      )}
+      {outerBelt && (
+        <p className="body-text" style={{ margin: '12px 0 0' }}>{outerBelt}</p>
       )}
     </div>
   );

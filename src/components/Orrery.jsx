@@ -790,6 +790,20 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
         >
           <rect data-sky="1" x={box.x} y={box.y} width={box.width} height={box.height} fill="transparent" pointerEvents="all" />
           <g transform={plate}>
+            {frame.belt && (
+              <g pointerEvents="none">
+                <path
+                  d={frame.belt.bandPath}
+                  className="orrery-outer-belt"
+                  fillRule="evenodd"
+                >
+                  <title>{`Outer belt, ${frame.belt.label.text} AU`}</title>
+                </path>
+                {[frame.belt.innerPath, frame.belt.outerPath].map(path => (
+                  <path key={path} d={path} className="orrery-outer-belt-edge" />
+                ))}
+              </g>
+            )}
             {frame.hz && (
               <path
                 d={frame.hz.bandPath}
@@ -857,6 +871,18 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
                 </PlateText>
               );
             })}
+            {frame.belt?.label && (
+              <PlateText
+                x={frame.belt.label.x}
+                y={frame.belt.label.y}
+                zoom={view.z}
+                anchor={frame.belt.label.anchor}
+                fill="#8aa4b8"
+                size={10}
+              >
+                {frame.belt.label.text}
+              </PlateText>
+            )}
             {frame.hz?.labels.map(label => (
               <PlateText
                 key={`hz-${label.text}-${label.r}`}
