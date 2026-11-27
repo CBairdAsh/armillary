@@ -701,6 +701,10 @@ input, button, select, textarea {
   animation: orrery-life-flow 9s linear infinite;
 }
 
+.orrery-life-flow--return {
+  animation-direction: reverse;
+}
+
 @keyframes orrery-life-flow {
   to { stroke-dashoffset: -100; }
 }

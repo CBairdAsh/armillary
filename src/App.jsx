@@ -1197,6 +1197,7 @@ export default function App() {
   const [pendingWorldEdit, setPendingWorldEdit] = useState(null);
   const [pendingInsert, setPendingInsert] = useState(null);
   const [selection, setSelection] = useState(null);
+  const [focusToken, setFocusToken] = useState(0);
   const clearPendingEdits = () => {
     setPendingWorldEdit(null);
     setPendingInsert(null);
@@ -1212,7 +1213,10 @@ export default function App() {
 
   const selectWorld = (id, source) => {
     setSelection({ systemId: active.id, worldId: id });
-    if (source === 'card') return;
+    if (source === 'card') {
+      setFocusToken(token => token + 1);
+      return;
+    }
     const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
     const escape = window.CSS?.escape ? CSS.escape(id) : id;
     document.querySelector(`[data-world-id="${escape}"]`)?.scrollIntoView({ block: 'nearest', behavior });
@@ -1603,6 +1607,7 @@ export default function App() {
               <Orrery
                 system={active}
                 selectedId={selectedWorldId}
+                focusToken={focusToken}
                 onSelect={id => selectWorld(id, 'orrery')}
                 onClear={() => setSelection(null)}
               />

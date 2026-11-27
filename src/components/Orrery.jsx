@@ -37,6 +37,7 @@ const FIT = { z: 1, x: 0, y: 0, pitch: 0 };
 const ZOOM_MIN = 0.65;
 const ZOOM_MAX = 5.5;
 const ZOOM_STEP = 1.4;
+const FOCUS_ZOOM = 3.4;
 const PITCH_MAX = 80;
 const PITCH_STEP = 8;
 
@@ -503,14 +504,7 @@ function BodyGlyph({ body }) {
   );
 }
 
-/**
- * Habitability mark. A short bracket on the side away from the star.
- * Large enough to read when the system is fitted, and just outside the
- * disc once the view is zoomed in. A faint dash travels the arc.
- */
-function LifeBracket({ body, frame, zoom }) {
-  const facing = Math.atan2(body.markY - frame.cy, body.markX - frame.cx) * 180 / Math.PI;
-  const radius = Math.max(18, reticleRadius(body) * zoom + 5);
+function lifeArc(radius, mid) {
   const half = 36 * Math.PI / 180;
   const tick = 4.5;
   const end = (angle) => ({
@@ -519,9 +513,23 @@ function LifeBracket({ body, frame, zoom }) {
     ix: (radius - tick) * Math.cos(angle),
     iy: (radius - tick) * Math.sin(angle),
   });
-  const start = end(-half);
-  const finish = end(half);
+  const start = end(mid - half);
+  const finish = end(mid + half);
   const arc = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius.toFixed(2)} ${radius.toFixed(2)} 0 0 1 ${finish.x.toFixed(2)} ${finish.y.toFixed(2)}`;
+  return { start, finish, arc };
+}
+
+/**
+ * Habitability mark. Two thin brackets, one on the side away from the
+ * star and one toward it. Large enough to read when the system is fitted,
+ * and just outside the disc once the view is zoomed in. A faint dash
+ * travels each arc.
+ */
+function LifeBracket({ body, frame, zoom }) {
+  const facing = Math.atan2(body.markY - frame.cy, body.markX - frame.cx) * 180 / Math.PI;
+  const radius = Math.max(18, reticleRadius(body) * zoom + 5);
+  const outer = lifeArc(radius, 0);
+  const inner = lifeArc(radius, Math.PI);
   return (
     <g
       className="orrery-life"
@@ -529,10 +537,18 @@ function LifeBracket({ body, frame, zoom }) {
       pointerEvents="none"
     >
       <title>Habitable</title>
-      <path className="orrery-life-arc" d={arc} />
-      <path className="orrery-life-flow" d={arc} pathLength="100" />
-      <line className="orrery-life-tick" x1={start.x} y1={start.y} x2={start.ix} y2={start.iy} />
-      <line className="orrery-life-tick" x1={finish.x} y1={finish.y} x2={finish.ix} y2={finish.iy} />
+      {[outer, inner].map((part, index) => (
+        <g key={index}>
+          <path className="orrery-life-arc" d={part.arc} />
+          <path
+            className={index === 0 ? 'orrery-life-flow' : 'orrery-life-flow orrery-life-flow--return'}
+            d={part.arc}
+            pathLength="100"
+          />
+          <line className="orrery-life-tick" x1={part.start.x} y1={part.start.y} x2={part.start.ix} y2={part.start.iy} />
+          <line className="orrery-life-tick" x1={part.finish.x} y1={part.finish.y} x2={part.finish.ix} y2={part.finish.iy} />
+        </g>
+      ))}
     </g>
   );
 }
@@ -667,7 +683,7 @@ function starLabelSingle(system) {
  * column stays shut. The plate zooms, pans, and pitches. The distances
  * do not change. Pitch is the camera, not an orbit's inclination.
  */
-export default function Orrery({ system, selectedId, onSelect, onClear }) {
+export default function Orrery({ system, selectedId, focusToken = 0, onSelect, onClear }) {
   const [hoverId, setHoverId] = useState(null);
   const [view, setView] = useState(FIT);
   const [dragging, setDragging] = useState(false);
@@ -680,7 +696,14 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
   const dragRef = useRef(null);
   const pointers = useRef(new Map());
   const pinchRef = useRef(null);
+  const focusRaf = useRef(0);
   viewRef.current = view;
+
+  function stopFocus() {
+    if (!focusRaf.current) return;
+    cancelAnimationFrame(focusRaf.current);
+    focusRaf.current = 0;
+  }
 
   function clampView(next) {
     const plate = frameRef.current;
@@ -688,8 +711,9 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
     if (!plate || !box) return next;
     const zoom = clamp(next.z, ZOOM_MIN, ZOOM_MAX);
     const span = 210 * Math.max(0, zoom - 1);
-    const roomX = Math.max(12, box.width / 2 - 28) + span;
-    const roomY = Math.max(12, box.height / 2 - 28) + span;
+    const reach = Math.hypot(plate.width, plate.height) * 0.5 * zoom;
+    const roomX = Math.max(Math.max(12, box.width / 2 - 28) + span, reach);
+    const roomY = Math.max(Math.max(12, box.height / 2 - 28) + span, reach);
     return {
       z: zoom,
       x: clamp(next.x, -roomX, roomX),
@@ -703,16 +727,66 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
   frameRef.current = frame;
 
   useEffect(() => {
+    stopFocus();
     setView(FIT);
     setHoverId(null);
     setDragging(false);
   }, [system?.id]);
 
   useEffect(() => {
+    if (!focusToken) return undefined;
+    const plate = frameRef.current;
+    const body = plate?.bodies?.find(item => item.id === selectedId);
+    if (!plate || !body) return undefined;
+    const sky = skyRef.current;
+    const side = sideRef.current;
+    const rect = sky?.getBoundingClientRect();
+    const sideRect = side?.getBoundingClientRect();
+    const chrome = rect && sideRect ? Math.max(0, Math.min(rect.height, rect.bottom - sideRect.top)) : 0;
+    const fitted = rect ? skyViewBox(plate, { width: rect.width, height: rect.height, chrome }) : null;
+    const span = rect ? Math.max(1, rect.height - chrome) : 1;
+    const center = fitted
+      ? { x: fitted.x + fitted.width / 2, y: fitted.y + ((span / 2) / rect.height) * fitted.height }
+      : { x: plate.cx, y: plate.cy };
+    const target = clampView({
+      z: FOCUS_ZOOM,
+      x: center.x - plate.cx - (body.markX - plate.cx) * FOCUS_ZOOM,
+      y: center.y - plate.cy - (body.markY - plate.cy) * FOCUS_ZOOM,
+      pitch: viewRef.current.pitch || 0,
+    });
+    const start = viewRef.current;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    stopFocus();
+    if (reduced) {
+      viewRef.current = target;
+      setView(target);
+      return undefined;
+    }
+    const t0 = performance.now();
+    const duration = 460;
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / duration);
+      const eased = 1 - (1 - t) ** 3;
+      const next = {
+        z: start.z + (target.z - start.z) * eased,
+        x: start.x + (target.x - start.x) * eased,
+        y: start.y + (target.y - start.y) * eased,
+        pitch: target.pitch,
+      };
+      viewRef.current = next;
+      setView(next);
+      focusRaf.current = t < 1 ? requestAnimationFrame(step) : 0;
+    };
+    focusRaf.current = requestAnimationFrame(step);
+    return stopFocus;
+  }, [focusToken]);
+
+  useEffect(() => {
     const node = skyRef.current;
     if (!node || !frameRef.current) return undefined;
     const onWheel = event => {
       event.preventDefault();
+      stopFocus();
       const plate = frameRef.current;
       if (!plate) return;
       const current = viewRef.current;
@@ -788,6 +862,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
   }
 
   function fitFrame() {
+    stopFocus();
     setView({ ...FIT, pitch: viewRef.current.pitch || 0 });
   }
 
@@ -834,6 +909,7 @@ export default function Orrery({ system, selectedId, onSelect, onClear }) {
 
   function onPointerDown(event) {
     if (event.button != null && event.button !== 0) return;
+    stopFocus();
     const touchAtFit = event.pointerType === 'touch' && isFit(viewRef.current) && pointers.current.size === 0;
     if (touchAtFit) return;
     const svg = event.currentTarget;
